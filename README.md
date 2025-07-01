@@ -67,11 +67,11 @@ python train.py \
 
 Key arguments:
 
---model_type: Encoder architecture (bilstm, transformer, gnn)
+--`model_type`: Encoder architecture (bilstm, transformer, gnn)
 
---margin: Contrastive margin (default=1.0)
+--`margin`: Contrastive margin (default=1.0)
 
---temperature: NT-Xent temperature
+--`temperature`: NT-Xent temperature
 
 **Evaluation:**
 
@@ -80,7 +80,7 @@ Evaluate trained embeddings:
 python evaluate.py \
   --`model_path` ./models/transformer/best_model.pt \
   --`eval_data` ./lsq_processed/test.csv \
-  --`task retrieval`
+  --`task` retrieval
 ```
 
 **Available tasks:**
