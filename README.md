@@ -13,6 +13,55 @@ This repository implements contrastive learning for SPARQL query embeddings usin
 - 📈 Evaluation on query similarity and caching tasks
 - ⚡ Optimized for large-scale SPARQL processing
 
+---
+
+## Preprocessing & Similarity Pipeline
+
+- Loads multiple CSV files containing SPARQL queries from LSQ.
+- Filters out non-SELECT queries (ASK, CONSTRUCT, DESCRIBE).
+- Removes duplicate SELECT queries (case and whitespace insensitive).
+- Saves unique SELECT queries to a new CSV file.
+- Executes each query against the DBpedia SPARQL endpoint.
+- Collects queries with non-empty results and saves them to a JSON file.
+- Computes Jaccard similarity between result sets to find similar queries.
+- Saves pairs of queries with high similarity to a JSON file.
+
+### Usage Example
+
+```bash
+python preprocess.py \
+  --input_dir ./lsq_raw \
+  --output_dir ./lsq_processed \
+  --endpoint http://dbpedia.org/sparql \
+  --max_queries 100000
+```
+
+```bash
+python similarity.py \
+  --input_csv ./lsq_processed/combined_unique_select_queries.csv \
+  --endpoint https://dbpedia.data.dice-research.org/sparql \
+  --output_json ./lsq_processed/jaccard_similarities_optimized.json
+```
+
+---
+
+## DONE
+- [*] `preprocess.py`: Query preprocessing and filtering script
+
+## TODO
+- [ ] `similarity.py`: Query similarity extraction script
+- [ ] `model/encoders.py`: Core SPARQL encoder models
+- [ ] `model/losses.py`: Contrastive loss functions
+- [ ] `evaluation/`: Evaluation scripts
+- [ ] `trained_models/`: Pretrained weights
+- [ ] Query clustering based on result set similarity
+- [ ] Query caching simulation and optimization
+- [ ] Integration with additional knowledge graphs (e.g., Wikidata)
+- [ ] Visualization tools for query similarity and embeddings
+- [ ] Interactive dashboard for exploring query embeddings
+
+---
+
 ## Installation
 
 ### Prerequisites
@@ -52,7 +101,7 @@ python preprocess.py \
 - `--max_queries`: Maximum queries to process (optional)  
 - `--min_results`: Minimum results per query (default=5)
 
-**Training:**
+**Training:** *(TODO: Not yet implemented)*
 
 Train embedding model with contrastive loss:
 
@@ -73,24 +122,22 @@ Key arguments:
 
 --`temperature`: NT-Xent temperature
 
-**Evaluation:**
+**Evaluation:** *(TODO: Not yet implemented)*
 
 Evaluate trained embeddings:
 ```bash
 python evaluate.py \
-  --`model_path` ./models/transformer/best_model.pt \
-  --`eval_data` ./lsq_processed/test.csv \
-  --`task` retrieval
+  --model_path ./models/transformer/best_model.pt \
+  --eval_data ./lsq_processed/test.csv \
+  --task retrieval
 ```
 
 **Available tasks:**
 * `retrieval`: k-NN query retrieval (Recall@k, MRR)
-
 * `clustering`: Cluster purity analysis
-
 * `caching`: Query caching simulation
 
-**Pretrained Models**
+**Pretrained Models** *(TODO: Not yet implemented)*
 
 Download pretrained embeddings:
 ```bash
@@ -98,8 +145,8 @@ wget https://example.com/models/bilstm_base.pt
 wget https://example.com/models/transformer_large.pt
 ```
 
-**Load in Python:**
-```bash
+**Load in Python:** *(TODO: Not yet implemented)*
+```python
 import torch
 from model import SPARQLEncoder
 
@@ -113,13 +160,13 @@ embedding = model.encode("SELECT ?city WHERE { ?city a dbo:City }")
 ├── data/               # Processed datasets
 ├── docs/               # Evaluation visuals
 ├── lsq_processing/     # Dataset tools
-│   ├── preprocess.py
-│   └── similarity.py
+│   ├── preprocess.py   # [TODO] Not yet implemented
+│   └── similarity.py   # [TODO] Not yet implemented
 ├── model/              # Core models
-│   ├── encoders.py
-│   └── losses.py
-├── evaluation/         # Evaluation scripts
-├── trained_models/     # Pretrained weights
+│   ├── encoders.py     # [TODO] Not yet implemented
+│   └── losses.py       # [TODO] Not yet implemented
+├── evaluation/         # Evaluation scripts [TODO]
+├── trained_models/     # Pretrained weights [TODO]
 ├── requirements.txt
 └── README.md
 ```
