@@ -46,7 +46,7 @@ python similarity.py \
 ---
 
 ## DONE
-- [*] `preprocess.py`: Query preprocessing and filtering script
+[*] `preprocess.py`: Query preprocessing and filtering script
 
 ## TODO
 - [ ] `similarity.py`: Query similarity extraction script
@@ -55,11 +55,6 @@ python similarity.py \
 - [ ] `evaluation/`: Evaluation scripts
 - [ ] `trained_models/`: Pretrained weights
 - [ ] Query clustering based on result set similarity
-- [ ] Query caching simulation and optimization
-- [ ] Integration with additional knowledge graphs (e.g., Wikidata)
-- [ ] Visualization tools for query similarity and embeddings
-- [ ] Interactive dashboard for exploring query embeddings
-
 ---
 
 ## Installation
