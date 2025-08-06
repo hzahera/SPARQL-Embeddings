@@ -46,16 +46,20 @@ python similarity.py \
 ---
 
 ## DONE
-[*] `preprocess.py`: Query preprocessing and filtering script
+- [x] `preprocess.py`: Query preprocessing and filtering script
+- [x] `dbpedia_query_similarity.ipynb`: For each query Q_i, finds up to `max_queries = 100` similar queries with Jaccard similarity ≥ 0.8 and saves the results. (Level1)
 
 ## TODO
-- [ ] `similarity.py`: Query similarity extraction script
+- [ ] `similarity.py`: Embedding Similarity using SPARQL Encoder (level2)
 - [ ] `model/encoders.py`: Core SPARQL encoder models
 - [ ] `model/losses.py`: Contrastive loss functions
 - [ ] `evaluation/`: Evaluation scripts
 - [ ] `trained_models/`: Pretrained weights
 - [ ] Query clustering based on result set similarity
----
+- [ ] Query caching simulation and optimization
+- [ ] Integration with additional knowledge graphs (e.g., Wikidata)
+- [ ] Visualization tools for query similarity and embeddings
+- [ ] Interactive dashboard for
 
 ## Installation
 
