@@ -1,171 +1,29 @@
-# SPARQL Embeddings with Contrastive Learning
+# SPARQL Dataset Sampling Pipeline
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?logo=PyTorch&logoColor=white)](https://pytorch.org/)
+This directory contains **the pipeline for sampling and filtering unique SPARQL SELECT queries** from the LSQ dataset, and for saving those that return meaningful results from DBpedia.
 
-This repository implements contrastive learning for SPARQL query embeddings using the LSQ dataset. Our approach learns vector representations where queries with similar results are close in embedding space while dissimilar queries are separated.
 
-## Key Features
-- 🧠 Contrastive learning framework for SPARQL queries
-- 🔍 Multiple SPARQL encoders (e.g., per Knowledge Graphs such as DBpedia or Wikidata)
-- 📊 Preprocessing pipeline for LSQ dataset
-- 📈 Evaluation on query similarity and caching tasks
-- ⚡ Optimized for large-scale SPARQL processing
+## Pipeline Notebooks
 
----
+- `sample_queries.ipynb`:  
+  *Fetches SELECT queries from LSQ, removes duplicates, saves to CSV (`unique_select_queries.csv`).*
 
-## Preprocessing & Similarity Pipeline
+- `query-DBpedia-and-filter.ipynb`:  
+  *Loads unique queries, sends them to DBpedia, saves those with non-empty results to `queries_with_answers.json`.*
 
-- Loads multiple CSV files containing SPARQL queries from LSQ.
-- Filters out non-SELECT queries (ASK, CONSTRUCT, DESCRIBE).
-- Removes duplicate SELECT queries (case and whitespace insensitive).
-- Saves unique SELECT queries to a new CSV file.
-- Executes each query against the DBpedia SPARQL endpoint.
-- Collects queries with non-empty results and saves them to a JSON file.
-- Computes Jaccard similarity between result sets to find similar queries.
-- Saves pairs of queries with high similarity to a JSON file.
+## Usage
 
-### Usage Example
+1. Open `Sampled-LSQ-Dataset/collecting-queries-and-preprocessing.ipynb`.
+2. Set SAMPLE_SIZE (or leave sampling defaults) and run the fetch + DBpedia cells to generate `queries_with_answers_sampled.json`.
+3. Open `Sampled-LSQ-Dataset/query-similariy-analysis.ipynb` and run cells; it will auto-detect the JSON and run similarity steps. 
+4. 
 
-```bash
-python preprocess.py \
-  --input_dir ./lsq_raw \
-  --output_dir ./lsq_processed \
-  --endpoint http://dbpedia.org/sparql \
-  --max_queries 100000
-```
-
-```bash
-python similarity.py \
-  --input_csv ./lsq_processed/combined_unique_select_queries.csv \
-  --endpoint https://dbpedia.data.dice-research.org/sparql \
-  --output_json ./lsq_processed/jaccard_similarities_optimized.json
-```
-
----
-
-## DONE
-- [x] `preprocess.py`: Query preprocessing and filtering script
-- [x] `dbpedia_query_similarity.ipynb`: For each query Q_i, finds up to `max_queries = 100` similar queries with Jaccard similarity ≥ 0.8 and saves the results. (Level1)
-
-## TODO
-- [ ] `similarity.py`: Embedding Similarity using SPARQL Encoder (level2)
-- [ ] `model/encoders.py`: Core SPARQL encoder models
-- [ ] `model/losses.py`: Contrastive loss functions
-- [ ] `evaluation/`: Evaluation scripts
-- [ ] `trained_models/`: Pretrained weights
-- [ ] Query clustering based on result set similarity
-- [ ] Query caching simulation and optimization
-- [ ] Integration with additional knowledge graphs (e.g., Wikidata)
-- [ ] Visualization tools for query similarity and embeddings
-- [ ] Interactive dashboard for
-
-## Installation
-
-### Prerequisites
+**Requirements:**
 - Python 3.8+
-- SPARQL endpoint (Virtuoso/Blazegraph) or pre-loaded RDF dataset
-- 8GB+ RAM (16GB recommended)
-
-### Setup
+- Jupyter Notebook
+- Libraries:
+  - pandas, requests, tqdm, SPARQLWrapper, sentence-transformers, scikit-learn, torch, ijson, urllib3
+- Install:
 ```bash
-# Clone repository
-git clone https://github.com/your-username/sparql-embeddings.git
-cd sparql-embeddings
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/MacOS
-venv\Scripts\activate    # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Dataset Preparation
-1. Download LSQ Dataset from LSQ Benchmark
-
-2. Preprocess queries:
-```bash 
-python preprocess.py \
-  --input_dir ./lsq_raw \
-  --output_dir ./lsq_processed \
-  --endpoint http://dbpedia.org/sparql \
-  --max_queries 100000
-```
-
-**Arguments:**
-- `--endpoint`: SPARQL endpoint for result set extraction  
-- `--max_queries`: Maximum queries to process (optional)  
-- `--min_results`: Minimum results per query (default=5)
-
-**Training:** *(TODO: Not yet implemented)*
-
-Train embedding model with contrastive loss:
-
-```bash
-python train.py \
-  --data_dir ./lsq_processed \
-  --model_type transformer \
-  --batch_size 256 \
-  --epochs 100 \
-  --output_dir ./models/transformer
-```
-
-Key arguments:
-
---`model_type`: Encoder architecture (bilstm, transformer, gnn)
-
---`margin`: Contrastive margin (default=1.0)
-
---`temperature`: NT-Xent temperature
-
-**Evaluation:** *(TODO: Not yet implemented)*
-
-Evaluate trained embeddings:
-```bash
-python evaluate.py \
-  --model_path ./models/transformer/best_model.pt \
-  --eval_data ./lsq_processed/test.csv \
-  --task retrieval
-```
-
-**Available tasks:**
-* `retrieval`: k-NN query retrieval (Recall@k, MRR)
-* `clustering`: Cluster purity analysis
-* `caching`: Query caching simulation
-
-**Pretrained Models** *(TODO: Not yet implemented)*
-
-Download pretrained embeddings:
-```bash
-wget https://example.com/models/bilstm_base.pt
-wget https://example.com/models/transformer_large.pt
-```
-
-**Load in Python:** *(TODO: Not yet implemented)*
-```python
-import torch
-from model import SPARQLEncoder
-
-model = SPARQLEncoder(model_type='transformer')
-model.load_state_dict(torch.load('transformer_large.pt'))
-embedding = model.encode("SELECT ?city WHERE { ?city a dbo:City }")
-```
-
-## Directory Structure ##
-```bash
-├── data/               # Processed datasets
-├── docs/               # Evaluation visuals
-├── lsq_processing/     # Dataset tools
-│   ├── preprocess.py   # [TODO] Not yet implemented
-│   └── similarity.py   # [TODO] Not yet implemented
-├── model/              # Core models
-│   ├── encoders.py     # [TODO] Not yet implemented
-│   └── losses.py       # [TODO] Not yet implemented
-├── evaluation/         # Evaluation scripts [TODO]
-├── trained_models/     # Pretrained weights [TODO]
-├── requirements.txt
-└── README.md
+pip install pandas requests tqdm SPARQLWrapper sentence-transformers scikit-learn torch ijson urllib3
 ```
