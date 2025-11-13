@@ -1,0 +1,7 @@
+rdflib
+networkx
+torch
+torch-geometric
+matplotlib
+tqdm
+numpy
