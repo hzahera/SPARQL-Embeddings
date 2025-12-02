@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+Sampled-LSQ-Dataset/results/
+Sampled-LSQ-Dataset/models_cache/
+Sampled-LSQ-Dataset/queries/
+Sampled-LSQ-Dataset/utils/
+Sampled-LSQ-Dataset/queries/
+Sampled-LSQ-Dataset/utils/
+Sampled-LSQ-Dataset/models_cache/
