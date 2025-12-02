@@ -39,21 +39,54 @@ def build_global_query_pool(data):
     return pool
 
 
-def sample_random_negative(global_pool, forbidden_stripped, max_tries=50):
+def tokenize_query(q: str):
+    return set(q.lower().split())
+
+
+def jaccard_similarity(q1: str, q2: str) -> float:
+    s1 = tokenize_query(q1)
+    s2 = tokenize_query(q2)
+    if not s1 and not s2:
+        return 0.0
+    inter = s1.intersection(s2)
+    uni = s1.union(s2)
+    return len(inter) / len(uni)
+
+
+def sample_random_negative_with_jaccard(
+    global_pool,
+    base_query_stripped,
+    neg_jaccard_max,
+    forbidden_stripped,
+    max_tries=100,
+):
     if not global_pool:
         return None
 
-    # random attempts
+    # random attempts first
     for _ in range(max_tries):
         q = random.choice(global_pool)
         if not q:
             continue
-        if q.strip() not in forbidden_stripped:
+
+        qs = q.strip()
+        if qs in forbidden_stripped:
+            continue
+
+        jacc = jaccard_similarity(base_query_stripped, qs)
+        if jacc < neg_jaccard_max:
             return q
 
-    # fallback: linear scan
+    # fallback: linear scan (in case random sampling missed some)
     for q in global_pool:
-        if q and q.strip() not in forbidden_stripped:
+        if not q:
+            continue
+        qs = q.strip()
+        if qs in forbidden_stripped:
+            continue
+
+        jacc = jaccard_similarity(base_query_stripped, qs)
+        if jacc < neg_jaccard_max:
             return q
 
     return None
@@ -62,17 +95,13 @@ def sample_random_negative(global_pool, forbidden_stripped, max_tries=50):
 def build_contrastive_csv(
     json_path: str,
     csv_path: str,
-     
+    # POSITIVE selection
     pos_jaccard_min: float = 0.9,
     pos_cosine_min: float = 0.7,
     max_positives: int = 5,
-
-    hard_jaccard_max: float = 0.6,
-    hard_cosine_min: float = 0.2,
-    hard_cosine_max: float = 0.6,
-
+    # NEGATIVE selection
+    neg_jaccard_max: float = 0.4,
     max_negatives: int = 5,
-    max_hard_negatives: int = 3,
 ):
 
     random.seed(42)
@@ -115,55 +144,32 @@ def build_contrastive_csv(
                 pos_candidates.append((cos, sq))
 
         if not pos_candidates:
+            # no suitable positives, skip this base query
             continue
 
+        # sort positives by cosine descending and take top-k
         pos_candidates.sort(key=lambda x: x[0], reverse=True)
         positive_queries = [sq for _, sq in pos_candidates[:max_positives]]
 
-        # HARD NEGATIVES
-        hard_neg_candidates = []
-
-        for s in sims:
-            jacc = safe_float(s.get("jaccard_score", 0.0), 0.0)
-            cos = safe_float(s.get("cosine_score", 1.0), 1.0)
-            sq = s.get("similar_query")
-
-            if not sq:
-                continue
-
-            sq_stripped = sq.strip()
-            if sq_stripped == base_query_stripped:
-                continue
-
-            if any(sq_stripped == p.strip() for p in positive_queries):
-                continue
-
-            if (jacc < hard_jaccard_max and
-                hard_cosine_min <= cos <= hard_cosine_max):
-                hard_neg_candidates.append((cos, sq))
-
+        # NEGATIVES: random queries with low Jaccard
         negative_queries = []
 
-        if hard_neg_candidates:
-            hard_neg_candidates.sort(key=lambda x: x[0])  # lowest cosine first
-            for _, sq in hard_neg_candidates[:max_hard_negatives]:
-                if len(negative_queries) >= max_negatives:
-                    break
-                negative_queries.append(sq)
-
-        # RANDOM NEGATIVES 
         forbidden = {base_query_stripped}
         forbidden.update(p.strip() for p in positive_queries)
-        forbidden.update(n.strip() for n in negative_queries)
 
+        # sample until we hit max_negatives or run out of options
         while len(negative_queries) < max_negatives:
-            random_neg = sample_random_negative(global_pool, forbidden)
+            random_neg = sample_random_negative_with_jaccard(
+                global_pool=global_pool,
+                base_query_stripped=base_query_stripped,
+                neg_jaccard_max=neg_jaccard_max,
+                forbidden_stripped=forbidden,
+            )
             if random_neg is None:
                 break
             negative_queries.append(random_neg)
             forbidden.add(random_neg.strip())
 
-        # must have at least 1 negative
         if not negative_queries:
             continue
 
@@ -177,7 +183,6 @@ def build_contrastive_csv(
 
     print(f"Prepared {len(rows)} rows, writing CSV to: {csv_path}")
 
-    # 3) Write CSV
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
@@ -192,13 +197,14 @@ def build_contrastive_csv(
 
 def main():
     if len(sys.argv) != 3:
+        print("Usage: python constrative_query_generator.py input.json output.csv")
         sys.exit(1)
 
     json_path = sys.argv[1]
     csv_path = sys.argv[2]
 
     if not os.path.exists(json_path):
-        print(f" Error: File not found: {json_path}")
+        print(f"Error: File not found: {json_path}")
         sys.exit(1)
 
     build_contrastive_csv(json_path, csv_path)
