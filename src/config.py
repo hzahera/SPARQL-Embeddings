@@ -1,9 +1,10 @@
+"""config.py
+Central configuration for the HybridSPARQLEncoder training pipeline.
+Edit this file to change model, training, and path settings.
+"""
 import torch
 
 class Config:
-    # --- MODEL CHANGE ---
-    # switching from distilbert (66M params) to CodeBERT (125M params)
-    # This model is SOTA for code/structure understanding.
     MODEL_NAME = "microsoft/codebert-base" 
     
     EMBEDDING_DIM = 768  # CodeBERT has the same dim as BERT/DistilBERT
