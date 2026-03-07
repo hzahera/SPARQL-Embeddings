@@ -5,11 +5,7 @@ version: "1.0.0"
 date-released: 2026-03-07
 url: "https://github.com/hzahera/SPARQL-Embeddings"
 license: MIT
-authors:
-  - family-names: Zahera
-    given-names: Hamada
-  - family-names: Ali
-    given-names: Manzoor
+authors: Manxoor, Ganesh, Daniel, Hamada, Axel
 keywords:
   - SPARQL
   - knowledge graphs
