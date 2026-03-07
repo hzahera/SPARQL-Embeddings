@@ -14,7 +14,7 @@ SPARQLCE learns dense vector representations of SPARQL queries grounded in **res
 
 The pipeline proceeds in three stages:
 
-- **A. Data Preprocessing & Triplet Mining** — Collect SPARQL queries from LSQ logs, execute against a DBpedia SPARQL endpoint, compute pairwise Jaccard similarity over result bindings, and construct (anchor, positive, negative) triplets.
+- **A. Data Preprocessing & Triplet Mining** — Collect SPARQL queries from LSQ logs, execute against a SPARQL endpoint, compute pairwise Jaccard similarity over result bindings, and construct (anchor, positive, negative) triplets.
 - **B. SPARQL-to-Graph Encoding** — Parse each query into an algebra tree, convert to a directed graph, encode node/edge labels with CodeBERT, and apply GATv2 layers to produce a pooled embedding.
 - **C. Contrastive Optimization** — Train with in-batch InfoNCE loss so that queries with overlapping result sets are geometrically close in embedding space.
 
@@ -24,26 +24,25 @@ The pipeline proceeds in three stages:
 
 ```text
 SPARQL-Embeddings/
-├── data/                                               # Query collection notebooks
-│   ├── dbpedia_queries/
-│   │   ├── 01_dbpedia_query_collection.ipynb           # Fetch & filter LSQ queries
-│   │   └── 02_dbpedia_semantic_triplets.ipynb           # Build Jaccard-based triplets
-│   └── wikidata_queries/
-│       ├── 01_wikidata_query_collection.ipynb
-│       └── 02_wikidata_semantic_triplets.ipynb
-├── dataset/                                            # All dataset artifacts
-│   ├── raw/                                            # Mined Jaccard triplets (anchor, pos, neg)
+├── dataset/                                        # All dataset artifacts
+│   ├── dbpedia/                                    # DBpedia query collection & triplet mining
+│   │   ├── 01_query_collection.ipynb
+│   │   └── 02_triplet_mining.ipynb
+│   ├── wikidata/                                   # Wikidata query collection & triplet mining
+│   │   ├── 01_query_collection.ipynb
+│   │   └── 02_triplet_mining.ipynb
+│   ├── raw/                                        # Mined Jaccard triplets (anchor, pos, neg)
 │   │   ├── jaccard_triplets_dbpedia.json
 │   │   └── jaccard_triplets_wikidata.json.gz
-│   └── splits/                                         # Train / valid / test index splits
+│   └── splits/                                     # Train / valid / test index splits
 │       ├── splits_dbpedia.json
 │       └── splits_wikidata.json
 ├── src/
-│   ├── config.py                                       # Hyperparameters & paths
-│   ├── sparql_graph_builder.py                         # SPARQL → NetworkX graph
-│   ├── hybrid_encoder.py                               # HybridSPARQLEncoder (CodeBERT + GATv2)
-│   ├── sparql_dataset.py                               # SPARQLTripletDataset (PyG)
-│   ├── embedder.py                                     # SPARQLEmbedder inference wrapper
+│   ├── config.py                                   # Hyperparameters & paths
+│   ├── sparql_graph_builder.py                     # SPARQL → NetworkX graph
+│   ├── hybrid_encoder.py                           # HybridSPARQLEncoder (CodeBERT + GATv2)
+│   ├── sparql_dataset.py                           # SPARQLTripletDataset (PyG)
+│   ├── embedder.py                                 # SPARQLEmbedder inference wrapper
 │   └── requirements.txt
 ├── training/
 │   ├── 01_train_dbpedia.ipynb
@@ -74,8 +73,8 @@ pip install -r src/requirements.txt
 
 | Step | Notebook | Output |
 |------|----------|--------|
-| 1 | `data/dbpedia_queries/01_dbpedia_query_collection.ipynb` | `dataset/raw/jaccard_triplets_dbpedia.json` |
-| 2 | `data/dbpedia_queries/02_dbpedia_semantic_triplets.ipynb` | `dataset/splits/splits_dbpedia.json` |
+| 1 | `dataset/dbpedia/01_query_collection.ipynb` | `dataset/raw/jaccard_triplets_dbpedia.json` |
+| 2 | `dataset/dbpedia/02_triplet_mining.ipynb` | `dataset/splits/splits_dbpedia.json` |
 | 3 | `training/01_train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` |
 | 4 | `evaluation/01_evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
 
