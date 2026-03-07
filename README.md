@@ -6,11 +6,9 @@
 
 SPARQLCE learns dense vector representations of SPARQL queries grounded in **result-set semantics**. Two queries are considered similar if their answer sets over a knowledge graph overlap (Jaccard similarity). The encoder combines **CodeBERT** token representations with a **GATv2** graph neural network over the SPARQL algebra graph, trained with an **in-batch InfoNCE** contrastive objective.
 
----
-
 ## Architecture
 
-![SPARQLCE Architecture](docs/image.png)
+![SPARQLCE Architecture](docs/architecture.png)
 
 The pipeline proceeds in three stages:
 
@@ -18,46 +16,45 @@ The pipeline proceeds in three stages:
 - **B. SPARQL-to-Graph Encoding** — Parse each query into an algebra tree, convert to a directed graph, encode node/edge labels with CodeBERT, and apply GATv2 layers to produce a pooled embedding.
 - **C. Contrastive Optimization** — Train with in-batch InfoNCE loss so that queries with overlapping result sets are geometrically close in embedding space.
 
----
-
 ## Project Structure
 
-```text
+```
 SPARQL-Embeddings/
-├── dataset/                                        # All dataset artifacts
-│   ├── dbpedia/                                    # DBpedia query collection & triplet mining
+├── dataset/
+│   ├── dbpedia/
 │   │   ├── 01_query_collection.ipynb
 │   │   └── 02_triplet_mining.ipynb
-│   ├── wikidata/                                   # Wikidata query collection & triplet mining
+│   ├── wikidata/
 │   │   ├── 01_query_collection.ipynb
 │   │   └── 02_triplet_mining.ipynb
-│   ├── raw/                                        # Mined Jaccard triplets (anchor, pos, neg)
+│   ├── raw/
 │   │   ├── jaccard_triplets_dbpedia.json
 │   │   └── jaccard_triplets_wikidata.json.gz
-│   └── splits/                                     # Train / valid / test index splits
+│   └── splits/
 │       ├── splits_dbpedia.json
 │       └── splits_wikidata.json
 ├── src/
-│   ├── config.py                                   # Hyperparameters & paths
-│   ├── sparql_graph_builder.py                     # SPARQL → NetworkX graph
-│   ├── hybrid_encoder.py                           # HybridSPARQLEncoder (CodeBERT + GATv2)
-│   ├── sparql_dataset.py                           # SPARQLTripletDataset (PyG)
-│   ├── embedder.py                                 # SPARQLEmbedder inference wrapper
-│   └── requirements.txt
+│   ├── __init__.py
+│   ├── config.py                  # Hyperparameters & paths
+│   ├── sparql_graph_builder.py    # SPARQL → NetworkX graph
+│   ├── hybrid_encoder.py          # HybridSPARQLEncoder (CodeBERT + GATv2)
+│   ├── triplet_dataset.py         # SemanticSPARQLDataset (PyG)
+│   ├── embedder.py                # SPARQLEmbedder inference wrapper
+│   └── requirements.txt           # Pinned versions (legacy)
 ├── training/
 │   ├── 01_train_dbpedia.ipynb
 │   └── 02_train_wikidata.ipynb
 ├── evaluation/
 │   ├── 01_evaluate_dbpedia.ipynb
 │   └── 02_evaluate_wikidata.ipynb
+├── checkpoints/               # Saved model weights (not tracked in git)
 ├── docs/
-│   └── image.png
+│   └── architecture.png
+├── requirements.txt           # Install from here
+├── CITATION.cff
 ├── STRUCTURE.md
-├── LICENSE
 └── README.md
 ```
-
----
 
 ## Quickstart
 
@@ -66,19 +63,19 @@ SPARQL-Embeddings/
 ```bash
 git clone https://github.com/hzahera/SPARQL-Embeddings.git
 cd SPARQL-Embeddings
-pip install -r src/requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 2. Run the pipeline
 
-| Step | Notebook | Output |
-|------|----------|--------|
-| 1 | `dataset/dbpedia/01_query_collection.ipynb` | `dataset/raw/jaccard_triplets_dbpedia.json` |
-| 2 | `dataset/dbpedia/02_triplet_mining.ipynb` | `dataset/splits/splits_dbpedia.json` |
-| 3 | `training/01_train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` |
-| 4 | `evaluation/01_evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
-
 > Run all notebooks from the **project root** so that relative paths resolve correctly.
+
+| Step | Notebook | Output |
+|---|---|---|
+| 1 | `dataset/dbpedia/01_query_collection.ipynb` | Fetches queries, executes against DBpedia endpoint |
+| 2 | `dataset/dbpedia/02_triplet_mining.ipynb` | `dataset/raw/jaccard_triplets_dbpedia.json` |
+| 3 | `training/01_train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` + `dataset/splits/splits_dbpedia.json` |
+| 4 | `evaluation/01_evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
 
 ### 3. Encode a query
 
@@ -86,19 +83,17 @@ pip install -r src/requirements.txt
 from src.embedder import SPARQLEmbedder
 
 embedder = SPARQLEmbedder("checkpoints/triplet_model_semantic-20.pt")
-query = "SELECT ?person WHERE { ?person a <dbo:Scientist> . ?person <dbo:birthPlace> <dbr:Germany> }"
+query = "SELECT ?person WHERE { ?person a <dbo:Scientist> . ?person <dbo:birthPlace> ?place }"
 embedding = embedder.encode(query)  # shape: (128,)
 print(embedding.shape)
 ```
-
----
 
 ## Model
 
 **HybridSPARQLEncoder** (`src/hybrid_encoder.py`)
 
 | Component | Details |
-|-----------|----------|
+|---|---|
 | Text encoder | `microsoft/codebert-base` (768-dim) |
 | Graph encoder | GATv2Conv — 2 layers, 4 heads, 256 hidden dim |
 | Pooling | Global mean pool over graph nodes |
@@ -108,19 +103,15 @@ print(embedding.shape)
 
 **Baselines:** Qwen3-Embedding, MiniLM, E5, MPNet, TF-IDF (unigrams + bigrams).
 
----
-
 ## Evaluation
 
 All metrics are computed over the held-out test split. SPARQL results are cached; embeddings are computed once per model.
 
 | Metric | Description |
-|--------|-------------|
+|---|---|
 | **Avg Jaccard@k** | Mean result-set Jaccard of top-k retrieved queries |
 | **nDCG@k** | Normalized DCG using Jaccard as graded relevance |
 | **P / R / F1@k** | Binary precision/recall/F1 (Jaccard ≥ 0.8 = relevant) |
-
----
 
 ## Dataset
 
@@ -130,25 +121,25 @@ All metrics are computed over the held-out test split. SPARQL results are cached
 - **Raw triplets:** `dataset/raw/`
 - **Index splits:** `dataset/splits/`
 
----
-
 ## Configuration
 
-All hyperparameters are centralised in `src/config.py`:
+All hyperparameters and paths are centralised in `src/config.py`:
 
 ```python
-MODEL_NAME     = "microsoft/codebert-base"
-EMBEDDING_DIM  = 768    # CodeBERT output
-HIDDEN_DIM     = 256    # GATv2 hidden
-OUTPUT_DIM     = 128    # Final embedding
-GNN_HEADS      = 4
-BATCH_SIZE     = 4
-LEARNING_RATE  = 1e-5
-EPOCHS         = 20
-TEMPERATURE   = 0.05
+MODEL_NAME            = "microsoft/codebert-base"
+EMBEDDING_DIM         = 768    # CodeBERT output dimension
+HIDDEN_DIM            = 256    # GATv2 hidden dimension
+OUTPUT_DIM            = 128    # Final embedding dimension
+GNN_HEADS             = 4
+BATCH_SIZE            = 4
+LEARNING_RATE         = 1e-5
+EPOCHS                = 20
+TEMPERATURE           = 0.05
+DATASET_PATH_DBPEDIA  = "dataset/raw/jaccard_triplets_dbpedia.json"
+DATASET_PATH_WIKIDATA = "dataset/raw/jaccard_triplets_wikidata.json.gz"
+SPLITS_DIR            = "dataset/splits"
+CHECKPOINT_DIR        = "checkpoints"
 ```
-
----
 
 ## Requirements
 
@@ -157,15 +148,21 @@ TEMPERATURE   = 0.05
 - `sentence-transformers`, `scikit-learn`, `pandas`, `matplotlib`
 - CUDA GPU recommended for training
 
-See `src/requirements.txt` for pinned versions.
-
----
+Install all dependencies: `pip install -r requirements.txt`
 
 ## Citation
 
-TBD — paper under review.
+If you use this work, please cite:
 
----
+```bibtex
+@misc{zahera2026sparqlce,
+  title        = {SPARQLCE: SPARQL Query Embeddings with Contrastive Learning},
+  author       = {Zahera, Hamada and Ali, Manzoor},
+  year         = {2026},
+  howpublished = {\url{https://github.com/hzahera/SPARQL-Embeddings}},
+  note         = {Paper under review at ISWC 2026}
+}
+```
 
 ## License
 
