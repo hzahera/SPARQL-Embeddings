@@ -1,3 +1,7 @@
+"""hybrid_encoder.py
+HybridSPARQLEncoder: combines CodeBERT token embeddings with a GATv2
+graph encoder to produce L2-normalised query embeddings.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
