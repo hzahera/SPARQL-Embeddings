@@ -26,25 +26,27 @@ The pipeline proceeds in three stages:
 SPARQL-Embeddings/
 ├── data/
 │   ├── dbpedia_queries/
-│   │   ├── 01_query_collection.ipynb          # Fetch & filter LSQ queries
-│   │   └── 02_semantic_triplet_mining.ipynb    # Build Jaccard-based triplets
-│   ├── successful_queries/                    # Queries with non-empty results (JSON)
-│   └── semantic_triplets/                     # (anchor, positive, negative) triplets (JSON)
+│   │   ├── 01_dbpedia_query_collection.ipynb       # Fetch & filter LSQ queries
+│   │   └── 02_dbpedia_semantic_triplets.ipynb      # Build Jaccard-based triplets
+│   ├── wikidata_queries/
+│   │   ├── 01_wikidata_query_collection.ipynb
+│   │   └── 02_wikidata_semantic_triplets.ipynb
+│   └── semantic_triplets/                          # (anchor, positive, negative) JSON files
 ├── src/
-│   ├── config.py                              # Hyperparameters & paths
-│   ├── sparql_graph_builder.py                # SPARQL → NetworkX graph
-│   ├── hybrid_encoder.py                      # HybridSPARQLEncoder (CodeBERT + GATv2)
-│   ├── triplet_dataset.py                     # SPARQLTripletDataset (PyG)
-│   ├── embedder.py                            # SPARQLEmbedder inference wrapper
+│   ├── config.py                                   # Hyperparameters & paths
+│   ├── sparql_graph_builder.py                     # SPARQL → NetworkX graph
+│   ├── hybrid_encoder.py                           # HybridSPARQLEncoder (CodeBERT + GATv2)
+│   ├── sparql_dataset.py                           # SPARQLTripletDataset (PyG)
+│   ├── embedder.py                                 # SPARQLEmbedder inference wrapper
 │   └── requirements.txt
 ├── training/
-│   ├── train_dbpedia.ipynb
-│   └── splits/                                # Train / valid / test JSON splits
+│   ├── 01_train_dbpedia.ipynb
+│   └── 02_train_wikidata.ipynb
 ├── evaluation/
-│   ├── evaluate_dbpedia.ipynb
-│   └── results/
+│   ├── 01_evaluate_dbpedia.ipynb
+│   └── 02_evaluate_wikidata.ipynb
 ├── docs/
-│   └── image.png                              # Architecture diagram
+│   └── image.png                                   # Architecture diagram
 ├── STRUCTURE.md
 ├── LICENSE
 └── README.md
@@ -66,10 +68,10 @@ pip install -r src/requirements.txt
 
 | Step | Notebook | Output |
 |------|----------|--------|
-| 1 | `data/dbpedia_queries/01_query_collection.ipynb` | `data/successful_queries/successful_queries_dbpedia.json` |
-| 2 | `data/dbpedia_queries/02_semantic_triplet_mining.ipynb` | `data/semantic_triplets/semantic_triplets_dbpedia.json` |
-| 3 | `training/train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` |
-| 4 | `evaluation/evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
+| 1 | `data/dbpedia_queries/01_dbpedia_query_collection.ipynb` | `data/successful_queries/successful_queries_dbpedia.json` |
+| 2 | `data/dbpedia_queries/02_dbpedia_semantic_triplets.ipynb` | `data/semantic_triplets/semantic_triplets_dbpedia.json` |
+| 3 | `training/01_train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` |
+| 4 | `evaluation/01_evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
 
 > Run all notebooks from the **project root** so that relative paths resolve correctly.
 
