@@ -1,4 +1,4 @@
-# src/semantic_dataset.py
+# src/triplet_dataset.py
 import json
 import random
 
