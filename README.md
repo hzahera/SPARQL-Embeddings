@@ -152,17 +152,7 @@ Install all dependencies: `pip install -r requirements.txt`
 
 ## Citation
 
-If you use this work, please cite:
-
-```bibtex
-@misc{zahera2026sparqlce,
-  title        = {SPARQLCE: SPARQL Query Embeddings with Contrastive Learning},
-  author       = {Zahera, Hamada and Ali, Manzoor},
-  year         = {2026},
-  howpublished = {\url{https://github.com/hzahera/SPARQL-Embeddings}},
-  note         = {Paper under review at ISWC 2026}
-}
-```
+If you use this work, please cite — see [CITATION.cff](CITATION.cff) for the full citation details.
 
 ## License
 
