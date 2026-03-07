@@ -1,3 +1,7 @@
+"""sparql_graph_builder.py
+Converts a SPARQL query string into a NetworkX graph whose nodes and
+edges are labelled with human-readable tokens for downstream GATv2 encoding.
+"""
 import re
 import networkx as nx
 
