@@ -24,20 +24,26 @@ The pipeline proceeds in three stages:
 
 ```text
 SPARQL-Embeddings/
-├── data/
+├── data/                                               # Query collection notebooks
 │   ├── dbpedia_queries/
-│   │   ├── 01_dbpedia_query_collection.ipynb       # Fetch & filter LSQ queries
-│   │   └── 02_dbpedia_semantic_triplets.ipynb      # Build Jaccard-based triplets
-│   ├── wikidata_queries/
-│   │   ├── 01_wikidata_query_collection.ipynb
-│   │   └── 02_wikidata_semantic_triplets.ipynb
-│   └── semantic_triplets/                          # (anchor, positive, negative) JSON files
+│   │   ├── 01_dbpedia_query_collection.ipynb           # Fetch & filter LSQ queries
+│   │   └── 02_dbpedia_semantic_triplets.ipynb           # Build Jaccard-based triplets
+│   └── wikidata_queries/
+│       ├── 01_wikidata_query_collection.ipynb
+│       └── 02_wikidata_semantic_triplets.ipynb
+├── dataset/                                            # All dataset artifacts
+│   ├── raw/                                            # Mined Jaccard triplets (anchor, pos, neg)
+│   │   ├── jaccard_triplets_dbpedia.json
+│   │   └── jaccard_triplets_wikidata.json.gz
+│   └── splits/                                         # Train / valid / test index splits
+│       ├── splits_dbpedia.json
+│       └── splits_wikidata.json
 ├── src/
-│   ├── config.py                                   # Hyperparameters & paths
-│   ├── sparql_graph_builder.py                     # SPARQL → NetworkX graph
-│   ├── hybrid_encoder.py                           # HybridSPARQLEncoder (CodeBERT + GATv2)
-│   ├── sparql_dataset.py                           # SPARQLTripletDataset (PyG)
-│   ├── embedder.py                                 # SPARQLEmbedder inference wrapper
+│   ├── config.py                                       # Hyperparameters & paths
+│   ├── sparql_graph_builder.py                         # SPARQL → NetworkX graph
+│   ├── hybrid_encoder.py                               # HybridSPARQLEncoder (CodeBERT + GATv2)
+│   ├── sparql_dataset.py                               # SPARQLTripletDataset (PyG)
+│   ├── embedder.py                                     # SPARQLEmbedder inference wrapper
 │   └── requirements.txt
 ├── training/
 │   ├── 01_train_dbpedia.ipynb
@@ -46,7 +52,7 @@ SPARQL-Embeddings/
 │   ├── 01_evaluate_dbpedia.ipynb
 │   └── 02_evaluate_wikidata.ipynb
 ├── docs/
-│   └── image.png                                   # Architecture diagram
+│   └── image.png
 ├── STRUCTURE.md
 ├── LICENSE
 └── README.md
@@ -68,8 +74,8 @@ pip install -r src/requirements.txt
 
 | Step | Notebook | Output |
 |------|----------|--------|
-| 1 | `data/dbpedia_queries/01_dbpedia_query_collection.ipynb` | `data/successful_queries/successful_queries_dbpedia.json` |
-| 2 | `data/dbpedia_queries/02_dbpedia_semantic_triplets.ipynb` | `data/semantic_triplets/semantic_triplets_dbpedia.json` |
+| 1 | `data/dbpedia_queries/01_dbpedia_query_collection.ipynb` | `dataset/raw/jaccard_triplets_dbpedia.json` |
+| 2 | `data/dbpedia_queries/02_dbpedia_semantic_triplets.ipynb` | `dataset/splits/splits_dbpedia.json` |
 | 3 | `training/01_train_dbpedia.ipynb` | `checkpoints/triplet_model_semantic-20.pt` |
 | 4 | `evaluation/01_evaluate_dbpedia.ipynb` | Metric tables in `evaluation/results/` |
 
@@ -119,9 +125,11 @@ All metrics are computed over the held-out test split. SPARQL results are cached
 
 ## Dataset
 
-- **Source:** [LSQ — Linked SPARQL Queries](http://lsq.aksw.org/) (DBpedia query logs)
+- **Source:** [LSQ — Linked SPARQL Queries](http://lsq.aksw.org/) (DBpedia & Wikidata query logs)
 - **Triplet thresholds:** Jaccard ≥ 0.8 → positive; Jaccard ≤ 0.1 → negative
 - **Splits:** 70% train / 15% validation / 15% test (stratified by anchor)
+- **Raw triplets:** `dataset/raw/`
+- **Index splits:** `dataset/splits/`
 
 ---
 
