@@ -1,0 +1,9 @@
+[Anchor 1]
+PREFIX  rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX  dbpo: <http://dbpedia.org/ontology/>
+
+SELECT  ?rng
+WHERE
+  { dbpo:developer
+              rdfs:range  ?rng
+  }

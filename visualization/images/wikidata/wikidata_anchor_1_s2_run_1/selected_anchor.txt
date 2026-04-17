@@ -1,0 +1,9 @@
+[Anchor 1]
+PREFIX  wde:  <http://www.wikidata.org/entity/>
+
+SELECT  (COUNT(DISTINCT ?var1) AS ?var2)
+WHERE
+  { ?var1  <http://www.wikidata.org/prop/P39>  _:b0 .
+    _:b0   <http://www.wikidata.org/prop/statement/P39>  wde:Q18711738 .
+    _:b0 (<http://www.wikidata.org/prop/qualifier/P580>|<http://www.wikidata.org/prop/qualifier/P582>)|<http://www.wikidata.org/prop/qualifier/P2937> ?var3
+  }
