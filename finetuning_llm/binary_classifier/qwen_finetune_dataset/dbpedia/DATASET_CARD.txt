@@ -1,0 +1,33 @@
+
+================================================================
+  Qwen Binary-Classifier Dataset  —  DBPEDIA
+================================================================
+Format       : anchor_query | query | label (0 or 1)
+Split source : splits_dbpedia.json  (train_idx / valid_idx)
+Raw source   : jaccard_triplets_dbpedia.json
+
+Train : 62954 pairs  |  3770 anchors
+         pos=31477  neg=31477
+         mean pairs/anchor   = 16.70
+         median pairs/anchor = 6.00
+
+Val   : 8194 pairs  |  471 anchors
+         pos=4097  neg=4097
+         mean pairs/anchor   = 17.40
+         median pairs/anchor = 8.00
+
+Anchor overlap (train ∩ val) : 0
+Negatives per split :
+  train: hard=31477  cross=0  reduced_anchors=0
+  val  : hard=4097  cross=0  reduced_anchors=0
+
+Balancing strategy
+  - max 20 positives per anchor (random sub-sample if more)
+  - n_neg = n_pos  (record's hard negatives first, then cross-anchor fill)
+  - cross-anchor pool restricted to positives of OTHER anchors within the same split
+
+Files
+  - train.json
+  - val.json
+  - DATASET_CARD.txt
+================================================================
