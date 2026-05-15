@@ -2,9 +2,9 @@
 
 ## Structure
 
-- **`evaluation/`** — eval pipelines for TF-IDF, baselines, and SPARQLCE. Why: compute retrieval metrics.
+- **`evaluation-RQ1/`** — RQ1 evaluation: retrieval metrics for TF-IDF, baselines, and SPARQLCE. Why: benchmark embedding quality.
+- **`evaluation-RQ2/robustness/`** — RQ2 evaluation: robustness to query perturbations. Why: test model robustness.
 - **`finetuning/`** — binary classifier and contrastive finetuning datasets and training. Why: improve model performance on downstream tasks.
-- **`robustness/`** — perturbation datasets and robustness eval. Why: test model robustness to query variations.
 - **`training/`** — model training on triplet data. Why: train the core SPARQLCE encoder.
 - **`visualization/`** — embedding space visualization. Why: analyze learned representations.
 
