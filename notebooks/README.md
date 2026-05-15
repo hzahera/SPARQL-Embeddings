@@ -2,7 +2,6 @@
 
 ## Structure
 
-- **`baseline/`** — seq2seq baseline model evaluation. Why: benchmark against text-based retrieval.
 - **`data/`** — query collection from DBpedia/Wikidata, triplet mining. Why: prepare training data.
 - **`evaluation/`** — eval pipelines for TF-IDF, baselines, and SPARQLCE. Why: compute retrieval metrics.
 - **`finetuning/`** — binary classifier and contrastive finetuning datasets and training. Why: improve model performance on downstream tasks.
