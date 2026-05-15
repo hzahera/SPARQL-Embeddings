@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sparql-embeddings"
+version = "0.1.0"
+description = "SPARQL query embedding research library with semantic SPARQL representations."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "torch>=2.0.0",
+    "torch-geometric>=2.3.0",
+    "transformers>=4.30.0",
+    "rdflib>=6.3.0",
+    "networkx>=3.0",
+    "SPARQLWrapper>=2.0.0",
+    "sentence-transformers>=2.2.0",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "tqdm",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sparqlce"]
