@@ -13,6 +13,20 @@ from sklearn.metrics.pairwise import cosine_similarity as sk_cosine
 from scipy.stats import kendalltau
 from sentence_transformers import SentenceTransformer
 
+
+def canonicalize_variables(query: str) -> str:
+    """Replace SPARQL variables with canonical names ?v0, ?v1, ... preserving order of first appearance."""
+    seen = {}
+    counter = 0
+    def replace_var(match):
+        nonlocal counter
+        var = match.group(0)
+        if var not in seen:
+            seen[var] = f'?v{counter}'
+            counter += 1
+        return seen[var]
+    return re.sub(r'\?[a-zA-Z_]\w*', replace_var, query)
+
 # -------------------------------------------------------------------
 # 1. Model wrappers – adjust SparqlCEEncoder for your main branch
 # -------------------------------------------------------------------
@@ -79,19 +93,6 @@ class TFIDFEncoder:
 # -------------------------------------------------------------------
 # 2. Metrics
 # -------------------------------------------------------------------
-def canonicalize_variables(query):
-    seen = {}
-    counter = 0
-    def replace_var(match):
-        nonlocal counter
-        var = match.group(0)
-        if var not in seen:
-            seen[var] = f'?v{counter}'
-            counter += 1
-        return seen[var]
-    return re.sub(r'\?[a-zA-Z_]\w*', replace_var, query)
-
-
 def compute_cosine_sim(emb_orig, emb_pert):
     sim = F.cosine_similarity(torch.tensor(emb_orig), torch.tensor(emb_pert), dim=1)
     return sim.numpy()
