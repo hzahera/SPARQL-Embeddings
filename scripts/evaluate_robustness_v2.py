@@ -3,6 +3,7 @@
 
 import json, argparse, sys, os
 import pathlib
+import re
 from collections import defaultdict
 import numpy as np
 import torch
@@ -78,6 +79,19 @@ class TFIDFEncoder:
 # -------------------------------------------------------------------
 # 2. Metrics
 # -------------------------------------------------------------------
+def canonicalize_variables(query):
+    seen = {}
+    counter = 0
+    def replace_var(match):
+        nonlocal counter
+        var = match.group(0)
+        if var not in seen:
+            seen[var] = f'?v{counter}'
+            counter += 1
+        return seen[var]
+    return re.sub(r'\?[a-zA-Z_]\w*', replace_var, query)
+
+
 def compute_cosine_sim(emb_orig, emb_pert):
     sim = F.cosine_similarity(torch.tensor(emb_orig), torch.tensor(emb_pert), dim=1)
     return sim.numpy()
@@ -151,6 +165,7 @@ def main():
         anchor = item.get('query', item.get('anchor_query', '')).strip()
         if not anchor:
             continue
+        anchor = canonicalize_variables(anchor)
         if anchor not in query_to_idx:
             query_to_idx[anchor] = len(corpus_queries)
             corpus_queries.append(anchor)
@@ -158,6 +173,7 @@ def main():
         # positives (could be strings or dicts with 'query')
         for p in item.get('positive_queries', []):
             p_text = p['query'].strip() if isinstance(p, dict) else p.strip()
+            p_text = canonicalize_variables(p_text)
             if p_text not in query_to_idx:
                 query_to_idx[p_text] = len(corpus_queries)
                 corpus_queries.append(p_text)
@@ -166,6 +182,7 @@ def main():
         # negatives
         for n in item.get('negative_queries', []):
             n_text = n['query'].strip() if isinstance(n, dict) else n.strip()
+            n_text = canonicalize_variables(n_text)
             if n_text not in query_to_idx:
                 query_to_idx[n_text] = len(corpus_queries)
                 corpus_queries.append(n_text)
@@ -184,7 +201,10 @@ def main():
     # Instead, let's create a list of (anchor, perturbed_query, perturbed_type) and group by anchor.
     pert_by_anchor = defaultdict(list)
     for p in pairs:
-        orig = p['original'].strip()
+        orig = canonicalize_variables(p['original'].strip())
+        pert = canonicalize_variables(p['perturbed'].strip())
+        p['original'] = orig
+        p['perturbed'] = pert
         pert_by_anchor[orig].append(p)
 
     # Models
@@ -199,8 +219,8 @@ def main():
     for name, encoder in models.items():
         print(f"\n=== {name} ===")
         # Encode all originals and perturbeds
-        originals = [p['original'] for p in pairs]
-        perturbeds = [p['perturbed'] for p in pairs]
+        originals = [canonicalize_variables(p['original']) for p in pairs]
+        perturbeds = [canonicalize_variables(p['perturbed']) for p in pairs]
         emb_orig = encoder.encode(originals)
         emb_pert = encoder.encode(perturbeds)
 
