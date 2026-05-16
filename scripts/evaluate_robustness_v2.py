@@ -2,6 +2,7 @@
 """Robustness evaluation for RQ2 - fixed version."""
 
 import json, argparse, sys, os
+import pathlib
 from collections import defaultdict
 import numpy as np
 import torch
@@ -16,10 +17,15 @@ from sentence_transformers import SentenceTransformer
 # -------------------------------------------------------------------
 class SparqlCEEncoder:
     def __init__(self, ckpt_path, device='cuda'):
-        sys.path.insert(0, 'src')
+        project_root = pathlib.Path(__file__).resolve().parent.parent
+        src_path = project_root / 'src'
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+
         from hybrid_encoder import HybridSPARQLEncoder
         from config import Config
         from embedder import SPARQLEmbedder
+
         self.device = device
         self.model = HybridSPARQLEncoder(
             embed_dim=Config.OUTPUT_DIM,
@@ -36,7 +42,6 @@ class SparqlCEEncoder:
         self.embedder = SPARQLEmbedder(self.model)
 
     def encode(self, queries, batch_size=32):
-        # SPARQLEmbedder.embed returns numpy array
         return self.embedder.embed(queries)
 
 class E5Encoder:
