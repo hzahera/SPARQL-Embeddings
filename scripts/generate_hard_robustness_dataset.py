@@ -25,6 +25,46 @@ def is_valid_sparql(query: str) -> bool:
         return False
 
 
+def find_matching_brace(text: str, start: int) -> int:
+    """Return the index of the '}' matching the '{' at position start, or -1."""
+    if start >= len(text) or text[start] != '{':
+        return -1
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return i
+    return -1
+
+
+def extract_where_clause(query: str):
+    """Return (where_start, where_end, where_body) of the outermost WHERE clause, or None."""
+    # Find the WHERE keyword
+    match = re.search(r'\bWHERE\s*\{', query, re.IGNORECASE)
+    if not match:
+        return None
+    brace_open = match.end() - 1  # position of '{'
+    brace_close = find_matching_brace(query, brace_open)
+    if brace_close == -1:
+        return None
+    where_body = query[brace_open+1:brace_close].strip()
+    return brace_open, brace_close, where_body
+
+
+def extract_projection(query: str):
+    """Return the part before the WHERE clause (SELECT vars) and whether DISTINCT is used."""
+    # Find the first WHERE
+    where_match = re.search(r'\bWHERE\s*\{', query, re.IGNORECASE)
+    if not where_match:
+        return '', False
+    proj_part = query[:where_match.start()].strip()
+    distinct = bool(re.search(r'\bDISTINCT\b', proj_part, re.IGNORECASE))
+    return proj_part, distinct
+
+
 # ---- Transformations (identical to previous, just copied) ----
 def apply_variable_renaming(query: str) -> str:
     vars_ = sorted(get_all_variables(query))
@@ -52,28 +92,39 @@ def apply_triple_shuffle(query: str) -> str:
 
 
 def apply_union_duplication(query: str) -> str:
-    if not re.search(r'\bDISTINCT\b', query, re.IGNORECASE):
-        query = re.sub(r'(SELECT\s+)', r'\1DISTINCT ', query, count=1, flags=re.IGNORECASE)
-    where_match = re.search(r'WHERE\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}', query, re.DOTALL)
-    if not where_match:
+    """Duplicate the outermost WHERE clause with UNION, forcing DISTINCT."""
+    parts = extract_where_clause(query)
+    if not parts:
         return query
-    where_body = where_match.group(1).strip()
-    new_where = f'{{ {where_body} }} UNION {{ {where_body} }}'
-    new_query = query[:where_match.start()] + 'WHERE ' + new_where + query[where_match.end():]
+    brace_open, brace_close, where_body = parts
+    # Force DISTINCT if not present
+    proj, has_distinct = extract_projection(query)
+    if not has_distinct:
+        # add DISTINCT after SELECT
+        query = re.sub(r'(SELECT)\s+', r'\1 DISTINCT ', query, count=1, flags=re.IGNORECASE)
+
+    # Re-extract after DISTINCT insertion (the positions may have shifted)
+    parts = extract_where_clause(query)
+    if not parts:
+        return query
+    brace_open, brace_close, where_body = parts
+    new_where = f'{{ {{ {where_body} }} UNION {{ {where_body} }} }}'
+    new_query = query[:brace_open] + new_where + query[brace_close+1:]
     return new_query
 
 
 def apply_subquery_wrapping(query: str) -> str:
-    proj_match = re.search(r'(SELECT\s+(DISTINCT\s+)?)(.*?)\s*WHERE\s*\{', query, re.DOTALL | re.IGNORECASE)
-    if not proj_match:
+    """Wrap the WHERE clause into a subquery: SELECT vars WHERE { { SELECT vars WHERE { ... } } }."""
+    parts = extract_where_clause(query)
+    if not parts:
         return query
-    vars_str = proj_match.group(3).strip()
-    where_match = re.search(r'WHERE\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}', query, re.DOTALL)
-    if not where_match:
-        return query
-    where_body = where_match.group(1).strip()
-    subquery = f'SELECT {vars_str} WHERE {{ {where_body} }}'
-    new_query = query[:proj_match.start()] + f'SELECT {vars_str} WHERE {{ ' + subquery + ' }}' + query[where_match.end():]
+    brace_open, brace_close, where_body = parts
+    proj, _ = extract_projection(query)
+    # Build subquery: SELECT vars WHERE { ... }
+    subquery = f'{proj} WHERE {{ {where_body} }}'
+    # Outer query: same projection, but WHERE { subquery }
+    new_where = f'{{ {subquery} }}'
+    new_query = query[:brace_open] + new_where + query[brace_close+1:]
     return new_query
 
 
