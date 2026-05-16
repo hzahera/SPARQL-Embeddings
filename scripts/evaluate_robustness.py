@@ -9,6 +9,8 @@ Usage:
 import json
 import argparse
 import os
+import sys
+from pathlib import Path
 from collections import defaultdict
 import numpy as np
 import torch
@@ -17,6 +19,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sk_cosine
 from scipy.stats import kendalltau
 from sentence_transformers import SentenceTransformer
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
 
 
 # -------------------------------------------------------------------
