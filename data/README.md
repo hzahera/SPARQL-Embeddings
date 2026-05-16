@@ -4,6 +4,10 @@ This folder contains the datasets used by the SPARQLCE research pipeline.
 
 ## Files and structure
 
+- `preprocessing/`
+  - Jupyter notebooks for data collection and triplet mining from DBpedia and Wikidata.
+  - See `notebooks/README.md` for details.
+
 - `binary_classifier_dataset/`
   - `dbpedia_train.json`
   - `dbpedia_val.json`
@@ -47,6 +51,17 @@ This folder contains the datasets used by the SPARQLCE research pipeline.
   - `hard_triplets_tfidf_wikidata.json`: 186 anchor groups
     - positives per anchor: min 3, max 55, mean ~11.99
     - negatives per anchor: min 0, max 20, mean ~18.39
+
+- `splits_dbpedia.json`
+- `splits_wikidata.json`
+
+  Train/validation/test splits for the datasets.
+
+- `jaccard_triplets_dbpedia.zip`
+- `jaccard_triplets_wikidata.zip`
+- `sparql2text_dataset.zip`
+
+  Archived datasets and auxiliary resources.
 
 - `jaccard_triplets_dbpedia.zip`
 - `jaccard_triplets_wikidata.zip`
