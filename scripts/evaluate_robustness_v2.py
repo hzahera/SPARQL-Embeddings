@@ -122,29 +122,38 @@ def main():
     for i, p in enumerate(pairs):
         p['_idx'] = i
 
-    # Load test data and build corpus + positive mapping
+    # Load test data – handle both formats
+    test_data_loaded = []
     with open(args.test_file) as f:
-        test_data = json.load(f)
+        test_data_loaded = json.load(f)
 
     corpus_queries = []
     query_to_idx = {}
-    # For each anchor in test set, store list of corpus indices of its positives
     anchor_pos_indices = defaultdict(list)
 
-    for item in test_data:
-        anchor = item['query'].strip()
+    for item in test_data_loaded:
+        anchor = item.get('query', item.get('anchor_query', '')).strip()
+        if not anchor:
+            continue
         if anchor not in query_to_idx:
             query_to_idx[anchor] = len(corpus_queries)
             corpus_queries.append(anchor)
+
         for p in item.get('positive_queries', []):
-            p_text = p['query'].strip() if isinstance(p, dict) else p.strip()
+            if isinstance(p, dict):
+                p_text = p['query'].strip()
+            else:
+                p_text = p.strip()
             if p_text not in query_to_idx:
                 query_to_idx[p_text] = len(corpus_queries)
                 corpus_queries.append(p_text)
             anchor_pos_indices[anchor].append(query_to_idx[p_text])
-        # Add negatives to corpus (for retrieval pool)
+
         for n in item.get('negative_queries', []):
-            n_text = n['query'].strip() if isinstance(n, dict) else n.strip()
+            if isinstance(n, dict):
+                n_text = n['query'].strip()
+            else:
+                n_text = n.strip()
             if n_text not in query_to_idx:
                 query_to_idx[n_text] = len(corpus_queries)
                 corpus_queries.append(n_text)
