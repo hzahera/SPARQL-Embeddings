@@ -7,8 +7,8 @@ import numpy as np
 from torch_geometric.data import Batch, Data
 from transformers import AutoTokenizer
 from .config import Config
-from .hybrid_encoder import HybridSPARQLEncoder
-from .sparql_graph_builder import SPARQLGraphBuilder
+from .encoder import HybridSPARQLEncoder
+from .graph_builder import SPARQLGraphBuilder
 
 class SPARQLEmbedder:
 	def __init__(self, checkpoint_path):
