@@ -19,27 +19,34 @@ class SparqlCEEncoder:
     def __init__(self, ckpt_path, device='cuda'):
         project_root = pathlib.Path(__file__).resolve().parent.parent
         src_path = project_root / 'src'
-        if str(src_path) not in sys.path:
+        if src_path.exists() and str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
+        elif str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
 
-        from hybrid_encoder import HybridSPARQLEncoder
-        from config import Config
-        from embedder import SPARQLEmbedder
+        if src_path.exists():
+            from hybrid_encoder import HybridSPARQLEncoder
+            from config import Config
+            from embedder import SPARQLEmbedder
 
-        self.device = device
-        self.model = HybridSPARQLEncoder(
-            embed_dim=Config.OUTPUT_DIM,
-            hidden_dim=Config.HIDDEN_DIM,
-            output_dim=Config.OUTPUT_DIM
-        )
-        state = torch.load(ckpt_path, map_location=device)
-        if isinstance(state, dict) and 'model_state_dict' in state:
-            self.model.load_state_dict(state['model_state_dict'])
+            self.device = device
+            self.model = HybridSPARQLEncoder(
+                embed_dim=Config.OUTPUT_DIM,
+                hidden_dim=Config.HIDDEN_DIM,
+                output_dim=Config.OUTPUT_DIM
+            )
+            state = torch.load(ckpt_path, map_location=device)
+            if isinstance(state, dict) and 'model_state_dict' in state:
+                self.model.load_state_dict(state['model_state_dict'])
+            else:
+                self.model.load_state_dict(state)
+            self.model.to(device)
+            self.model.eval()
+            self.embedder = SPARQLEmbedder(self.model)
         else:
-            self.model.load_state_dict(state)
-        self.model.to(device)
-        self.model.eval()
-        self.embedder = SPARQLEmbedder(self.model)
+            from sparqlce.embedder import SPARQLEmbedder
+            self.device = device
+            self.embedder = SPARQLEmbedder(ckpt_path)
 
     def encode(self, queries, batch_size=32):
         return self.embedder.embed(queries)
