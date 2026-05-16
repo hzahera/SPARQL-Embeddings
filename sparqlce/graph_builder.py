@@ -5,6 +5,8 @@ edges are labelled with human-readable tokens for downstream GATv2 encoding.
 import re
 import networkx as nx
 
+from .sparql_utils import canonicalize_variables, is_noop_filter_text
+
 
 class SPARQLGraphBuilder:
     def __init__(self):
@@ -32,6 +34,9 @@ class SPARQLGraphBuilder:
     def build_graph(self, query):
         G = nx.DiGraph()
         query = " ".join(query.split())
+        # Bake invariances directly into the graph input:
+        #  - rename ?x ?y ... to ?v0 ?v1 ... (variable-name invariance)
+        query = canonicalize_variables(query)
 
         # Robust Regex Extraction
         # 1. Try to find the WHERE clause content
@@ -74,6 +79,9 @@ class SPARQLGraphBuilder:
         for f_match in self.filter_pattern.finditer(content):
             f_text = f_match.group(1).strip()
             if not f_text:
+                continue
+            # Skip no-op FILTER(true) — adds no semantics, would only inject noise
+            if is_noop_filter_text(f_text):
                 continue
             f_label = "FILTER " + (f_text[:80] + "..." if len(f_text) > 80 else f_text)
             f_id = len(G)

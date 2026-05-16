@@ -17,6 +17,8 @@ Functions:
 """
 import json
 import random
+import re
+import string
 
 import torch
 from torch.utils.data import Dataset
@@ -24,6 +26,40 @@ from torch_geometric.data import Data, Batch
 from transformers import AutoTokenizer
 
 from .config import Config
+
+
+_VAR_RE = re.compile(r'\?[a-zA-Z_]\w*')
+
+
+def _random_rename_variables(query: str, rng: random.Random) -> str:
+    """Replace each distinct SPARQL variable with a random fresh name.
+
+    Together with the canonicalization performed inside the graph builder, this
+    teaches the encoder to be invariant to *any* consistent variable renaming
+    rather than just the canonical form.
+    """
+    distinct = []
+    seen = set()
+    for m in _VAR_RE.finditer(query):
+        v = m.group(0)
+        if v not in seen:
+            seen.add(v)
+            distinct.append(v)
+    if not distinct:
+        return query
+    # Generate unique random names that don't collide with existing ones.
+    new_names = []
+    used = set(distinct)
+    for _ in distinct:
+        while True:
+            length = rng.randint(3, 8)
+            name = '?' + ''.join(rng.choices(string.ascii_lowercase, k=length))
+            if name not in used:
+                used.add(name)
+                new_names.append(name)
+                break
+    mapping = dict(zip(distinct, new_names))
+    return _VAR_RE.sub(lambda m: mapping[m.group(0)], query)
 
 
 class SemanticSPARQLDataset(Dataset):
@@ -50,12 +86,26 @@ class SemanticSPARQLDataset(Dataset):
 		max_pos_per_anchor=None,
 		max_neg_per_anchor=None,
 		in_batch_negatives=False,
+		augment_rename_prob=0.0,
+		augment_seed=None,
 	):
+		"""
+		Args (additions):
+			augment_rename_prob (float): probability in [0, 1] that each query
+				gets its variables randomly renamed before graph building.
+				Combined with the canonicalization inside the graph builder,
+				this teaches invariance to arbitrary variable names. Set to 0
+				to disable (default). 0.3 is a reasonable starting point.
+			augment_seed (int|None): optional RNG seed for reproducible
+				augmentation. If None, uses Python's global RNG state.
+		"""
 		self.builder = graph_builder
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 		self.max_pos = max_pos_per_anchor
 		self.max_neg = max_neg_per_anchor
 		self.in_batch_negatives = in_batch_negatives
+		self.augment_rename_prob = float(augment_rename_prob)
+		self._aug_rng = random.Random(augment_seed) if augment_seed is not None else random
 		self.groups = []
 
 		print(f"Loading dataset from {datapath}...")
@@ -81,6 +131,16 @@ class SemanticSPARQLDataset(Dataset):
 			self.groups.append({"anchor": anchor, "positives": pos_list, "negatives": neg_list})
 
 		print(f"Loaded {len(self.groups)} anchor groups.")
+
+	def _maybe_augment(self, query):
+		"""Apply random variable renaming with probability ``augment_rename_prob``."""
+		if self.augment_rename_prob > 0.0 and self._aug_rng.random() < self.augment_rename_prob:
+			return _random_rename_variables(query, self._aug_rng)
+		return query
+
+	def _build(self, query):
+		"""Shorthand: optionally augment, then build the graph."""
+		return self.builder.build_graph(self._maybe_augment(query))
 
 	def _to_data(self, G):
 		"""Convert a NetworkX graph to a PyG Data object."""
@@ -117,8 +177,8 @@ class SemanticSPARQLDataset(Dataset):
 		if self.in_batch_negatives:
 			pos_q, pos_j = random.choice(g["positives"])
 			return (
-				self._to_data(self.builder.build_graph(g["anchor"])),
-				self._to_data(self.builder.build_graph(pos_q)),
+				self._to_data(self._build(g["anchor"])),
+				self._to_data(self._build(pos_q)),
 				float(pos_j),
 			)
 
@@ -128,9 +188,9 @@ class SemanticSPARQLDataset(Dataset):
 		pos_qs, pos_js = zip(*pos_list)
 		neg_qs, neg_js = zip(*neg_list)
 
-		anchor_data   = self._to_data(self.builder.build_graph(g["anchor"]))
-		pos_data_list = [self._to_data(self.builder.build_graph(q)) for q in pos_qs]
-		neg_data_list = [self._to_data(self.builder.build_graph(q)) for q in neg_qs]
+		anchor_data   = self._to_data(self._build(g["anchor"]))
+		pos_data_list = [self._to_data(self._build(q)) for q in pos_qs]
+		neg_data_list = [self._to_data(self._build(q)) for q in neg_qs]
 
 		return (
 			anchor_data,

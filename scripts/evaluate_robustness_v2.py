@@ -3,7 +3,6 @@
 
 import json, argparse, sys, os
 import pathlib
-import re
 from collections import defaultdict
 import numpy as np
 import torch
@@ -13,19 +12,8 @@ from sklearn.metrics.pairwise import cosine_similarity as sk_cosine
 from scipy.stats import kendalltau
 from sentence_transformers import SentenceTransformer
 
-
-def canonicalize_variables(query: str) -> str:
-    """Replace SPARQL variables with canonical names ?v0, ?v1, ... preserving order of first appearance."""
-    seen = {}
-    counter = 0
-    def replace_var(match):
-        nonlocal counter
-        var = match.group(0)
-        if var not in seen:
-            seen[var] = f'?v{counter}'
-            counter += 1
-        return seen[var]
-    return re.sub(r'\?[a-zA-Z_]\w*', replace_var, query)
+# Variable canonicalization is now handled inside sparqlce.graph_builder.SPARQLGraphBuilder
+# via sparqlce.sparql_utils.canonicalize_variables — see SPARQLGraphBuilder.build_graph.
 
 # -------------------------------------------------------------------
 # 1. Model wrappers – adjust SparqlCEEncoder for your main branch
@@ -162,11 +150,14 @@ def main():
     query_to_idx = {}
     anchor_pos_indices = defaultdict(list)
 
+    # NOTE: queries are intentionally NOT canonicalized here.
+    # The SPARQLCE graph builder canonicalizes internally, and TF-IDF/E5/Qwen
+    # operate on the raw text — canonicalizing here would unfairly normalize
+    # inputs for the text-based baselines too.
     for item in test_data_loaded:
         anchor = item.get('query', item.get('anchor_query', '')).strip()
         if not anchor:
             continue
-        anchor = canonicalize_variables(anchor)
         if anchor not in query_to_idx:
             query_to_idx[anchor] = len(corpus_queries)
             corpus_queries.append(anchor)
@@ -174,7 +165,6 @@ def main():
         # positives (could be strings or dicts with 'query')
         for p in item.get('positive_queries', []):
             p_text = p['query'].strip() if isinstance(p, dict) else p.strip()
-            p_text = canonicalize_variables(p_text)
             if p_text not in query_to_idx:
                 query_to_idx[p_text] = len(corpus_queries)
                 corpus_queries.append(p_text)
@@ -183,7 +173,6 @@ def main():
         # negatives
         for n in item.get('negative_queries', []):
             n_text = n['query'].strip() if isinstance(n, dict) else n.strip()
-            n_text = canonicalize_variables(n_text)
             if n_text not in query_to_idx:
                 query_to_idx[n_text] = len(corpus_queries)
                 corpus_queries.append(n_text)
@@ -202,8 +191,8 @@ def main():
     # Instead, let's create a list of (anchor, perturbed_query, perturbed_type) and group by anchor.
     pert_by_anchor = defaultdict(list)
     for p in pairs:
-        orig = canonicalize_variables(p['original'].strip())
-        pert = canonicalize_variables(p['perturbed'].strip())
+        orig = p['original'].strip()
+        pert = p['perturbed'].strip()
         p['original'] = orig
         p['perturbed'] = pert
         pert_by_anchor[orig].append(p)
@@ -219,9 +208,10 @@ def main():
     results = {}
     for name, encoder in models.items():
         print(f"\n=== {name} ===")
-        # Encode all originals and perturbeds
-        originals = [canonicalize_variables(p['original']) for p in pairs]
-        perturbeds = [canonicalize_variables(p['perturbed']) for p in pairs]
+        # Encode all originals and perturbeds (raw text — encoders handle their
+        # own normalization; SPARQLCE canonicalizes inside the graph builder)
+        originals = [p['original'] for p in pairs]
+        perturbeds = [p['perturbed'] for p in pairs]
         emb_orig = encoder.encode(originals)
         emb_pert = encoder.encode(perturbeds)
 
