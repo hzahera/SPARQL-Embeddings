@@ -49,7 +49,11 @@ class SparqlCEEncoder:
             self.embedder = SPARQLEmbedder(ckpt_path)
 
     def encode(self, queries, batch_size=32):
-        return self.embedder.embed(queries)
+        if hasattr(self.embedder, 'embed'):
+            return self.embedder.embed(queries)
+        if hasattr(self.embedder, 'encode'):
+            return self.embedder.encode(queries)
+        raise AttributeError("SPARQLEmbedder does not expose embed() or encode()")
 
 class E5Encoder:
     def __init__(self, model_name='intfloat/e5-base-v2', device='cuda'):
