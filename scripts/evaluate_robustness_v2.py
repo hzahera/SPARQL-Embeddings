@@ -144,21 +144,17 @@ def main():
             query_to_idx[anchor] = len(corpus_queries)
             corpus_queries.append(anchor)
 
+        # positives (could be strings or dicts with 'query')
         for p in item.get('positive_queries', []):
-            if isinstance(p, dict):
-                p_text = p['query'].strip()
-            else:
-                p_text = p.strip()
+            p_text = p['query'].strip() if isinstance(p, dict) else p.strip()
             if p_text not in query_to_idx:
                 query_to_idx[p_text] = len(corpus_queries)
                 corpus_queries.append(p_text)
             anchor_pos_indices[anchor].append(query_to_idx[p_text])
 
+        # negatives
         for n in item.get('negative_queries', []):
-            if isinstance(n, dict):
-                n_text = n['query'].strip()
-            else:
-                n_text = n.strip()
+            n_text = n['query'].strip() if isinstance(n, dict) else n.strip()
             if n_text not in query_to_idx:
                 query_to_idx[n_text] = len(corpus_queries)
                 corpus_queries.append(n_text)
