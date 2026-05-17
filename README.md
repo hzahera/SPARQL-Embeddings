@@ -2,7 +2,7 @@
 
 SPARQLCE learns dense embeddings for SPARQL queries by combining **CodeBERT text features** with a **GATv2 graph encoder** over query algebra graphs. The model is trained on query pairs whose answer sets overlap, so the embedding space reflects semantic similarity in terms of result-set overlap.
 
-## Project structure
+## Updated Project Structure
 
 ```
 SPARQL-Embeddings/
@@ -14,17 +14,26 @@ SPARQL-Embeddings/
 │   ├── embedder.py             # SPARQLEmbedder inference wrapper
 │   ├── sparql_utils.py         # SPARQL endpoint helpers and caching
 │   └── eval_utils.py           # Retrieval metrics and evaluation helpers
-├── data/                       # Triplets, splits, hard negatives, auxiliary data
-│   ├── binary_classifier_dataset/    # Binary classifier dataset
-│   ├── jaccard_triplets_dbpedia.zip
-│   ├── jaccard_triplets_wikidata.zip
-│   ├── splits_dbpedia.json
-│   ├── splits_wikidata.json
-│   ├── hard_triplets_tfidf_dbpedia.json
-│   ├── hard_triplets_tfidf_wikidata.json
+├── datasets/                   # Organized datasets
+│   ├── binary_datasets/        # Binary classifier datasets
+│   ├── dbpedia_query_overlap.json
 │   └── sparql2text_dataset.zip
 ├── notebooks/                  # Research notebooks by task
+│   ├── evaluation-RQ1/         # Evaluation for Research Question 1
+│   │   ├── DBpedia/            # DBpedia-specific evaluations
+│   │   │   └── 06_eval_sparqlce_dbpedia.ipynb
+│   │   ├── Wikidata/           # Wikidata-specific evaluations
+│   │       └── Multiple evaluation notebooks
+│   ├── evaluation-RQ2/         # Evaluation for Research Question 2
+│   │   ├── robustness/         # Robustness evaluation
+│   │       ├── 01_perturbation_dataset.ipynb
+│   │       ├── 02_perturbation_eval.ipynb
+│   │       └── evaluate_robustness_v2.py
 ├── scripts/                    # Dataset generation and robustness evaluation scripts
+│   ├── training/               # Training scripts
+│   │   └── generate_training_triplets.py
+│   └── robustness/             # Robustness evaluation scripts
+│       └── robustness_dataset_generation.py
 ├── docs/                       # Supporting documentation and diagrams
 ├── requirements.txt            # Runtime dependencies
 ├── pyproject.toml              # Package metadata
