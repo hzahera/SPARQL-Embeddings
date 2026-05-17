@@ -13,8 +13,14 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import normalize as sk_normalize
 
-# ---- Project path setup ----
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# ---- Project path setup (Notebook & Script Safe) ----
+try:
+    # Works if running as a standard .py script
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+except NameError:
+    # Falls back to Current Working Directory if running in a Jupyter Notebook
+    _PROJECT_ROOT = Path.cwd().parent.parent
+
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -23,7 +29,6 @@ if str(_PROJECT_ROOT) not in sys.path:
 #   - is_noop_filter_text() to skip FILTER(true)
 # So we can use SPARQLEmbedder directly — no patches needed.
 from sparqlce.embedder import SPARQLEmbedder
-
 # ----------------------------
 # Metrics
 # ----------------------------
