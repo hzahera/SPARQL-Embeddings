@@ -29,10 +29,12 @@ SPARQL-Embeddings/
 │   │       ├── 01_perturbation_dataset.ipynb
 │   │       ├── 02_perturbation_eval.ipynb
 │   │       └── evaluate_robustness_v2.py
-├── scripts/                    # Dataset generation and robustness evaluation scripts
+├── scripts/                    # Supporting scripts for training, robustness, and optional evaluation
+│   ├── evaluation/              # Optional evaluation support scripts
+│   │   └── eval_wikidata.py
 │   ├── training/               # Training scripts
 │   │   └── generate_training_triplets.py
-│   └── robustness/             # Robustness evaluation scripts
+│   └── robustness/             # Robustness dataset and evaluation helpers
 │       └── robustness_dataset_generation.py
 ├── docs/                       # Supporting documentation and diagrams
 ├── requirements.txt            # Runtime dependencies
@@ -58,14 +60,11 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-3. Unzip the raw triplet archives if needed:
-
-```bash
-cd data
-unzip jaccard_triplets_dbpedia.zip
-unzip jaccard_triplets_wikidata.zip
-cd ..
-```
+3. Make sure the datasets are available under `datasets/`:
+- `datasets/dbpedia-triplets-dataset.json`
+- `datasets/splits_dbpedia.json`
+- `datasets/eval_RQ2_dbpedia.json`
+- `datasets/binary_datasets/`
 
 4. Start Jupyter from the project root:
 
@@ -81,7 +80,7 @@ To use the SPARQLCE model for encoding SPARQL queries into dense embeddings, fol
 from sparqlce.embedder import SPARQLEmbedder
 
 # Initialize the embedder with the path to the trained model checkpoint
-embedder = SPARQLEmbedder("checkpoints/triplet_model_semantic-20.pt")
+embedder = SPARQLEmbedder("checkpoints/<model_checkpoint>.pt")
 
 # Define a SPARQL query
 query = "SELECT ?person WHERE { ?person a dbo:Scientist . ?person dbo:birthPlace ?place }"
@@ -94,7 +93,7 @@ print(embedding.shape)
 ```
 
 ### Notes:
-- Ensure that the `checkpoints/triplet_model_semantic-20.pt` file exists and contains the trained model weights.
+- Ensure that the checkpoint path points to a trained model file under `checkpoints/` or elsewhere on disk.
 - The `SPARQLEmbedder` class handles the conversion of SPARQL queries into graph representations and uses the trained `HybridSPARQLEncoder` for encoding.
 
 ## Core modules
@@ -109,18 +108,28 @@ print(embedding.shape)
 
 ## Scripts
 
-- `scripts/robustness_dataset_generation.py` — build perturbation datasets for robustness evaluation
-- `scripts/robustness_eval.py` — compute robustness metrics and cosine similarity for baselines and SPARQLECE
+- `scripts/training/generate_training_triplets.py` — generate training triplets
+- `scripts/robustness/robustness_dataset_generation.py` — build perturbation datasets for robustness evaluation
+- `scripts/evaluation/eval_wikidata.py` — supplementary evaluation support script for Wikidata
+- `scripts/verify_invariances.py` — verify model invariances with a checkpoint
+
+## Evaluation
+
+Evaluation workflows are primarily contained in notebooks under `notebooks/`:
+- `notebooks/evaluation-RQ1/` — retrieval evaluation notebooks for DBpedia and Wikidata
+- `notebooks/evaluation-RQ2/robustness/` — robustness evaluation notebooks
+
+These notebooks are the canonical evaluation artifacts; `scripts/evaluation/` contains a small optional support script only.
 
 ## Data overview
 
-- `data/jaccard_triplets_dbpedia.zip` and `data/jaccard_triplets_wikidata.zip` — mined SPARQL triplets
-- `data/splits_dbpedia.json`, `data/splits_wikidata.json` — train/val/test splits
-- `data/hard_triplets_tfidf_dbpedia.json`, `data/hard_triplets_tfidf_wikidata.json` — hard negatives mined with TF-IDF
-- `data/binary_classifier_dataset/` — binary classifier dataset
-- `data/sparql2text_dataset.zip` — auxiliary seq2seq baseline dataset
+- `datasets/dbpedia-triplets-dataset.json` — DBpedia triplet dataset
+- `datasets/splits_dbpedia.json` — train/val/test splits
+- `datasets/eval_RQ2_dbpedia.json` — robustness evaluation queries
+- `datasets/binary_datasets/` — binary classifier dataset splits
+- `datasets/result_sets_dbpedia.json` — DBpedia result set metadata
 
-See `data/README.md` for detailed dataset statistics and file structure.
+The repository stores datasets under `datasets/`; no `data/` directory is required.
 
 ## Notes for research
 
