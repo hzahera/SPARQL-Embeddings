@@ -75,14 +75,27 @@ jupyter lab
 
 ## Using the library
 
+To use the SPARQLCE model for encoding SPARQL queries into dense embeddings, follow the example below:
+
 ```python
 from sparqlce.embedder import SPARQLEmbedder
 
+# Initialize the embedder with the path to the trained model checkpoint
 embedder = SPARQLEmbedder("checkpoints/triplet_model_semantic-20.pt")
-query = "SELECT ?person WHERE { ?person a <dbo:Scientist> . ?person <dbo:birthPlace> ?place }"
+
+# Define a SPARQL query
+query = "SELECT ?person WHERE { ?person a dbo:Scientist . ?person dbo:birthPlace ?place }"
+
+# Encode the query into a dense embedding
 embedding = embedder.encode(query)
+
+# Print the shape of the resulting embedding
 print(embedding.shape)
 ```
+
+### Notes:
+- Ensure that the `checkpoints/triplet_model_semantic-20.pt` file exists and contains the trained model weights.
+- The `SPARQLEmbedder` class handles the conversion of SPARQL queries into graph representations and uses the trained `HybridSPARQLEncoder` for encoding.
 
 ## Core modules
 
@@ -136,3 +149,25 @@ MIT — see `LICENSE`.
 ## Citation
 
 If you use this work in your research, please cite it. See `CITATION.cff` for details.
+
+## DBpedia Training and Evaluation
+
+### Training
+The training process for DBpedia is implemented in the notebook `notebooks/training/train_dbpedia.ipynb`. The training pipeline includes:
+- **Loss Function**: Combines InfoNCE loss with a Jaccard calibration term.
+- **Optimizer**: AdamW with differential learning rates for CodeBERT and GNN layers.
+- **Dataset**: Utilizes `datasets/dbpedia-triplets-dataset.json` and `datasets/splits_dbpedia.json` for fixed splits.
+- **Hyperparameters**: Batch size of 32, temperature of 0.05, and 20 epochs.
+
+### Evaluation
+Evaluation for DBpedia is conducted in the following notebooks:
+- `notebooks/evaluation-RQ1/DBpedia/06_eval_sparqlce_dbpedia.ipynb`: Evaluates retrieval metrics such as MRR, Hits@1, and Hits@5.
+- `notebooks/evaluation-RQ2/robustness/04_eval_sparql_RQ2.ipynb`: Assesses robustness to query perturbations using `datasets/eval_RQ2_dbpedia.json`.
+
+### Results
+- **Validation Metrics**: Best validation MRR is used for model selection.
+- **Test Metrics**: Final evaluation on the test split reports MRR, Hits@1, and Hits@5.
+
+### Scripts
+- `scripts/training/generate_training_triplets.py`: Generates triplets for training.
+- `scripts/robustness/robustness_dataset_generation.py`: Builds datasets for robustness evaluation.
