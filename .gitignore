@@ -251,3 +251,5 @@ outputs/viz/*.png
 # OS clutter
 .DS_Store
 Thumbs.db
+datasets/result_sets_wikidata.json
+datasets/wikidata-triplets-dataset.json
