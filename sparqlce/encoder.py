@@ -14,7 +14,7 @@ class HybridSPARQLEncoder(nn.Module):
 	"""CodeBERT + GATv2 encoder for SPARQL queries.
 
 	Each query is parsed into a graph; node and edge labels are encoded
-	by CodeBERT, then refined by two GATv2 layers. Global mean pooling
+	by CodeBERT, then refined by a single GATv2 layer. Global mean pooling
 	and a linear projection yield an L2-normalised 128-d embedding.
 	"""
 
