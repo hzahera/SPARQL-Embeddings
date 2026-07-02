@@ -1,6 +1,6 @@
 # Experiment: SQuARE Threshold Sensitivity (reviewer defense)
 
-**Status: not implemented yet — this document is the spec.**
+**Status: A + B implemented in `threshold_sensitivity_dbpedia.ipynb` (this folder) — not yet run; needs the SparqlCE checkpoint. C remains spec-only.**
 
 ## Why
 
@@ -9,7 +9,7 @@ justification, and reviewers will push on them (the WSDM assessment explicitly
 recommends a "threshold sensitivity mini-table"):
 
 | Threshold | Value | Where used |
-|---|---|---|
+| --- | --- | --- |
 | Positive: answer-set Jaccard | **> 0.8** | dataset construction + RQ1 correctness rule (`s(q_a, q_p) ≥ 0.8`) |
 | Positive: TF-IDF cosine | **< 0.5** (Wikidata) / **< 0.7** (DBpedia) | dataset construction |
 | Negative: answer-set Jaccard | **< 0.2** | dataset construction |
@@ -67,6 +67,6 @@ paper; hold C for the rebuttal unless a co-author disagrees.
 
 ## Checklist
 
-- [ ] Notebook `notebooks/evaluation-RQ1/threshold_sensitivity_dbpedia.ipynb` (A + B)
+- [x] Notebook `notebooks/evaluation-RQ1/threshold_sensitivity_dbpedia.ipynb` (A + B)
 - [ ] Add grey-zone % + mini-table to §Experiments (near the SQuARE construction paragraph)
 - [ ] Decide whether C is pre-submission or rebuttal material

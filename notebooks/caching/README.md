@@ -1,6 +1,6 @@
 # Experiment: Semantic Query Caching Simulation (`tab:caching`)
 
-**Status: not implemented yet — this document is the spec.**
+**Status: implemented in `caching_simulation_dbpedia.ipynb` (this folder) — not yet run; needs the SparqlCE checkpoint.**
 Fills the empty `tab:caching` table and resolves the `\todo` at
 `src-latex/Sections/experiments-v2.tex:303`. This is the last placeholder
 experiment in the paper (Figure 3 has its own runbook in
@@ -32,8 +32,9 @@ hits that look similar but return wrong results (low result quality).
 - **Grid.** K ∈ {50, 100, 200} × θ ∈ {0.7, 0.8, 0.9} — 9 configurations per
   model, same stream order for every model and configuration.
 - **Models** (the four named in the paper text):
+
   | Model | How to embed |
-  |---|---|
+  | --- | --- |
   | SparqlCE | `sparqlce/models/final_model_mrr_0.4487.pt` via `SPARQLEmbedder` (same wrapper as the 07 alignment notebooks) |
   | TF-IDF | `sklearn.TfidfVectorizer` fitted on the **train-split** query texts, L2-normalised vectors |
   | E5-base-v2 | `sentence-transformers`, `intfloat/e5-base-v2`, `"query: "` prefix, `normalize_embeddings=True` |
@@ -107,7 +108,7 @@ seconds.
 
 ## Checklist
 
-- [ ] Write `notebooks/caching/caching_simulation_dbpedia.ipynb` implementing this spec
+- [x] Write `notebooks/caching/caching_simulation_dbpedia.ipynb` implementing this spec
 - [ ] Run with SparqlCE checkpoint in place
 - [ ] Fill `tab:caching` + delete the `\todo` at `experiments-v2.tex:303`
 - [ ] (Optional) Wikidata twin — needs `result_sets_wikidata.json`, which is

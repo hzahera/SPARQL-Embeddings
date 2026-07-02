@@ -10,7 +10,7 @@ Qwen3** (SparqlCE in blue, baselines in grey).
 The plotting pipeline already exists — nothing new needs to be written:
 
 | Notebook | KG | Output PDF |
-|---|---|---|
+| --- | --- | --- |
 | `notebooks/evaluation-RQ1/DBpedia/07_visualize_alignment_dbpedia.ipynb` | DBpedia | `results/cosine_vs_jaccard_rq1.pdf` |
 | `notebooks/evaluation-RQ1/Wikidata/07_visualize_alignment_wikidata.ipynb` | Wikidata | `results/cosine_vs_jaccard_rq1_wikidata.pdf` |
 
