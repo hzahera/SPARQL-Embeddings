@@ -253,3 +253,54 @@ outputs/viz/*.png
 Thumbs.db
 datasets/result_sets_wikidata.json
 datasets/wikidata-triplets-dataset.json
+
+# >>> latex-auto-sync (managed) >>>
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.synctex(busy)
+*.toc
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ilg
+*.ind
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.fmt
+*.dvi
+*.xdv
+*.bak
+*.tmp
+*.brf
+*.lol
+*.loa
+*.tdo
+*.thm
+*.ptc
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+# <<< latex-auto-sync (managed) <<<
