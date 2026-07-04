@@ -1,7 +1,7 @@
 {
   "sparqlce": {
     "overall_mean_cos_sim": 0.9909740686416626,
-    "overall_std_cos_sim": 0.043097641319036484,
+    "overall_std_cos_sim": 0.04309767484664917,
     "mrr_original": 0.2203909230169353,
     "mrr_perturbed": 0.2132556466112364,
     "mrr_drop": 0.007135276405698915,
@@ -16,11 +16,11 @@
         "n_pairs": 1474
       },
       "filter_true": {
-        "mean_cos_sim": 0.9825258851051331,
+        "mean_cos_sim": 0.9825258255004883,
         "n_pairs": 1677
       },
       "distinct_toggle": {
-        "mean_cos_sim": 0.9767389893531799,
+        "mean_cos_sim": 0.9767389297485352,
         "n_pairs": 1677
       },
       "triple_shuffle": {
@@ -147,6 +147,82 @@
       },
       "subquery_wrapping": {
         "mean_cos_sim": 0.9903866648674011,
+        "n_pairs": 100
+      }
+    }
+  },
+  "minilm": {
+    "overall_mean_cos_sim": 0.9732394814491272,
+    "overall_std_cos_sim": 0.020187951624393463,
+    "mrr_original": 0.06142935806936742,
+    "mrr_perturbed": 0.0634930275893999,
+    "mrr_drop": -0.0020636695200324795,
+    "n_evaluable_anchors": 337,
+    "per_type": {
+      "variable_renaming": {
+        "mean_cos_sim": 0.9863777756690979,
+        "n_pairs": 1677
+      },
+      "redundant_optional": {
+        "mean_cos_sim": 0.9671230316162109,
+        "n_pairs": 1474
+      },
+      "filter_true": {
+        "mean_cos_sim": 0.9719255566596985,
+        "n_pairs": 1677
+      },
+      "distinct_toggle": {
+        "mean_cos_sim": 0.955914318561554,
+        "n_pairs": 1677
+      },
+      "triple_shuffle": {
+        "mean_cos_sim": 0.9982531070709229,
+        "n_pairs": 873
+      },
+      "union_duplication": {
+        "mean_cos_sim": 0.9282134771347046,
+        "n_pairs": 100
+      },
+      "subquery_wrapping": {
+        "mean_cos_sim": 0.9823041558265686,
+        "n_pairs": 100
+      }
+    }
+  },
+  "mpnet": {
+    "overall_mean_cos_sim": 0.9768868684768677,
+    "overall_std_cos_sim": 0.018329733982682228,
+    "mrr_original": 0.08349247669197359,
+    "mrr_perturbed": 0.09012808306397542,
+    "mrr_drop": -0.006635606372001834,
+    "n_evaluable_anchors": 337,
+    "per_type": {
+      "variable_renaming": {
+        "mean_cos_sim": 0.9832630753517151,
+        "n_pairs": 1677
+      },
+      "redundant_optional": {
+        "mean_cos_sim": 0.9763660430908203,
+        "n_pairs": 1474
+      },
+      "filter_true": {
+        "mean_cos_sim": 0.9793859124183655,
+        "n_pairs": 1677
+      },
+      "distinct_toggle": {
+        "mean_cos_sim": 0.9625260829925537,
+        "n_pairs": 1677
+      },
+      "triple_shuffle": {
+        "mean_cos_sim": 0.9946688413619995,
+        "n_pairs": 873
+      },
+      "union_duplication": {
+        "mean_cos_sim": 0.9177366495132446,
+        "n_pairs": 100
+      },
+      "subquery_wrapping": {
+        "mean_cos_sim": 0.9804676175117493,
         "n_pairs": 100
       }
     }
