@@ -1,10 +1,13 @@
 # Experiment: Semantic Query Caching Simulation (`tab:caching`)
 
-**Status: implemented in `caching_simulation_dbpedia.ipynb` (this folder) — not yet run; needs the SparqlCE checkpoint.**
-Fills the empty `tab:caching` table and resolves the `\todo` at
-`src-latex/Sections/experiments-v2.tex:303`. This is the last placeholder
-experiment in the paper (Figure 3 has its own runbook in
-`notebooks/visualization/FIGURE3_RUNBOOK.md`).
+**Status: run complete.** `caching_simulation_dbpedia.ipynb` (this folder) has
+been executed against the SparqlCE checkpoint; results are in the notebook's
+saved cell outputs (the cluster-local `results/caching/caching_dbpedia.json`
+was not copied into this repo). `tab:caching` in
+`sparql-embeddings-latex/Sections/experiments-v2.tex` is filled with the
+$(K{=}100,\theta{=}0.8)$ operating point, the full $3\times3$ grid is in
+`tab:caching_full` in `Sections/appendix.tex`, and the `\todo` markers for
+this experiment are resolved.
 
 ## Goal
 
@@ -109,8 +112,8 @@ seconds.
 ## Checklist
 
 - [x] Write `notebooks/caching/caching_simulation_dbpedia.ipynb` implementing this spec
-- [ ] Run with SparqlCE checkpoint in place
-- [ ] Fill `tab:caching` + delete the `\todo` at `experiments-v2.tex:303`
+- [x] Run with SparqlCE checkpoint in place
+- [x] Fill `tab:caching` + delete the `\todo` at `experiments-v2.tex:303`
 - [ ] (Optional) Wikidata twin — needs `result_sets_wikidata.json`, which is
       **not currently in `datasets/`**; DBpedia alone is sufficient for the
       downstream-application claim
