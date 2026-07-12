@@ -146,3 +146,24 @@ class SPARQLGraphBuilder:
                 G.add_edge(opt_id, node_map[v_lbl], label="optional")
 
         return G
+
+
+class WholeQueryGraphBuilder:
+    """Ablation baseline: represents every query as a single node holding
+    the full (canonicalized) query string, with no triple/FILTER/OPTIONAL
+    decomposition at all.
+
+    Used to isolate whether decomposing a query into a graph contributes
+    anything beyond encoding it as opaque text with the same backbone and
+    training recipe as the full model (as opposed to comparing against the
+    external baselines, which differ in both encoder and training).
+    """
+
+    def build_graph(self, query):
+        query = " ".join(query.split())
+        query = canonicalize_variables(query)
+        G = nx.DiGraph()
+        G.add_node(0, label=query)
+        return G
+
+        return G
