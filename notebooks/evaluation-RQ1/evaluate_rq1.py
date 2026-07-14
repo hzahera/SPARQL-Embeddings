@@ -12,6 +12,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import normalize as sk_normalize
+from rank_bm25 import BM25Okapi
 
 # ---- Project path setup (Notebook & Script Safe) ----
 try:
@@ -179,6 +180,25 @@ def build_sorted_pools_global(
         sorted_pools.append([corpus_queries[i] for i in order])
     return sorted_pools
 
+def build_sorted_pools_bm25(
+    bm25: BM25Okapi,
+    q_to_row: Dict[str, int],
+    items: List[EvalItem],
+    corpus_queries: List[str]
+) -> List[List[str]]:
+    anchor_to_idx = q_to_row
+    sorted_pools: List[List[str]] = []
+
+    for anchor_q, _, _ in items:
+        tokens = anchor_q.lower().split()
+        scores = np.asarray(bm25.get_scores(tokens))
+        if anchor_q in anchor_to_idx:
+            scores = scores.copy()
+            scores[anchor_to_idx[anchor_q]] = np.finfo(scores.dtype).min
+        order = np.argsort(-scores)
+        sorted_pools.append([corpus_queries[i] for i in order])
+    return sorted_pools
+
 def build_sorted_pools_tfidf(
     X, q_to_row: Dict[str, int],
     items: List[EvalItem],
@@ -309,6 +329,13 @@ def evaluate_tfidf(eval_items, global_corpus, relevance_scores_per_item, topks):
     q_to_row = {q: i for i, q in enumerate(global_corpus)}
     tfidf_sorted = build_sorted_pools_tfidf(X_tfidf, q_to_row, eval_items, global_corpus)
     report("Baseline: TF-IDF", tfidf_sorted, eval_items, relevance_scores_per_item, topks)
+
+def evaluate_bm25(eval_items, global_corpus, relevance_scores_per_item, topks):
+    tokenized_corpus = [q.lower().split() for q in global_corpus]
+    bm25 = BM25Okapi(tokenized_corpus)
+    q_to_row = {q: i for i, q in enumerate(global_corpus)}
+    bm25_sorted = build_sorted_pools_bm25(bm25, q_to_row, eval_items, global_corpus)
+    report("Baseline: BM25", bm25_sorted, eval_items, relevance_scores_per_item, topks)
 
 def evaluate_sentence_transformer(model_name, display_name, eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=32, transform=None):
     model = SentenceTransformer(model_name)

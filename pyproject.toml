@@ -17,6 +17,7 @@ dependencies = [
     "networkx>=3.0",
     "SPARQLWrapper>=2.0.0",
     "sentence-transformers>=2.2.0",
+    "rank_bm25>=0.2.2",
     "numpy",
     "pandas",
     "scikit-learn",
