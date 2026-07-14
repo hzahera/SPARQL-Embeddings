@@ -10,16 +10,47 @@ from .sparql_utils import canonicalize_variables, is_noop_filter_text
 
 class SPARQLGraphBuilder:
     def __init__(self):
-        # supports 'prefix:suffix' pattern
+        # supports 'prefix:suffix' pattern, including the default/empty
+        # prefix (e.g. ':Bucheon' from 'PREFIX : <...>'). Local names may
+        # contain non-ASCII letters (e.g. ':Kimi_no_Na_wa_Kibō') and internal
+        # dots (e.g. ':Jun._K'); \w is unicode-aware, and a dot is only
+        # accepted when not followed by whitespace so triple terminators
+        # ('... ?o .') aren't swallowed into the preceding local name.
+        local_name = r'(?:[\w(),\-]|\.(?!\s))+'
+        qname = r'[a-zA-Z0-9_]*:' + local_name
+        # property-path expression, e.g. 'wdt:P31/wdt:P279*' or
+        # '<uri1>|(<uri2>)?': a run of IRIs/QNames glued together with the
+        # path operators / | * + ? ^ ( ) and no intervening whitespace.
+        # ('?' is safe here: a bare variable predicate is matched by the
+        # '\?[a-zA-Z0-9_]+' alternative below before this one is tried.)
+        path_token = r'(?:<[^>]+>|' + qname + r'|[/|*+?^()])+'
         self.triple_pattern = re.compile(
-            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|[a-zA-Z0-9_]+:[a-zA-Z0-9_\(\)\,\-]+)\s+' # Subject
-            r'(\?[a-zA-Z0-9_]+|<[^>]+>|[a-zA-Z0-9_]+:[a-zA-Z0-9_\(\)\,\-]+)\s+'
-            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|[a-zA-Z0-9_]+:[a-zA-Z0-9_\(\)\,\-]+)'      # Object
+            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')\s+' # Subject
+            r'(\?[a-zA-Z0-9_]+|' + path_token + r')\s+'            # Predicate (incl. paths)
+            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')'   # Object
         )
         # FILTER and OPTIONAL clauses, and variables inside them
         self.filter_pattern = re.compile(r'FILTER\s*\((.*?)\)', re.IGNORECASE | re.DOTALL)
         self.optional_pattern = re.compile(r'OPTIONAL\s*\{(.*?)\}', re.IGNORECASE | re.DOTALL)
         self.var_pattern = re.compile(r'\?[a-zA-Z_][a-zA-Z0-9_]*')
+
+    def _extract_where_content(self, query):
+        """Return the text inside the outermost WHERE{...} block, matching
+        braces by depth so nested VALUES{...}/OPTIONAL{...} blocks don't
+        truncate the extraction at their own closing brace."""
+        where_match = re.search(r'WHERE\s*\{', query, re.IGNORECASE)
+        if not where_match:
+            return query
+        start = where_match.end()
+        depth = 1
+        i = start
+        while i < len(query) and depth > 0:
+            if query[i] == '{':
+                depth += 1
+            elif query[i] == '}':
+                depth -= 1
+            i += 1
+        return query[start:i - 1]
 
     def _clean(self, term):
         # Strip enclosing angle brackets/quotes and keep the local name
@@ -32,6 +63,7 @@ class SPARQLGraphBuilder:
         return term
 
     def build_graph(self, query):
+        self.last_used_fallback = False
         G = nx.DiGraph()
         query = " ".join(query.split())
         # Bake invariances directly into the graph input:
@@ -39,9 +71,10 @@ class SPARQLGraphBuilder:
         query = canonicalize_variables(query)
 
         # Robust Regex Extraction
-        # 1. Try to find the WHERE clause content
-        where_match = re.search(r'WHERE\s*\{(.*?)\}', query, re.IGNORECASE | re.DOTALL)
-        content = where_match.group(1) if where_match else query
+        # 1. Find the WHERE clause content (brace-depth matched, see
+        #    _extract_where_content, so nested VALUES/OPTIONAL blocks don't
+        #    truncate it at their own closing brace)
+        content = self._extract_where_content(query)
 
         # 2. Find triples
         matches = self.triple_pattern.findall(content)
@@ -52,9 +85,10 @@ class SPARQLGraphBuilder:
         if not matches:
             # Fallback: tokenize the raw query string into a simple chain graph
             # This ensures 'SELECT ?a' is different from 'SELECT ?b' even if parsing fails
+            self.last_used_fallback = True
             words = query.split()
             for i, word in enumerate(words):
-                if i > 10:
+                if i > 9:
                     break
                 G.add_node(i, label=word)
                 if i > 0:
@@ -110,5 +144,26 @@ class SPARQLGraphBuilder:
                     node_map[v_lbl] = len(G)
                     G.add_node(node_map[v_lbl], label=v_lbl)
                 G.add_edge(opt_id, node_map[v_lbl], label="optional")
+
+        return G
+
+
+class WholeQueryGraphBuilder:
+    """Ablation baseline: represents every query as a single node holding
+    the full (canonicalized) query string, with no triple/FILTER/OPTIONAL
+    decomposition at all.
+
+    Used to isolate whether decomposing a query into a graph contributes
+    anything beyond encoding it as opaque text with the same backbone and
+    training recipe as the full model (as opposed to comparing against the
+    external baselines, which differ in both encoder and training).
+    """
+
+    def build_graph(self, query):
+        query = " ".join(query.split())
+        query = canonicalize_variables(query)
+        G = nx.DiGraph()
+        G.add_node(0, label=query)
+        return G
 
         return G

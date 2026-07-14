@@ -29,13 +29,9 @@ SPARQL-Embeddings/
 │   │       ├── 01_perturbation_dataset.ipynb
 │   │       ├── 02_perturbation_eval.ipynb
 │   │       └── evaluate_robustness_v2.py
-├── scripts/                    # Supporting scripts for training, robustness, and optional evaluation
-│   ├── evaluation/              # Optional evaluation support scripts
-│   │   └── eval_wikidata.py
-│   ├── training/               # Training scripts
-│   │   └── generate_training_triplets.py
-│   └── robustness/             # Robustness dataset and evaluation helpers
-│       └── robustness_dataset_generation.py
+├── scripts/                    # Supporting scripts for training, evaluation, and analysis (see scripts/README.md)
+│   └── training/               # Training-triplet generation
+│       └── generate_training_triplets.py
 ├── docs/                       # Supporting documentation and diagrams
 ├── requirements.txt            # Runtime dependencies
 ├── pyproject.toml              # Package metadata
@@ -108,9 +104,11 @@ print(embedding.shape)
 
 ## Scripts
 
+See `scripts/README.md` for the full list (training, evaluation, significance
+testing, ablations, and plotting). Highlights:
+
+- `scripts/train_sparqlce.py` — CLI training script (`--kg`, `--seed`, `--ablation`)
 - `scripts/training/generate_training_triplets.py` — generate training triplets
-- `scripts/robustness/robustness_dataset_generation.py` — build perturbation datasets for robustness evaluation
-- `scripts/evaluation/eval_wikidata.py` — supplementary evaluation support script for Wikidata
 - `scripts/verify_invariances.py` — verify model invariances with a checkpoint
 
 ## Evaluation
@@ -178,5 +176,6 @@ Evaluation for DBpedia is conducted in the following notebooks:
 - **Test Metrics**: Final evaluation on the test split reports MRR, Hits@1, and Hits@5.
 
 ### Scripts
+See `scripts/README.md` for the full list.
+
 - `scripts/training/generate_training_triplets.py`: Generates triplets for training.
-- `scripts/robustness/robustness_dataset_generation.py`: Builds datasets for robustness evaluation.

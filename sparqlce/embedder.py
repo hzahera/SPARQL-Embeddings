@@ -8,19 +8,40 @@ from torch_geometric.data import Batch, Data
 from transformers import AutoTokenizer
 from .config import Config
 from .encoder import HybridSPARQLEncoder
-from .graph_builder import SPARQLGraphBuilder
+from .graph_builder import SPARQLGraphBuilder, WholeQueryGraphBuilder
+
+# Maps the 3-way ablation tag used by scripts/train_sparqlce.py to the
+# (encoder mode, graph builder) pair that reproduces it at inference time.
+# "no_decomposition" uses the *full* encoder architecture (GNN included) but
+# over a single-node whole-query graph -- see WholeQueryGraphBuilder.
+_ABLATION_TO_ENCODER_MODE = {"full": "full", "no_gnn": "no_gnn", "no_decomposition": "full"}
+_ABLATION_TO_BUILDER = {
+	"full": SPARQLGraphBuilder, "no_gnn": SPARQLGraphBuilder,
+	"no_decomposition": WholeQueryGraphBuilder,
+}
 
 class SPARQLEmbedder:
-	def __init__(self, checkpoint_path):
+	def __init__(self, checkpoint_path, ablation=None):
 		self.device = Config.DEVICE
-		self.model = HybridSPARQLEncoder().to(self.device)
-        
+
 		# Load the trained weights
 		print(f"Loading model from {checkpoint_path}...")
-		self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
+		checkpoint = torch.load(checkpoint_path, map_location=self.device)
+		# Accept both a raw state_dict (e.g. sparqlce/models/final_model_*.pt)
+		# and the wrapped {"model_state_dict": ..., "ablation": ...} dict that
+		# training checkpoints (best_model.pt) save.
+		if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+			state_dict = checkpoint["model_state_dict"]
+			ablation = ablation or checkpoint.get("ablation", "full")
+		else:
+			state_dict = checkpoint
+			ablation = ablation or "full"
+
+		self.model = HybridSPARQLEncoder(ablation=_ABLATION_TO_ENCODER_MODE[ablation]).to(self.device)
+		self.model.load_state_dict(state_dict)
 		self.model.eval()
         
-		self.builder = SPARQLGraphBuilder()
+		self.builder = _ABLATION_TO_BUILDER[ablation]()
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 
 	def _graph_to_data(self, G):
