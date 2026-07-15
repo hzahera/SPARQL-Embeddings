@@ -8,9 +8,10 @@ data-loading and ranking functions and adds per-anchor MRR/nDCG export instead
 of just the mean.
 
 Usage:
-    python scripts/eval_rq1_export.py --kg dbpedia \
-        --checkpoint checkpoints/dbpedia/seed42_full/best_model.pt \
-        --out results/significance/dbpedia_seed42_full.json
+    python eval_rq1_export.py   --kg wikidata   --model-type sentence-transformer   --model-name ./qwen_ft/qwen3_square_wikidata/best_adapter   --ablation baseline-qwen3ft   --out ../results/significance/wikidata_baseline_qwen3ft.json
+
+
+    python eval_rq1_export.py   --kg dbpedia   --model-type sentence-transformer   --model-name ./qwen_ft/qwen3_square_dbpedia/best_adapter   --ablation baseline-qwen3ft   --out ../results/significance/dbpedia_baseline_qwen3ft.json
 """
 import argparse
 import json
