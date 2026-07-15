@@ -8,7 +8,6 @@ Usage:
 """
 import json
 import argparse
-from pathlib import Path
 
 
 def extract_unique_queries(input_path, output_path):

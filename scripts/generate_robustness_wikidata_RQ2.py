@@ -9,7 +9,7 @@ import argparse
 import json
 import random
 import re
-from typing import List, Set, Optional
+from typing import List, Set
 from rdflib.plugins.sparql.parser import parseQuery
 
 

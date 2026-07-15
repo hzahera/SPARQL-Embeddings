@@ -1,40 +1,33 @@
-# Experiment: Multi-Seed Variance + Significance Test (RQ1)
+# Multi-seed variance and significance (RQ1)
 
-**Status: run complete.** Produced by `scripts/compute_significance.py`.
-Only the headline MRR@10 numbers and a one-line summary made it into the
-paper body (`sparql-embeddings-latex/Sections/experiments-v2.tex`,
-"Significance and seed variance" paragraph in §RQ1) due to the WSDM page
-budget — this file has the full per-metric table.
+Cross-seed variance and paired significance testing for the RQ1 retrieval
+results, computed with [`scripts/compute_significance.py`](../../scripts/compute_significance.py).
 
-## Goal
+## What this answers
 
-Two things a single-point-estimate table can't show:
-
-1. **Cross-seed variance for SparqlCE itself** — mean ± std of MRR/nDCG over
-   5 seeds, per KG. Answers "is the headline RQ1 result a lucky seed?"
+1. **Cross-seed variance for SparqlCE** — mean ± std of MRR/nDCG over 5 seeds,
+   per knowledge graph. Shows whether the headline RQ1 result depends on a
+   single lucky seed.
 2. **Paired significance vs. the strongest baseline** — a one-sided Wilcoxon
-   signed-rank test on per-anchor MRR/nDCG (SparqlCE vs. baseline on the
-   *same* anchors), using the seed whose score is closest to the cross-seed
-   mean (a representative seed, not the best one, to avoid cherry-picking).
+   signed-rank test on per-anchor MRR/nDCG (SparqlCE vs. baseline on the same
+   anchors), using the seed whose score is closest to the cross-seed mean (a
+   representative seed rather than the best one).
 
 ## Protocol
 
 - **Seeds:** 5 full retrains from scratch per KG (42, 43, 44, 45, 46), same
-  architecture/hyperparameters as the main run, only the seed changes.
-- **Baseline:** fine-tuned Qwen3 (`qwen3_square_{kg}/best_adapter`) — the
-  strongest baseline on both graphs in Table 3.
+  architecture/hyperparameters as the main run — only the seed changes.
+- **Baseline:** fine-tuned Qwen3, the strongest baseline on both graphs.
 - **Test:** one-sided Wilcoxon signed-rank (`scipy.stats.wilcoxon`,
-  `alternative="greater"`), paired per-anchor, at the representative seed
-  only (not aggregated across seeds — the cross-seed stats and the
-  significance test are two separate questions).
-- Reproduce with:
-  ```
-  python scripts/compute_significance.py \
-      --sparqlce-glob "results/significance/dbpedia_seed*_full.json" \
-      --baseline results/significance/dbpedia_baseline_qwen3ft.json \
-      --out results/significance/dbpedia_full_summary.json
-  ```
-  (swap `dbpedia` → `wikidata` for the other graph).
+  `alternative="greater"`), paired per-anchor, at the representative seed only.
+
+```bash
+python scripts/compute_significance.py \
+    --sparqlce-glob "results/significance/dbpedia_seed*_full.json" \
+    --baseline results/significance/dbpedia_baseline_qwen3ft.json \
+    --out results/significance/dbpedia_full_summary.json
+# swap dbpedia -> wikidata for the other graph
+```
 
 ## Results
 
@@ -72,14 +65,13 @@ Two things a single-point-estimate table can't show:
 - Std is small relative to mean everywhere (roughly 8-17%).
 - Std is noticeably tighter on Wikidata than DBpedia for the higher-k/nDCG
   metrics (e.g. nDCG@10: 0.0095 vs. 0.0218) — consistent with Wikidata's
-  near-binary Jaccard distribution (see the cosine-vs-Jaccard hexbin
-  discussion in the paper) making the evaluation pool less noisy.
+  near-binary Jaccard distribution making the evaluation pool less noisy.
 
 ## Files
 
-- `{dbpedia,wikidata}_seed{42..46}_full.json` — per-seed SparqlCE eval
-  export (`aggregate` + `per_anchor` scores), one per seed.
+- `{dbpedia,wikidata}_seed{42..46}_full.json` — per-seed SparqlCE eval export
+  (`aggregate` + `per_anchor` scores), one per seed.
 - `{dbpedia,wikidata}_baseline_qwen3ft.json` — fine-tuned Qwen3 eval export,
   same format, used as the paired-test baseline.
-- `{dbpedia,wikidata}_full_summary.json` — output of
-  `compute_significance.py`; source of the tables above.
+- `{dbpedia,wikidata}_full_summary.json` — output of `compute_significance.py`;
+  source of the tables above.

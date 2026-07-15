@@ -1,5 +1,8 @@
-# Evaluation for RQ1 (Wikidata)
+# RQ1 Evaluation (Wikidata)
 
-This directory contains evaluation notebooks for Research Question 1 (RQ1) on the Wikidata dataset.
-
-- `06_eval_sparqlce_wikidata.ipynb`: Evaluates retrieval metrics for SPARQLCE on Wikidata.
+- `06_eval_sparqlce_wikidata.ipynb` — retrieval metrics (MRR@{3,5,10,20},
+  nDCG@{3,5,10,20}) for SparqlCE vs. baselines on
+  `datasets/wikidata_testset_RQ1.json`.
+- `07_visualize_alignment_wikidata.ipynb` — hexbin plot of embedding cosine
+  similarity vs. answer-set Jaccard overlap, per model; saves
+  `results/cosine_vs_jaccard_wikidata.pdf`.

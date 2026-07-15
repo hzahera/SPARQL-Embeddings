@@ -1,30 +1,25 @@
 # Evaluation for Research Question 2 (RQ2)
 
-This folder contains notebooks and datasets for evaluating Research Question 2 (RQ2).
+RQ2: how robust are SparqlCE embeddings to structural query perturbations
+(variable renaming, triple reordering, redundant `OPTIONAL`, `UNION`
+duplication, subquery wrapping, `FILTER(true)`, `DISTINCT` toggling) that
+preserve the query's answer set?
 
 ## Contents
-- **robustness/**: Contains robustness evaluation notebooks and scripts.
 
-## How to Run
+- **`DBpedia/`** — robustness evaluation and visualization for DBpedia. See
+  [DBpedia/README.md](DBpedia/README.md).
+- **`Wikidata/`** — robustness evaluation and visualization for Wikidata. See
+  [Wikidata/README.md](Wikidata/README.md).
 
-1. **Set up the environment**:
-   - Ensure all dependencies are installed by running:
-     ```bash
-     pip install -r requirements.txt
-     ```
+## Data
 
-2. **Navigate to the notebook folder**:
-   ```bash
-   cd notebooks/evaluation-RQ2
-   ```
+- `datasets/dbpedia_testset_RQ2.json`, `datasets/wikidata_testset_RQ2.json` —
+  perturbation pairs (`original`, `perturbed`, `perturbation_type`), generated
+  by `scripts/generate_hard_robustness_dataset.py` /
+  `scripts/generate_robustness_wikidata_RQ2.py`.
 
-3. **Run the notebooks**:
-   - Open the desired notebook (e.g., `02_perturbation_eval.ipynb`) in Jupyter Notebook or VS Code.
-   - Execute the cells sequentially to reproduce the results.
+## Requirements
 
-4. **Datasets**:
-   - Ensure the required datasets are available in the `datasets` folder.
-
-## Notes
-- Results will be saved in the respective notebook folders.
-- Modify paths in the notebooks if running from a different directory structure.
+A trained SparqlCE checkpoint under `sparqlce/models/` (not tracked in git —
+see the main [README](../../README.md)).

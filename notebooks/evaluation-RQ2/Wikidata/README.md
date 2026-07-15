@@ -1,30 +1,30 @@
-# Evaluation for Research Question 2 (RQ2) - Wikidata
+# RQ2 Evaluation — Robustness (Wikidata)
 
-This folder contains notebooks and datasets for evaluating Research Question 2 (RQ2) on the Wikidata dataset.
+Notebooks for RQ2 ("How robust are SparqlCE embeddings to structural query
+perturbations?") on Wikidata.
 
 ## Contents
-- **robustness/**: Contains robustness evaluation notebooks and scripts for Wikidata.
 
-## How to Run
+- `04_eval_sparql_RQ2_wikidata.ipynb` — evaluates SparqlCE and text baselines
+  (TF-IDF, MiniLM, MPNet, E5-base, Qwen3) on `datasets/wikidata_testset_RQ2.json`;
+  reports mean cosine similarity and MRR before/after perturbation. Writes
+  `results/robustness/robustness_results_wikidata.json`.
+- `09_eval_qwen3_finetuned_RQ2_wikidata.ipynb` — same protocol for the
+  fine-tuned Qwen3 baseline (LoRA adapter trained by
+  `notebooks/finetuning/05_qwen3_contrastive_finetune_square_wikidata.ipynb`).
+  Writes `results/robustness/robustness_qwen3_finetuned_wikidata.json`.
+- `08_visualize_robustness_wikidata.ipynb` — builds the two-panel robustness
+  figure from `results/robustness/robustness_results_wikidata.json`.
 
-1. **Set up the environment**:
-   - Ensure all dependencies are installed by running:
-     ```bash
-     pip install -r requirements.txt
-     ```
+## How to run
 
-2. **Navigate to the notebook folder**:
-   ```bash
-   cd notebooks/evaluation-RQ2/Wikidata
-   ```
+```bash
+pip install -r requirements.txt
+cd notebooks/evaluation-RQ2/Wikidata
+jupyter lab
+```
 
-3. **Run the notebooks**:
-   - Open the desired notebook (e.g., `04_eval_sparql_RQ2_wikidata.ipynb`) in Jupyter Notebook or VS Code.
-   - Execute the cells sequentially to reproduce the results.
-
-4. **Datasets**:
-   - Ensure the required datasets are available in the `datasets` folder.
-
-## Notes
-- Results will be saved in the respective notebook folders.
-- Modify paths in the notebooks if running from a different directory structure.
+Run `04_eval_sparql_RQ2_wikidata.ipynb` (and optionally `09_...`) before
+`08_visualize_robustness_wikidata.ipynb`, since the visualization notebook
+reads their output JSON. Requires a trained SparqlCE checkpoint under
+`sparqlce/models/` (not tracked in git).

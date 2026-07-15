@@ -4,25 +4,26 @@ Utility scripts for dataset generation, evaluation, training, and analysis.
 
 ## Dataset generation
 
-- **`extract_unique_queries.py`** — extract unique SPARQL queries from hard triplet datasets.
+- **`extract_unique_queries.py`** — extract unique SPARQL queries from a hard
+  triplets JSON export (an intermediate dataset-construction artifact, not
+  tracked in this repo).
 
   ```bash
-  python scripts/extract_unique_queries.py --input data/hard_triplets_tfidf_dbpedia.json \
-    --output data/unique_queries_dbpedia.json
+  python scripts/extract_unique_queries.py --input hard_triplets_tfidf_dbpedia.json \
+    --output unique_queries_dbpedia.json
   ```
 
-- **`generate_hard_robustness_dataset.py`** — generate hard robustness evaluation datasets.
+- **`generate_hard_robustness_dataset.py`** — generate the DBpedia RQ2 perturbation dataset (`--input`/`--output`/`--seed`/`--types`).
 - **`generate_robustness_wikidata_RQ2.py`** — generate the Wikidata RQ2 perturbation dataset.
 - **`add_missing_perturbations.py`** — backfill missing perturbation types into an existing RQ2 dataset.
-- **`robustness/robustness_dataset_generation.py`** — provenance script for the RQ2 perturbation datasets.
 - **`training/generate_training_triplets.py`** — generate training triplets from unique queries via Jaccard similarity.
 
 ## Training
 
 - **`train_sparqlce.py`** — CLI training script (`--kg {dbpedia,wikidata} --seed N [--ablation {full,no_gnn,no_decomposition}]`),
   consolidating `notebooks/training/{train_dbpedia,train_wikidata}.ipynb` into something loopable for seed/ablation sweeps.
-- **`run_seed_sweep.sh`** — trains N seeds per KG and aggregates significance stats (Fatal #1 fix; see `docs/significance_and_ablation_plan.md`).
-- **`run_ablation_sweep.sh`** — trains the `no_gnn`/`no_decomposition` ablation variants and builds the ablation table (Fatal #2 fix).
+- **`run_seed_sweep.sh`** — trains N seeds per KG and aggregates significance stats; see `results/significance/README.md`.
+- **`run_ablation_sweep.sh`** — trains the `no_gnn`/`no_decomposition` ablation variants and builds the ablation table.
 
 ## Evaluation
 

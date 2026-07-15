@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Generate training triplets from unique SPARQL queries using Jaccard similarity."""
 
-import json, os, itertools, random, numpy as np
-from collections import defaultdict
+import json, os, random, numpy as np
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 # ---- Config ----
@@ -133,10 +132,6 @@ def main():
     random.shuffle(triplets)
     train_size = int(0.8 * len(triplets))
     val_size = int(0.1 * len(triplets))
-    
-    train = triplets[:train_size]
-    val = triplets[train_size:train_size + val_size]
-    test = triplets[train_size + val_size:]
     
     splits = {
         "train_indices": list(range(train_size)),
