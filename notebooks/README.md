@@ -11,6 +11,9 @@
   and Wikidata. See [evaluation-RQ2/README.md](evaluation-RQ2/README.md).
 - **`caching/`** — downstream semantic query-caching simulation. See
   [caching/README.md](caching/README.md).
+- **`compaction/`** — downstream query-log compaction (coreset selection),
+  the paper's current downstream-application experiment. See
+  [compaction/README.md](compaction/README.md).
 - **`visualization/`** — embedding space visualization. See
   [visualization/README.md](visualization/README.md).
 

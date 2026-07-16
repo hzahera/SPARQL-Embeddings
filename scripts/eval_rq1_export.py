@@ -84,7 +84,12 @@ def build_emb_map_peft_qwen3(adapter_path, queries, batch_size=8,
 
     adapter_path = str(adapter_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    # fp32 rather than bf16: this is inference on a few thousand queries, not
+    # training, so the memory/speed tradeoff doesn't apply, and fp32 removes
+    # one observed source of run-to-run non-determinism (see
+    # notebooks/caching/caching_simulation_dbpedia.ipynb for the repeated-run
+    # drift this was found from).
+    dtype = torch.float32
 
     tokenizer = AutoTokenizer.from_pretrained(adapter_path, padding_side="left")
     if tokenizer.pad_token_id is None:
