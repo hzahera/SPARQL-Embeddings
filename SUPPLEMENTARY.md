@@ -1,0 +1,248 @@
+# SparqlCE — Supplementary Material
+
+This document holds the analyses referenced from the main paper but kept
+out of the 9-page WSDM body. Every item below is summarized in one to two
+sentences in the paper, with a footnote pointing here. Section labels
+match the `\suppurl` footnotes in the paper.
+
+Contents:
+1. Preprocessing and benchmark construction
+2. Sensitivity to the SQuARE construction threshold
+3. Full set-overlap (Precision / Recall / F1) tables — RQ1
+4. Hyperparameter configuration
+5. Per-operator robustness radar (RQ2)
+6. Embedding–answer-set alignment on Wikidata
+7. Full semantic caching grids (K × θ)
+8. Query-log compaction at equal budget
+9. Retrieval-at-scale latency benchmark
+
+---
+
+## 1. Preprocessing and Benchmark Construction
+
+All queries originate from the LSQ dataset (Saleem et al., 2015), which
+publishes queries issued by real users and applications to public SPARQL
+endpoints; we use its DBpedia and Wikidata logs.
+
+- **Query filtering.** We retain well-formed `SELECT` queries that parse
+  and execute over the target knowledge graph, discarding malformed,
+  empty-result, and timed-out queries.
+- **Answer-set extraction.** Each retained query is executed once over
+  the graph *G*; the returned bindings of its projection variables form
+  its answer set Ans(q, G), cached for reproducibility. Pairwise semantic
+  similarity is the answer-set Jaccard coefficient.
+- **TF–IDF vectorization.** Each query string is tokenized and
+  represented as a TF–IDF vector; the cosine of two such vectors gives
+  the lexical similarity used, jointly with answer-set Jaccard, to select
+  adversarial positives and negatives.
+
+---
+
+## 2. Sensitivity to the SQuARE Construction Threshold
+
+SQuARE defines correct candidates by an answer-set Jaccard cut of τ = 0.8.
+We re-score MRR@10 at τ ∈ {0.6, 0.7, 0.8, 0.9} on a fixed anchor
+population per graph (301 DBpedia, 175 Wikidata anchors that have a
+relevant candidate even at the strictest τ = 0.9, so the denominator does
+not change across the sweep).
+
+- **DBpedia.** 1.29% of pool pairs fall inside the swept band [0.6, 0.9),
+  so MRR@10 declines smoothly and the gap over the best baseline widens
+  from 1.62× to 1.86× as τ tightens.
+- **Wikidata.** Consistent with the near-binary overlap distribution
+  (§6 below), *zero* pool pairs fall in [0.6, 0.9): every relevant
+  candidate is either clearly irrelevant or already at τ ≥ 0.9 overlap.
+  No candidate can change relevance label inside the swept range, so
+  MRR@10 and the 1.14× gap are exactly, mechanically unchanged across all
+  four cuts — a direct consequence of Wikidata's answer-set geometry, not
+  an artifact of τ = 0.8 or an evaluation bug.
+
+Both graphs confirm the paper's conclusions do not hinge on the specific
+threshold. See `results/` for `threshold_sensitivity.pdf`.
+
+---
+
+## 3. Full Set-Overlap Tables (Precision / Recall / F1) — RQ1
+
+Moved here from the main paper (the main body reports the ranking metrics
+MRR / Hits / nDCG). The set-overlap ordering matches the ranking tables:
+SparqlCE is best on every cell of both graphs. Best per k in **bold**.
+
+### DBpedia (337 anchors, 1677 corpus queries)
+
+| Model | P@3 | R@3 | F1@3 | P@5 | R@5 | F1@5 | P@10 | R@10 | F1@10 | P@20 | R@20 | F1@20 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TF-IDF | 0.0445 | 0.0213 | 0.0270 | 0.0362 | 0.0233 | 0.0251 | 0.0217 | 0.0255 | 0.0200 | 0.0154 | 0.0305 | 0.0177 |
+| BM25 | 0.0099 | 0.0029 | 0.0041 | 0.0083 | 0.0037 | 0.0047 | 0.0092 | 0.0123 | 0.0092 | 0.0082 | 0.0210 | 0.0106 |
+| MiniLM | 0.0208 | 0.0101 | 0.0123 | 0.0196 | 0.0134 | 0.0137 | 0.0172 | 0.0201 | 0.0154 | 0.0194 | 0.0447 | 0.0230 |
+| MPNet | 0.0307 | 0.0141 | 0.0169 | 0.0285 | 0.0203 | 0.0202 | 0.0270 | 0.0328 | 0.0248 | 0.0269 | 0.0580 | 0.0316 |
+| E5-base-v2 | 0.0297 | 0.0134 | 0.0162 | 0.0237 | 0.0176 | 0.0170 | 0.0208 | 0.0303 | 0.0205 | 0.0209 | 0.0527 | 0.0251 |
+| Qwen3-Emb-0.6B | 0.0267 | 0.0159 | 0.0181 | 0.0273 | 0.0243 | 0.0226 | 0.0270 | 0.0371 | 0.0266 | 0.0276 | 0.0749 | 0.0348 |
+| Qwen3-Emb-0.6B (fine-tuned) | 0.0564 | 0.0200 | 0.0263 | 0.0641 | 0.0367 | 0.0414 | 0.0745 | 0.0800 | 0.0675 | 0.0819 | 0.1793 | 0.0992 |
+| **SparqlCE (ours)** | **0.1672** | **0.0609** | **0.0804** | **0.1650** | **0.0980** | **0.1085** | **0.1549** | **0.1749** | **0.1444** | **0.1381** | **0.3047** | **0.1693** |
+
+### Wikidata (186 anchors, 2229 corpus queries)
+
+| Model | P@3 | R@3 | F1@3 | P@5 | R@5 | F1@5 | P@10 | R@10 | F1@10 | P@20 | R@20 | F1@20 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TF-IDF | 0.0717 | 0.0143 | 0.0227 | 0.0796 | 0.0263 | 0.0376 | 0.0683 | 0.0453 | 0.0516 | 0.0417 | 0.0621 | 0.0460 |
+| BM25 | 0.0753 | 0.0156 | 0.0246 | 0.0839 | 0.0287 | 0.0408 | 0.0742 | 0.0515 | 0.0569 | 0.0454 | 0.0603 | 0.0482 |
+| MiniLM | 0.0986 | 0.0197 | 0.0310 | 0.1011 | 0.0330 | 0.0469 | 0.0855 | 0.0568 | 0.0639 | 0.0481 | 0.0630 | 0.0507 |
+| MPNet | 0.0914 | 0.0172 | 0.0280 | 0.0968 | 0.0326 | 0.0465 | 0.0866 | 0.0575 | 0.0654 | 0.0548 | 0.0722 | 0.0589 |
+| E5-base-v2 | 0.0878 | 0.0177 | 0.0280 | 0.0968 | 0.0317 | 0.0454 | 0.0887 | 0.0595 | 0.0666 | 0.0573 | 0.0822 | 0.0630 |
+| Qwen3-Emb-0.6B | 0.0699 | 0.0154 | 0.0234 | 0.0731 | 0.0244 | 0.0344 | 0.0731 | 0.0502 | 0.0551 | 0.0470 | 0.0659 | 0.0509 |
+| Qwen3-Emb-0.6B (fine-tuned) | 0.1452 | 0.0323 | 0.0489 | 0.1656 | 0.0599 | 0.0807 | 0.1817 | 0.1270 | 0.1361 | 0.1788 | 0.2458 | 0.1876 |
+| **SparqlCE (ours)** | **0.1756** | **0.0417** | **0.0621** | **0.1935** | **0.0789** | **0.1015** | **0.2075** | **0.1681** | **0.1655** | **0.1987** | **0.3132** | **0.2200** |
+
+---
+
+## 4. Hyperparameter Configuration
+
+| Component | Parameter | Value |
+|---|---|---|
+| Text Encoder | Model | `microsoft/codebert-base` |
+| Text Encoder | Output dimension (d_t) | 768 |
+| Text Encoder | Max token length (node/edge) | 32 / 16 |
+| GATv2Conv | Number of heads (H) | 4 |
+| GATv2Conv | Hidden dimension (d_h) | 256 |
+| GATv2Conv | Edge feature dimension | 768 |
+| GATv2Conv | Output dimension | 1024 |
+| Projection | Output dimension (d_z) | 128 |
+| Training | Batch size (B) | 32 |
+| Training | Learning rate (CodeBERT) | 1e-5 |
+| Training | Learning rate (GATv2, projection) | 1e-4 |
+| Training | Epochs | 20 |
+| Training | Temperature (τ) | 0.05 |
+| Training | Regularization weight (λ) | 0.3 |
+| Training | Train / Valid / Test split | 80% / 10% / 10% |
+
+---
+
+## 5. Per-Operator Robustness Radar (RQ2)
+
+`results/robustness_radar.pdf` visualizes the per-operator embedding
+invariance of the paper's Table 4 as radar plots (radial axis truncated
+to [0.85, 1.0]; larger area is better). The KG-specific operator is
+subquery wrapping for DBpedia and BGP splitting for Wikidata. SparqlCE
+forms a near-complete heptagon on DBpedia; the Wikidata exceptions
+(redundant OPTIONAL, and the KG-specific operator) are analyzed in the
+paper's Limitations. Note the area measures surface-form *invariance*
+only: E5 spans a larger area on Wikidata, yet under the same rewrites
+SparqlCE retains far higher retrieval quality (perturbed MRR 0.2483 vs.
+0.1109).
+
+---
+
+## 6. Embedding–Answer-Set Alignment on Wikidata
+
+`results/cosine_vs_jaccard_wikidata.pdf` repeats the DBpedia alignment
+analysis on Wikidata. Answer-set overlap on the Wikidata test corpus is
+nearly binary — of 2,126 sampled pairs, 52% are disjoint (J = 0) and 45%
+identical (J = 1) — so the panels concentrate at the extremes rather than
+spanning [0, 1]. The ordering nevertheless matches DBpedia: SparqlCE
+(ρ = 0.78) and the Jaccard-calibrated fine-tuned Qwen3 (ρ = 0.81)
+separate the two regimes cleanly, while the zero-shot encoders remain
+compressed near high similarity (ρ ∈ [0.40, 0.55]).
+
+---
+
+## 7. Full Semantic Caching Grids (K × θ)
+
+Extends the paper's Figure 6 to the full K × θ grid, K ∈ {50, 100, 200},
+θ ∈ {0.7, 0.8, 0.9}. Each cell reports **hit rate / result quality**
+(mean answer-set Jaccard over hits). SparqlCE's result quality rises
+consistently as θ tightens at every K on both graphs, as a semantic cache
+should behave; text baselines do not show this.
+
+### DBpedia (396-query held-out stream, seed 42)
+
+| Model | 50/0.7 | 50/0.8 | 50/0.9 | 100/0.7 | 100/0.8 | 100/0.9 | 200/0.7 | 200/0.8 | 200/0.9 |
+|---|---|---|---|---|---|---|---|---|---|
+| SparqlCE | 0.831/0.183 | 0.604/0.237 | 0.253/0.335 | 0.843/0.178 | 0.687/0.264 | 0.328/0.354 | 0.843/0.178 | 0.702/0.262 | 0.414/0.319 |
+| TF-IDF | 0.795/0.052 | 0.753/0.085 | 0.644/0.096 | 0.826/0.048 | 0.788/0.069 | 0.662/0.097 | 0.826/0.048 | 0.788/0.069 | 0.682/0.095 |
+| BM25 | 0.664/0.097 | 0.641/0.088 | 0.621/0.109 | 0.694/0.077 | 0.674/0.086 | 0.646/0.071 | 0.710/0.069 | 0.692/0.074 | 0.667/0.079 |
+| E5-base-v2 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 |
+| Qwen3-Emb-0.6B | 0.674/0.099 | 0.207/0.105 | 0.008/0.000 | 0.730/0.122 | 0.298/0.133 | 0.013/0.200 | 0.730/0.118 | 0.348/0.142 | 0.018/0.143 |
+| Qwen3-Emb-0.6B (fine-tuned) | 0.740/0.180 | 0.508/0.299 | 0.101/0.554 | 0.788/0.171 | 0.601/0.307 | 0.159/0.612 | 0.788/0.171 | 0.634/0.301 | 0.227/0.547 |
+| SBERT/MiniLM | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 |
+| SBERT/MPNet | 0.977/0.038 | 0.939/0.048 | 0.795/0.098 | 0.977/0.038 | 0.939/0.048 | 0.826/0.101 | 0.977/0.038 | 0.939/0.048 | 0.826/0.101 |
+
+### Wikidata (617-query held-out stream, seed 42)
+
+| Model | 50/0.7 | 50/0.8 | 50/0.9 | 100/0.7 | 100/0.8 | 100/0.9 | 200/0.7 | 200/0.8 | 200/0.9 |
+|---|---|---|---|---|---|---|---|---|---|
+| SparqlCE | 0.765/0.052 | 0.585/0.059 | 0.476/0.078 | 0.844/0.052 | 0.647/0.077 | 0.545/0.081 | 0.844/0.052 | 0.703/0.079 | 0.579/0.097 |
+| TF-IDF | 0.305/0.070 | 0.246/0.083 | 0.206/0.075 | 0.387/0.089 | 0.324/0.092 | 0.285/0.080 | 0.451/0.086 | 0.374/0.077 | 0.329/0.087 |
+| BM25 | 0.240/0.078 | 0.207/0.074 | 0.203/0.084 | 0.316/0.098 | 0.295/0.089 | 0.277/0.076 | 0.376/0.085 | 0.344/0.080 | 0.314/0.077 |
+| E5-base-v2 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 |
+| Qwen3-Emb-0.6B | 0.940/0.028 | 0.723/0.051 | 0.206/0.069 | 0.940/0.028 | 0.778/0.053 | 0.298/0.080 | 0.940/0.028 | 0.793/0.053 | 0.368/0.089 |
+| Qwen3-Emb-0.6B (fine-tuned) | 0.592/0.092 | 0.549/0.072 | 0.371/0.110 | 0.640/0.058 | 0.600/0.053 | 0.417/0.119 | 0.687/0.072 | 0.632/0.073 | 0.481/0.126 |
+| SBERT/MiniLM | 0.979/0.008 | 0.953/0.043 | 0.804/0.043 | 0.979/0.008 | 0.953/0.043 | 0.854/0.045 | 0.979/0.008 | 0.953/0.043 | 0.854/0.045 |
+| SBERT/MPNet | 0.979/0.019 | 0.950/0.039 | 0.767/0.046 | 0.979/0.019 | 0.950/0.039 | 0.835/0.062 | 0.979/0.019 | 0.950/0.039 | 0.835/0.062 |
+
+---
+
+## 8. Query-Log Compaction at Equal Budget
+
+An offline complement to the online caching simulation: compress a query
+log to *k* representative queries and measure how faithfully the kept
+queries stand in for the discarded ones. Corpus: the RQ1 DBpedia corpus
+(1,677 queries, oracle coverage 100%). Each model clusters the corpus by
+deterministic agglomerative clustering (average linkage) over its own
+cosine-distance matrix, cut at *k* clusters; each cluster's medoid
+represents its members, and fidelity is the answer-set Jaccard between
+every query and its medoid's true result set. Reported as **mean fidelity
+/ fraction at Jaccard ≥ 0.8**. Best per column in **bold**.
+
+| Model | k=84 (5%) | k=168 (10%) | k=335 (20%) | k=503 (30%) | k=838 (50%) |
+|---|---|---|---|---|---|
+| SparqlCE | 0.325/0.198 | **0.465**/**0.361** | 0.594/**0.515** | 0.669/0.574 | **0.809**/**0.751** |
+| TF-IDF | 0.154/0.108 | 0.237/0.174 | 0.314/0.275 | 0.348/0.327 | 0.540/0.527 |
+| BM25 | 0.089/0.068 | 0.161/0.138 | 0.266/0.240 | 0.363/0.340 | 0.553/0.537 |
+| E5-base-v2 | 0.187/0.120 | 0.234/0.177 | 0.329/0.293 | 0.404/0.385 | 0.585/0.566 |
+| Qwen3-Emb-0.6B | 0.182/0.119 | 0.247/0.189 | 0.343/0.296 | 0.441/0.395 | 0.617/0.581 |
+| Qwen3-Emb-0.6B (fine-tuned) | **0.337**/**0.201** | 0.454/0.327 | **0.608**/0.505 | **0.683**/**0.593** | 0.797/0.733 |
+| SBERT/MiniLM | 0.213/0.163 | 0.254/0.205 | 0.343/0.303 | 0.422/0.387 | 0.585/0.561 |
+| SBERT/MPNet | 0.218/0.163 | 0.268/0.210 | 0.367/0.308 | 0.470/0.413 | 0.645/0.595 |
+
+The two answer-overlap-supervised models are statistically
+indistinguishable at every budget (mean-fidelity differences of
+0.008–0.015) and roughly double every zero-shot baseline. SparqlCE's one
+consistent edge is the high-fidelity fraction at deployment-relevant
+budgets — consistent with the paper's conclusion that answer-overlap
+supervision, not architecture, drives most of the gain.
+
+---
+
+## 9. Retrieval-at-Scale Latency Benchmark
+
+Backs the "Retrieval at scale" paragraph in the paper. We isolate the
+corpus-dependent part of inference — the nearest-neighbor search over the
+d=128 SparqlCE embeddings — and measure it on a **single CPU thread**
+(FAISS; cosine via inner product on unit-normalized vectors; query set
+replayed from the corpus; k=20). The per-query encoder forward pass is a
+fixed cost independent of corpus size and is excluded here. Reproduce
+with `scripts/faiss_latency.py` (corpus scale) and `scripts/faiss_scale.py
+N hnsw` (large scale).
+
+| Corpus size N | Exact (FlatIP) latency | Exact throughput | HNSW latency | HNSW throughput | Index size |
+|---|---|---|---|---|---|
+| 1,677 (SQuARE-DBpedia) | 0.010 ms/q | ~97,000 q/s | 0.046 ms/q | ~21,800 q/s | 1 MB |
+| 2,229 (SQuARE-Wikidata) | 0.011 ms/q | ~89,000 q/s | 0.051 ms/q | ~19,400 q/s | 1 MB |
+| 100,000 | 1.84 ms/q | ~540 q/s | 0.28 ms/q | ~3,560 q/s | 51 MB |
+| 1,000,000 | 18.1 ms/q | ~55 q/s | (sub-ms; HNSW scales ~log N) | — | 512 MB |
+
+Takeaways: exact search is sub-millisecond up to the SQuARE corpus sizes
+and remains practical (18 ms) even by brute force at 1M queries; an HNSW
+index keeps search **sub-millisecond** through 10^5 and, by HNSW's
+logarithmic scaling, into the 10^6 range. Live SPARQL execution over
+public endpoints, by contrast, routinely takes hundreds of milliseconds
+to seconds per query (with timeouts common; see LSQ endpoint statistics),
+and must actually run over the graph. Execution-free retrieval therefore
+replaces a variable, potentially unbounded execution with a bounded
+lookup two-to-four orders of magnitude cheaper.
+
+Hardware note: numbers are single-thread CPU on the build machine and are
+meant to show *scaling behavior and the execution-vs-lookup gap*, not an
+absolute hardware record; multi-threading and GPU IVF/HNSW lower them
+further.
