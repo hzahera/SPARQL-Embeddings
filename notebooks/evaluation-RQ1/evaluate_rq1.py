@@ -383,3 +383,58 @@ def evaluate_sparql_encoder_baselines(eval_items, global_corpus, relevance_score
                 relevance_scores_per_item, topks, batch_size=batch_size)
         except Exception as e:
             print(f"Skip {display_name} ({model_id}): {e}")
+
+
+# ----------------------------
+# Generative code-LLM baseline (decoder model used off-label as an embedder)
+# ----------------------------
+# Qwen2.5-Coder is a *generative* code LLM, not a purpose-built embedder. We
+# embed it the standard way a decoder LM is turned into an embedder — mean/last
+# hidden state of the final non-padding token (last-token pooling), L2-norm.
+# Scale note: Qwen2.5-Coder-0.5B is chosen to roughly match the ~0.6B dense
+# Qwen3-Embedding it replaces, keeping backbone scale comparable. This is a
+# code-specialized LLM reference point; it is not trained for retrieval, so
+# treat its zero-shot embedding quality accordingly.
+def _causal_last_token_pool(last_hidden_states, attention_mask):
+    left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
+    if left_padding:
+        return last_hidden_states[:, -1]
+    seq_lens = attention_mask.sum(dim=1) - 1
+    idx = torch.arange(last_hidden_states.shape[0], device=last_hidden_states.device)
+    return last_hidden_states[idx, seq_lens]
+
+
+def build_emb_map_code_llm(model_id, queries, batch_size=16, max_length=512):
+    """Encode queries with a decoder code-LLM via last-token pooling."""
+    from transformers import AutoModel, AutoTokenizer
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    tokenizer = AutoTokenizer.from_pretrained(model_id, padding_side="left")
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    model = AutoModel.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+    ).to(device).eval()
+    emb_map = {}
+    with torch.no_grad():
+        for i in range(0, len(queries), batch_size):
+            batch = list(queries[i:i + batch_size])
+            enc = tokenizer(batch, padding=True, truncation=True,
+                            max_length=max_length, return_tensors="pt").to(device)
+            out = model(input_ids=enc["input_ids"], attention_mask=enc["attention_mask"])
+            pooled = _causal_last_token_pool(out.last_hidden_state, enc["attention_mask"])
+            pooled = torch.nn.functional.normalize(pooled.float(), p=2, dim=1)
+            for q, e in zip(batch, pooled.cpu().numpy()):
+                emb_map[q] = e
+    return emb_map
+
+
+def evaluate_code_llm(model_id, display_name, eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=16):
+    """Zero-shot decoder code-LLM (e.g. Qwen2.5-Coder) as an embedder via
+    last-token pooling. Off-label use of a generative model; see note above."""
+    try:
+        emb_map = build_emb_map_code_llm(model_id, global_corpus, batch_size=batch_size)
+        sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus)
+        report(display_name, sorted_pools, eval_items, relevance_scores_per_item, topks)
+    except Exception as e:
+        print(f"Skip {display_name} ({model_id}): {e}")
