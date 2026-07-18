@@ -304,3 +304,4 @@ desktop.ini
 .vscode/
 .idea/
 # <<< latex-auto-sync (managed) <<<
+.claude/
