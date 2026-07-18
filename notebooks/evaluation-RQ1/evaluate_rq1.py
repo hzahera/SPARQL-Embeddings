@@ -351,3 +351,35 @@ def evaluate_sparqlce_checkpoint(checkpoint_path, eval_items, global_corpus, rel
     emb_map = build_emb_map_sparqlce(model, global_corpus, batch_size=batch_size)
     sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus)
     report("SPARQLCE", sorted_pools, eval_items, relevance_scores_per_item, topks)
+
+
+# ----------------------------
+# Prior-literature SPARQL / code encoder baselines (zero-shot)
+# ----------------------------
+# Encoders used to represent SPARQL or code in prior work. Loaded as raw HF
+# encoders; SentenceTransformer wraps each with MEAN pooling.
+#
+# NOTE: the "No sentence-transformers model found ... Creating a new one with
+# MEAN pooling" notice these emit is the CORRECT behavior here — they are
+# plain MLM encoders with no pooling head, and mean pooling is the standard
+# way to obtain a sentence embedding from them. This is NOT the LoRA-adapter
+# mis-pooling bug guarded against in scripts/eval_rq1_export.py (that concerned
+# a fine-tuned adapter trained with last-token pooling).
+SPARQL_ENCODER_BASELINES = [
+    ("microsoft/codebert-base",      "CodeBERT (zero-shot)"),       # SparqlCE's own backbone, zero-shot
+    ("microsoft/graphcodebert-base", "GraphCodeBERT (zero-shot)"),  # CodeBERT + data-flow graph
+    ("razent/spbert-mlm-wso-base",   "SPBERT (zero-shot)"),         # BERT pretrained on SPARQL (alt ids: razent/spbert-mlm-zero)
+]
+
+
+def evaluate_sparql_encoder_baselines(eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=32):
+    """Evaluate the prior-literature SPARQL/code encoder baselines (zero-shot,
+    mean-pooled). Roster: SPARQL_ENCODER_BASELINES. Each model is wrapped in a
+    try/except so one unavailable checkpoint doesn't abort the rest."""
+    for model_id, display_name in SPARQL_ENCODER_BASELINES:
+        try:
+            evaluate_sentence_transformer(
+                model_id, display_name, eval_items, global_corpus,
+                relevance_scores_per_item, topks, batch_size=batch_size)
+        except Exception as e:
+            print(f"Skip {display_name} ({model_id}): {e}")

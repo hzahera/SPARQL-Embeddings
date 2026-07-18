@@ -1,8 +1,12 @@
 # Evaluation for Research Question 1 (RQ1)
 
 RQ1: how well do SparqlCE embeddings retrieve queries with overlapping answer
-sets, compared to text-only baselines (TF-IDF, BM25, MiniLM, MPNet, E5-base,
-Qwen3)?
+sets, compared to baselines? The baseline roster covers lexical (TF-IDF,
+BM25), general sentence encoders (MiniLM, MPNet, E5-base, Qwen3 zero-shot),
+and **prior-literature SPARQL/code encoders** — CodeBERT (SparqlCE's own
+backbone, zero-shot), GraphCodeBERT (CodeBERT + data-flow graph), and SPBERT
+(BERT pretrained on SPARQL). The fine-tuned baseline is capacity-matched
+E5-base-v2 (see `notebooks/finetuning/`).
 
 ## Contents
 
@@ -16,7 +20,10 @@ Qwen3)?
   Jaccard distribution (bimodality / grey-zone mass) and RQ1 MRR@10 under the
   correctness threshold τ ∈ {0.6, 0.7, 0.8, 0.9}.
 - **`evaluate_rq1.py`** — shared evaluation helper (SparqlCE + baseline
-  retrieval metrics) imported by the `06_eval_sparqlce_*` notebooks.
+  retrieval metrics) imported by the `06_eval_sparqlce_*` notebooks. The
+  prior-literature SPARQL/code encoder roster is defined here as
+  `SPARQL_ENCODER_BASELINES` and run via `evaluate_sparql_encoder_baselines(...)`
+  (one cell in each `06_*` notebook).
 
 ## How to run
 
