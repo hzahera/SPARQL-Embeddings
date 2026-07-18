@@ -13,7 +13,7 @@ weights), so sentence-transformers silently falls back to
 not the **last-token pooling** this model was actually trained and evaluated
 with everywhere else. No error is raised. Rerun with the corrected
 `--model-type peft-qwen3` (see
-[`notebooks/evaluation-RQ1/{DBpedia,Wikidata}/09_fix_qwen3_finetuned_baseline_*.ipynb`](../../notebooks/evaluation-RQ1/)),
+`scripts/eval_rq1_export.py --model-type peft-qwen3`, per that script's docstring),
 DBpedia's baseline MRR@10 moved 0.098 → 0.1093 (now matching the correctly-loaded
 0.1091 in `tables/tab-RQ1-DBpedia.tex`) and Wikidata's moved 0.1193 → 0.1939
 (matching 0.1927 in `tables/tab-RQ1-Wikidata.tex`) — a much larger correction
@@ -39,11 +39,18 @@ affected — it was always loaded via `SPARQLEmbedder`, not
   architecture/hyperparameters as the main run — only the seed changes.
 - **Baseline:** fine-tuned Qwen3, the strongest baseline on both graphs.
   Generate/regenerate it with
-  [`notebooks/evaluation-RQ1/{DBpedia,Wikidata}/09_fix_qwen3_finetuned_baseline_*.ipynb`](../../notebooks/evaluation-RQ1/)
-  (equivalently, `eval_rq1_export.py --model-type peft-qwen3`) — **not**
+  `scripts/eval_rq1_export.py --model-type peft-qwen3` — **not**
   `--model-type sentence-transformer`, which silently mean-pools a bare LoRA
   adapter directory instead of using the last-token pooling this model was
   trained with (see the correction note above).
+
+  **⚠ Unverified as of 2026-07-18:** `{dbpedia,wikidata}_baseline_qwen3ft.json`
+  on disk still has `"model_type": "sentence-transformer"` (the buggy value)
+  and its last commit predates the fix (`3b7cd53`). The "corrected" numbers
+  below may describe an intended/expected result rather than what these files
+  currently contain — re-run the export with `--model-type peft-qwen3`,
+  confirm the output JSON's `model_type` field says `peft-qwen3`, then re-run
+  `compute_significance.py` before trusting this section.
 - **Test:** one-sided Wilcoxon signed-rank (`scipy.stats.wilcoxon`,
   `alternative="greater"`), paired per-anchor, at the representative seed only.
 

@@ -37,3 +37,4 @@ Utility scripts for dataset generation, evaluation, training, and analysis.
 
 - **`plot_robustness_radar.py`** — per-operator robustness radar (paper appendix figure).
 - **`plot_rank_stability.py`** — MRR-before/after-perturbation bar chart.
+- **`plot_caching_utility.py`** — hit-rate × quality utility curve (paper's `fig:caching`); see `notebooks/caching/README.md`.

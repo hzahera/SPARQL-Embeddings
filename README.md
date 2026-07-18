@@ -26,7 +26,8 @@ SPARQL-Embeddings/
 │   ├── finetuning/              # Qwen3 baseline fine-tuning
 │   ├── evaluation-RQ1/          # RQ1: retrieval evaluation
 │   ├── evaluation-RQ2/          # RQ2: robustness evaluation
-│   ├── caching/                 # Downstream semantic caching simulation
+│   ├── compaction/              # Downstream: query-log compaction (current downstream-application experiment)
+│   ├── caching/                 # Downstream: semantic caching simulation (superseded by compaction/ — kept for reference)
 │   └── visualization/           # Embedding space visualization
 ├── scripts/                    # CLI scripts for training, evaluation, and analysis (see scripts/README.md)
 ├── results/                     # Evaluation outputs (figures, significance tables, robustness JSON)
@@ -114,7 +115,8 @@ Evaluation workflows are primarily notebooks under `notebooks/`:
 
 - `notebooks/evaluation-RQ1/` — retrieval evaluation (MRR, nDCG) and embedding-geometry visualization for DBpedia and Wikidata.
 - `notebooks/evaluation-RQ2/` — robustness to structural query perturbations for DBpedia and Wikidata.
-- `notebooks/caching/` — downstream semantic query-caching simulation.
+- `notebooks/compaction/` — downstream query-log compaction (coreset selection) — the paper's current downstream-application experiment.
+- `notebooks/caching/` — downstream semantic query-caching simulation. Superseded by `notebooks/compaction/` (shared-θ fairness across differently-calibrated embedding spaces, and sequential/path-dependent simulation that amplified GPU non-determinism); kept for reference, not the numbers reported in the paper.
 
 `results/significance/` documents multi-seed variance and significance
 testing against the strongest baseline; see
