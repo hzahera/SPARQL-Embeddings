@@ -32,3 +32,12 @@ Place these in `datasets/` before running the Wikidata notebooks:
   of that endpoint's dump.
 
 Both files are available from the authors on request.
+
+## RQ1 test sets — adversarial construction (SQuARE)
+
+`{dbpedia,wikidata}_testset_RQ1.json` are built from the **held-out** `test_idx`
+(leak-free: 0 anchors overlap train/val) keeping only **adversarial positives** —
+answer-set Jaccard > 0.8 **and** TF-IDF cosine to the anchor < 0.3 — with the
+triplets' hard negatives (lexically similar / answer different) as distractors.
+This isolates the answer-equivalent / surface-divergent regime SQuARE targets.
+Sizes: DBpedia 123 anchors / 550 corpus; Wikidata 474 / 1843.
