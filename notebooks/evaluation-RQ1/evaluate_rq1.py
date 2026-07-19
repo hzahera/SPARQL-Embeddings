@@ -328,24 +328,32 @@ def _lexical_cos_fn(eval_items):
 
 def report_stratified(sorted_pools, eval_items, topks, bins):
     """Per-bin MRR by anchor-positive lexical (TF-IDF cosine) similarity.
-    For each bin, relevance is restricted to positives whose lexical similarity
-    to the anchor falls in [lo, hi); anchors with no such positive are skipped."""
+    `bins` are range boundaries used only to GROUP positives; the printed
+    `mean_cos` / `median_cos` columns report the actual TF-IDF cosine values
+    observed within each bin, so the number that gets quoted is never just
+    the ambiguous range label like "[0.3,0.5)"."""
     cos = _lexical_cos_fn(eval_items)
     print("  -- stratified by anchor-positive lexical similarity (TF-IDF cosine) --")
-    print(f"    {'lexical bin':>12} {'anchors':>8} " + " ".join(f"MRR@{k:<4}" for k in topks))
+    print(f"    {'lexical bin':>12} {'mean_cos':>9} {'median_cos':>11} {'anchors':>8} " +
+          " ".join(f"MRR@{k:<4}" for k in topks))
     for lo, hi in bins:
-        sp_sub, it_sub = [], []
+        sp_sub, it_sub, cos_vals = [], [], []
         for sp, (a, pool, pos) in zip(sorted_pools, eval_items):
-            inb = {p for p in pos if lo <= cos(a, p) < hi}
+            scored = {p: cos(a, p) for p in pos}
+            inb = {p for p, c in scored.items() if lo <= c < hi}
             if inb:
                 sp_sub.append(sp)
                 it_sub.append((a, pool, inb))
+                cos_vals.extend(scored[p] for p in inb)
         label = f"[{lo:.1f},{hi:.1f})"
         if not it_sub:
-            print(f"    {label:>12} {0:>8}   (no anchors)")
+            print(f"    {label:>12} {'--':>9} {'--':>11} {0:>8}   (no anchors)")
             continue
+        mean_cos = float(np.mean(cos_vals))
+        median_cos = float(np.median(cos_vals))
         mrrs = [avg_mrr_at_k_annotated(sp_sub, it_sub, k) for k in topks]
-        print(f"    {label:>12} {len(it_sub):>8} " + " ".join(f"{m:8.4f}" for m in mrrs))
+        print(f"    {label:>12} {mean_cos:9.4f} {median_cos:11.4f} {len(it_sub):>8} " +
+              " ".join(f"{m:8.4f}" for m in mrrs))
 
 
 def report(
