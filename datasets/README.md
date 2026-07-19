@@ -66,3 +66,35 @@ construction per RQ across both KGs**.
   not support it. Report DBpedia RQ2 on the 6 well-covered operators. (The
   paper's earlier `subquery_wrapping` coverage came from perturbing a *leaky*
   corpus, so it is not usable here.)
+
+### RQ1 "hard adversarial" sets (`{dbpedia,wikidata}_testset_RQ1_hard.json`)
+
+A stricter, motivating-example version of RQ1: for each held-out anchor, pick
+the single **hardest positive** (answer-Jaccard ≥ 0.8, lexical cosine ≤ 0.3 —
+result-equivalent but surface-divergent) and the single **hardest negative**
+(lexical cosine ≥ 0.8, answer-Jaccard ≤ 0.2 — surface-similar but
+result-different). This is the sharpest statement of the paper's thesis, but
+be aware of what the real data supports before quoting it:
+
+- **DBpedia** (`scripts/build_hard_adversarial_rq1.py`, run in-repo,
+  verified against the paper's own stored Jaccard values byte-for-byte):
+  472 unique held-out anchors is the hard ceiling (that's the entire test
+  set). Only **87/472 anchors** actually clear *both* thresholds
+  simultaneously. The shipped file has 500 rows because the 472 unique-anchor
+  rows are padded with each anchor's 2nd-best (positive, negative) pair,
+  ranked by a `hardness_score`, to reach a round number — every row carries
+  `meets_strict_bar: true/false` and a `slot` index (0 = anchor's best pair)
+  so this is fully auditable. **Report the 87 as the headline "hard
+  adversarial" number**; treat the extended 500 as a ranked robustness check,
+  not as "500 hard cases."
+- **Wikidata** (`scripts/build_hard_adversarial_rq1_wikidata.py`): its cached
+  result sets (`result_sets_wikidata.json`) run up to 6.6M rows per query, so
+  an exact corpus-wide Jaccard scan (as done for DBpedia) is not tractable.
+  This script instead does a cheap TF-IDF lexical candidate search over the
+  full corpus, then a **single streaming pass** (`ijson`, verified correct
+  against a synthetic test file) over the 6.4GB result-sets file to resolve
+  exact Jaccard only for the needed (anchor, candidate) pairs — must be run
+  on the cluster, not in a memory-constrained sandbox; not yet executed.
+  Result-set-vs-result-set Jaccard for anomalously huge answer sets is capped
+  at `--max-rows-per-query` (default 200k) and is therefore approximate for
+  that handful of queries.

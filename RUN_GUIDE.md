@@ -43,6 +43,39 @@ Qwen3-Embedding is **dense** (not MoE) and has been dropped in favor of Qwen2.5-
 - `notebooks/evaluation-RQ1/{DBpedia,Wikidata}/07_visualize_alignment_*.ipynb` (Fig. 3 ρ)
 - (optional) `notebooks/evaluation-RQ1/threshold_sensitivity_{dbpedia,wikidata}.ipynb`
 
+### Step 3b — RQ1 hard-adversarial sets (motivating-example evaluation)
+
+DBpedia — already built and committed, `datasets/dbpedia_testset_RQ1_hard.json`
+(472 unique anchors, padded to 500 rows; 87 meet the full strict bar — see
+`datasets/README.md`). Re-run only if you change thresholds:
+
+```bash
+python scripts/build_hard_adversarial_rq1.py \
+  --kg dbpedia --triplets datasets/dbpedia-triplets-dataset.json \
+  --splits datasets/splits_dbpedia.json \
+  --result-sets datasets/result_sets_dbpedia.json \
+  --out datasets/dbpedia_testset_RQ1_hard.json --target-n 500
+```
+
+Wikidata — **must run on the cluster** (result_sets_wikidata.json is 6.4GB,
+individual result sets run to millions of rows; not tractable in a
+memory-constrained environment). Single streaming pass, so runtime is
+dominated by disk I/O reading the whole 6.4GB file once — expect it to take a
+while:
+
+```bash
+python scripts/build_hard_adversarial_rq1_wikidata.py \
+  --triplets datasets/wikidata-triplets-dataset.json \
+  --splits datasets/splits_wikidata.json \
+  --result-sets datasets/result_sets_wikidata.json \
+  --out datasets/wikidata_testset_RQ1_hard.json \
+  --target-n 500 --top-k-candidates 30
+```
+
+Send me the printed summary line (`N rows from M unique anchors ... K/N meet
+the full strict bar`) once it finishes — I'll fold the real numbers into the
+paper text instead of guessing.
+
 ## Step 4 — RQ2 (robustness)
 
 - `notebooks/evaluation-RQ2/DBpedia/04_eval_sparql_RQ2_dbpedia.ipynb`
