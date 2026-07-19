@@ -299,6 +299,55 @@ def avg_mean_rel_at_k(sorted_pools, rel_maps, k):
 # Report
 # ----------------------------
 
+# When set to a list of (lo, hi) TF-IDF-cosine bins, every report() call also
+# emits a per-bin breakdown of MRR by anchor-positive lexical similarity, so we
+# can show WHERE each method wins (lexical methods hold on high-similarity
+# positives, collapse on surface-divergent ones; SparqlCE stays flat).
+# Set from a notebook:  import evaluate_rq1; evaluate_rq1.STRATIFY_BINS = [...]
+STRATIFY_BINS = None
+
+
+def _lexical_cos_fn(eval_items):
+    """Fit TF-IDF on the anchors+positives in eval_items; return cos(anchor, pos)."""
+    texts = set()
+    for a, _pool, pos in eval_items:
+        texts.add(a)
+        texts.update(pos)
+    texts = list(texts)
+    ridx = {q: i for i, q in enumerate(texts)}
+    Xv = sk_normalize(
+        TfidfVectorizer(analyzer="word", ngram_range=(1, 2)).fit_transform(texts),
+        norm="l2", axis=1,
+    )
+    def cos(a, p):
+        if a not in ridx or p not in ridx:
+            return 0.0
+        return float(Xv[ridx[a]].multiply(Xv[ridx[p]]).sum())
+    return cos
+
+
+def report_stratified(sorted_pools, eval_items, topks, bins):
+    """Per-bin MRR by anchor-positive lexical (TF-IDF cosine) similarity.
+    For each bin, relevance is restricted to positives whose lexical similarity
+    to the anchor falls in [lo, hi); anchors with no such positive are skipped."""
+    cos = _lexical_cos_fn(eval_items)
+    print("  -- stratified by anchor-positive lexical similarity (TF-IDF cosine) --")
+    print(f"    {'lexical bin':>12} {'anchors':>8} " + " ".join(f"MRR@{k:<4}" for k in topks))
+    for lo, hi in bins:
+        sp_sub, it_sub = [], []
+        for sp, (a, pool, pos) in zip(sorted_pools, eval_items):
+            inb = {p for p in pos if lo <= cos(a, p) < hi}
+            if inb:
+                sp_sub.append(sp)
+                it_sub.append((a, pool, inb))
+        label = f"[{lo:.1f},{hi:.1f})"
+        if not it_sub:
+            print(f"    {label:>12} {0:>8}   (no anchors)")
+            continue
+        mrrs = [avg_mrr_at_k_annotated(sp_sub, it_sub, k) for k in topks]
+        print(f"    {label:>12} {len(it_sub):>8} " + " ".join(f"{m:8.4f}" for m in mrrs))
+
+
 def report(
     name: str,
     sorted_pools: List[List[str]],
@@ -317,6 +366,8 @@ def report(
         mr = avg_mean_rel_at_k(sorted_pools, relevance_scores_per_item, k)
         nd = avg_ndcg_binary(sorted_pools, relevance_scores_per_item, k)
         print(f"@{k:<4} {p:>7.4f} {r:>7.4f} {f1:>7.4f} {mrr:>7.4f} {hits:>7.4f} {mr:>9.4f} {nd:>7.4f}")
+    if STRATIFY_BINS is not None:
+        report_stratified(sorted_pools, eval_items, topks, STRATIFY_BINS)
 
 # ----------------------------
 # Evaluators
