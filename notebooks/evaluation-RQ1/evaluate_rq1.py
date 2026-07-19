@@ -299,11 +299,13 @@ def avg_mean_rel_at_k(sorted_pools, rel_maps, k):
 # Report
 # ----------------------------
 
-# When set to a list of (lo, hi) TF-IDF-cosine bins, every report() call also
-# emits a per-bin breakdown of MRR by anchor-positive lexical similarity, so we
-# can show WHERE each method wins (lexical methods hold on high-similarity
-# positives, collapse on surface-divergent ones; SparqlCE stays flat).
-# Set from a notebook:  import evaluate_rq1; evaluate_rq1.STRATIFY_BINS = [...]
+# When set to a list of cumulative TF-IDF-cosine thresholds (e.g. [0.3, 0.5,
+# 0.8]), every report() call also emits a per-threshold breakdown of MRR
+# restricted to positives with cos(anchor, positive) < threshold -- cumulative
+# from 0, not a partition -- so we can show WHERE each method wins (lexical
+# methods hold on high-similarity positives, collapse on surface-divergent
+# ones; SparqlCE stays flat).
+# Set from a notebook:  import evaluate_rq1; evaluate_rq1.STRATIFY_BINS = [0.3, 0.5, 0.8]
 STRATIFY_BINS = None
 
 
@@ -326,26 +328,28 @@ def _lexical_cos_fn(eval_items):
     return cos
 
 
-def report_stratified(sorted_pools, eval_items, topks, bins):
-    """Per-bin MRR by anchor-positive lexical (TF-IDF cosine) similarity.
-    `bins` are range boundaries used only to GROUP positives; the printed
-    `mean_cos` / `median_cos` columns report the actual TF-IDF cosine values
-    observed within each bin, so the number that gets quoted is never just
-    the ambiguous range label like "[0.3,0.5)"."""
+def report_stratified(sorted_pools, eval_items, topks, thresholds):
+    """Cumulative MRR by anchor-positive lexical (TF-IDF cosine) similarity.
+    `thresholds` (e.g. [0.3, 0.5, 0.8]) each define a slice cos(anchor,
+    positive) < threshold, cumulative from 0 -- NOT a partition, so the
+    slices overlap/nest (every positive in the <0.3 slice is also in <0.5
+    and <0.8). The printed `mean_cos` / `median_cos` columns report the
+    actual TF-IDF cosine values observed within each slice, so the number
+    that gets quoted is never just the threshold label alone."""
     cos = _lexical_cos_fn(eval_items)
-    print("  -- stratified by anchor-positive lexical similarity (TF-IDF cosine) --")
+    print("  -- stratified by anchor-positive lexical similarity (TF-IDF cosine, cumulative) --")
     print(f"    {'lexical bin':>12} {'mean_cos':>9} {'median_cos':>11} {'anchors':>8} " +
           " ".join(f"MRR@{k:<4}" for k in topks))
-    for lo, hi in bins:
+    for t in thresholds:
         sp_sub, it_sub, cos_vals = [], [], []
         for sp, (a, pool, pos) in zip(sorted_pools, eval_items):
             scored = {p: cos(a, p) for p in pos}
-            inb = {p for p, c in scored.items() if lo <= c < hi}
+            inb = {p for p, c in scored.items() if c < t}
             if inb:
                 sp_sub.append(sp)
                 it_sub.append((a, pool, inb))
                 cos_vals.extend(scored[p] for p in inb)
-        label = f"[{lo:.1f},{hi:.1f})"
+        label = f"<{t:.1f}"
         if not it_sub:
             print(f"    {label:>12} {'--':>9} {'--':>11} {0:>8}   (no anchors)")
             continue
