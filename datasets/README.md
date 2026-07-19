@@ -33,16 +33,36 @@ Place these in `datasets/` before running the Wikidata notebooks:
 
 Both files are available from the authors on request.
 
-## RQ1 test sets — construction (SQuARE)
+## Evaluation test sets — construction (finalized, leak-free)
 
-Built from the **held-out** `test_idx` (leak-free: 0 anchors overlap train/val).
+All four evaluation sets are built from the **held-out** `test_idx`
+(leak-free: 0 anchors overlap train/val), with a **single, consistent
+construction per RQ across both KGs**.
 
-- **Wikidata** (`wikidata_testset_RQ1.json`): positives = answer-set Jaccard > 0.8
-  (answer-equivalent), **no lexical filter** — natural lexical distribution
-  (TF-IDF cosine to anchor: median 0.25, ~70% of positives < 0.4). Hard
-  negatives (lexically similar / answer different) kept as distractors.
-  1063 anchors / 3837 corpus. Report results stratified by anchor-positive
-  lexical similarity to show where surface methods fail and SparqlCE holds.
-- **DBpedia** (`dbpedia_testset_RQ1.json`): currently the strict adversarial
-  variant (answer > 0.8 AND TF-IDF cosine < 0.3), 123 anchors / 550 corpus.
-  TODO: rebuild answer-only to match Wikidata's construction for consistency.
+### RQ1 — retrieval (`{dbpedia,wikidata}_testset_RQ1.json`)
+- **Anchors:** held-out `test_idx`.
+- **Positives (relevant):** answer-set Jaccard > 0.8 (answer-equivalent),
+  **no lexical filter** — natural lexical distribution.
+- **Negatives (distractors):** the triplets' hard negatives (lexically
+  similar / answer different).
+- **Reporting:** stratify results by anchor–positive lexical similarity
+  (TF-IDF cosine bins) — surface methods win on high-similarity positives and
+  collapse on divergent ones; SparqlCE stays flat (see `evaluate_rq1.py`
+  `STRATIFY_BINS`).
+- Sizes: **DBpedia 462 anchors / 1841 corpus**, **Wikidata 1063 / 3837**.
+
+### RQ2 — robustness (`{dbpedia,wikidata}_testset_RQ2.json`)
+- **Originals:** held-out `test_idx` **anchors** only (this is the only
+  leak-free choice — the RQ1 corpus includes positives/negatives that are
+  often training anchors, so perturbing the full corpus reintroduces leakage).
+- **Perturbations:** answer-preserving rewrites — 6 shared operators
+  (`variable_renaming`, `triple_shuffle`, `union_duplication`,
+  `redundant_optional`, `filter_true`, `distinct_toggle`) + 1 KG-specific
+  (`subquery_wrapping` for DBpedia, `bgp_split` for Wikidata).
+- Pairs: **DBpedia 2539 (472 originals)**, **Wikidata 4705 (1074 originals)**;
+  both **0 train leak**.
+- **Note:** DBpedia's `subquery_wrapping` yields only ~1 valid pair — the
+  held-out DBpedia anchors are structurally simple (mostly `rdf:type`) and do
+  not support it. Report DBpedia RQ2 on the 6 well-covered operators. (The
+  paper's earlier `subquery_wrapping` coverage came from perturbing a *leaky*
+  corpus, so it is not usable here.)
