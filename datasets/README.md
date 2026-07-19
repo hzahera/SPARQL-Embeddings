@@ -87,14 +87,17 @@ be aware of what the real data supports before quoting it:
   so this is fully auditable. **Report the 87 as the headline "hard
   adversarial" number**; treat the extended 500 as a ranked robustness check,
   not as "500 hard cases."
-- **Wikidata** (`scripts/build_hard_adversarial_rq1_wikidata.py`): its cached
-  result sets (`result_sets_wikidata.json`) run up to 6.6M rows per query, so
-  an exact corpus-wide Jaccard scan (as done for DBpedia) is not tractable.
-  This script instead does a cheap TF-IDF lexical candidate search over the
-  full corpus, then a **single streaming pass** (`ijson`, verified correct
-  against a synthetic test file) over the 6.4GB result-sets file to resolve
-  exact Jaccard only for the needed (anchor, candidate) pairs — must be run
-  on the cluster, not in a memory-constrained sandbox; not yet executed.
-  Result-set-vs-result-set Jaccard for anomalously huge answer sets is capped
-  at `--max-rows-per-query` (default 200k) and is therefore approximate for
-  that handful of queries.
+- **Wikidata** (`scripts/build_hard_adversarial_rq1_wikidata.py`, run on the
+  cluster — its cached result sets run up to 6.6M rows per query, so an
+  exact corpus-wide Jaccard scan like DBpedia's is not tractable in a
+  memory-constrained sandbox): a cheap TF-IDF lexical candidate search over
+  the full corpus identified 7,506 distinct queries worth resolving, but
+  `result_sets_wikidata.json` only has **2,229 cached queries total**, so
+  only 2,229/7,506 (~30%) could be checked with exact Jaccard — the rest
+  fell back to weaker candidates. Result: **19/1074 anchors** clear both
+  thresholds simultaneously (vs. DBpedia's 87/472) — a real, expected
+  consequence of Wikidata's sparser answer-set cache, not a bug. All 500
+  shipped rows are distinct anchors (no padding was needed — every one of
+  them at least had a fallback candidate); filter to `meets_strict_bar: true`
+  for the 19 that meet the actual bar. **Report DBpedia (87) and Wikidata
+  (19) side by side** rather than treating them as comparable-scale sets.
