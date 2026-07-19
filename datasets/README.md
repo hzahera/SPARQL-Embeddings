@@ -33,11 +33,16 @@ Place these in `datasets/` before running the Wikidata notebooks:
 
 Both files are available from the authors on request.
 
-## RQ1 test sets — adversarial construction (SQuARE)
+## RQ1 test sets — construction (SQuARE)
 
-`{dbpedia,wikidata}_testset_RQ1.json` are built from the **held-out** `test_idx`
-(leak-free: 0 anchors overlap train/val) keeping only **adversarial positives** —
-answer-set Jaccard > 0.8 **and** TF-IDF cosine to the anchor < 0.3 — with the
-triplets' hard negatives (lexically similar / answer different) as distractors.
-This isolates the answer-equivalent / surface-divergent regime SQuARE targets.
-Sizes: DBpedia 123 anchors / 550 corpus; Wikidata 474 / 1843.
+Built from the **held-out** `test_idx` (leak-free: 0 anchors overlap train/val).
+
+- **Wikidata** (`wikidata_testset_RQ1.json`): positives = answer-set Jaccard > 0.8
+  (answer-equivalent), **no lexical filter** — natural lexical distribution
+  (TF-IDF cosine to anchor: median 0.25, ~70% of positives < 0.4). Hard
+  negatives (lexically similar / answer different) kept as distractors.
+  1063 anchors / 3837 corpus. Report results stratified by anchor-positive
+  lexical similarity to show where surface methods fail and SparqlCE holds.
+- **DBpedia** (`dbpedia_testset_RQ1.json`): currently the strict adversarial
+  variant (answer > 0.8 AND TF-IDF cosine < 0.3), 123 anchors / 550 corpus.
+  TODO: rebuild answer-only to match Wikidata's construction for consistency.
