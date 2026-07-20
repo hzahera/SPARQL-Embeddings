@@ -305,3 +305,8 @@ desktop.ini
 .idea/
 # <<< latex-auto-sync (managed) <<<
 .claude/
+datasets/jaccard_triplets_wikidata.json
+checkpoints/
+*.pt
+__pycache__/
+*.pyc

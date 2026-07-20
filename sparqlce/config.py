@@ -6,7 +6,7 @@ import torch
 
 
 class Config:
-    MODEL_NAME = "microsoft/codebert-base"
+    MODEL_NAME     = "intfloat/e5-base-v2"
 
     EMBEDDING_DIM = 768   # CodeBERT output dimension
     HIDDEN_DIM    = 256   # GATv2 hidden dimension
@@ -21,7 +21,5 @@ class Config:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Dataset paths (relative to project root)
-    DATASET_PATH_DBPEDIA  = "dataset/raw/jaccard_triplets_dbpedia.json"
-    DATASET_PATH_WIKIDATA = "dataset/raw/jaccard_triplets_wikidata.json.gz"
     SPLITS_DIR            = "dataset/splits"
     CHECKPOINT_DIR        = "checkpoints"

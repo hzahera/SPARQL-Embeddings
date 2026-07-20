@@ -10,34 +10,31 @@ from .sparql_utils import canonicalize_variables, is_noop_filter_text
 
 class SPARQLGraphBuilder:
     def __init__(self):
-        # supports 'prefix:suffix' pattern, including the default/empty
-        # prefix (e.g. ':Bucheon' from 'PREFIX : <...>'). Local names may
-        # contain non-ASCII letters (e.g. ':Kimi_no_Na_wa_Kibō') and internal
-        # dots (e.g. ':Jun._K'); \w is unicode-aware, and a dot is only
-        # accepted when not followed by whitespace so triple terminators
-        # ('... ?o .') aren't swallowed into the preceding local name.
         local_name = r'(?:[\w(),\-]|\.(?!\s))+'
         qname = r'[a-zA-Z0-9_]*:' + local_name
-        # property-path expression, e.g. 'wdt:P31/wdt:P279*' or
-        # '<uri1>|(<uri2>)?': a run of IRIs/QNames glued together with the
-        # path operators / | * + ? ^ ( ) and no intervening whitespace.
-        # ('?' is safe here: a bare variable predicate is matched by the
-        # '\?[a-zA-Z0-9_]+' alternative below before this one is tried.)
         path_token = r'(?:<[^>]+>|' + qname + r'|[/|*+?^()])+'
         self.triple_pattern = re.compile(
-            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')\s+' # Subject
-            r'(\?[a-zA-Z0-9_]+|' + path_token + r')\s+'            # Predicate (incl. paths)
-            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')'   # Object
+            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')\s+'
+            r'(\?[a-zA-Z0-9_]+|' + path_token + r')\s+'
+            r'(\?[a-zA-Z0-9_]+|<[^>]+>|"[^"]*"|' + qname + r')'
         )
-        # FILTER and OPTIONAL clauses, and variables inside them
         self.filter_pattern = re.compile(r'FILTER\s*\((.*?)\)', re.IGNORECASE | re.DOTALL)
         self.optional_pattern = re.compile(r'OPTIONAL\s*\{(.*?)\}', re.IGNORECASE | re.DOTALL)
+        self.union_pattern = re.compile(r'UNION', re.IGNORECASE)
+        self.values_pattern = re.compile(
+            r'VALUES\s+(\?[a-zA-Z_][a-zA-Z0-9_]*)\s*\{(.*?)\}',
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.bind_pattern = re.compile(
+            r'BIND\s*\((.*?)\s+AS\s+(\?[a-zA-Z_][a-zA-Z0-9_]*)\s*\)',
+            re.IGNORECASE | re.DOTALL,
+        )
         self.var_pattern = re.compile(r'\?[a-zA-Z_][a-zA-Z0-9_]*')
+        self.value_token_pattern = re.compile(
+            r'<[^>]+>|"[^"]*"|\?[a-zA-Z_][a-zA-Z0-9_]*|' + qname
+        )
 
     def _extract_where_content(self, query):
-        """Return the text inside the outermost WHERE{...} block, matching
-        braces by depth so nested VALUES{...}/OPTIONAL{...} blocks don't
-        truncate the extraction at their own closing brace."""
         where_match = re.search(r'WHERE\s*\{', query, re.IGNORECASE)
         if not where_match:
             return query
@@ -53,97 +50,134 @@ class SPARQLGraphBuilder:
         return query[start:i - 1]
 
     def _clean(self, term):
-        # Strip enclosing angle brackets/quotes and keep the local name
         term = term.strip('<>"')
-        # Prefer fragment/local name over full URI
         if "#" in term:
             term = term.rsplit("#", 1)[-1]
         if "/" in term:
             term = term.rsplit("/", 1)[-1]
         return term
 
+    def _node_label(self, term):
+        term = term.strip()
+        if term.startswith("?"):
+            return "VAR:" + self._clean(term)
+        if term.startswith('"'):
+            return "LIT:" + self._clean(term)
+        if term.upper().startswith("FILTER:"):
+            return term
+        if term in {"OPTIONAL", "UNION", "VALUES", "BIND"}:
+            return term
+        if any(ch in term for ch in "/|*+?^()") and not term.startswith("?"):
+            return "PATH:" + self._clean(term)
+        return "ENT:" + self._clean(term)
+
+    def _ensure_node(self, G, node_map, label):
+        if label not in node_map:
+            node_map[label] = len(G)
+            G.add_node(node_map[label], label=label)
+        return node_map[label]
+
     def build_graph(self, query):
         self.last_used_fallback = False
         G = nx.DiGraph()
         query = " ".join(query.split())
-        # Bake invariances directly into the graph input:
-        #  - rename ?x ?y ... to ?v0 ?v1 ... (variable-name invariance)
         query = canonicalize_variables(query)
-
-        # Robust Regex Extraction
-        # 1. Find the WHERE clause content (brace-depth matched, see
-        #    _extract_where_content, so nested VALUES/OPTIONAL blocks don't
-        #    truncate it at their own closing brace)
         content = self._extract_where_content(query)
-
-        # 2. Find triples
         matches = self.triple_pattern.findall(content)
-
         node_map = {}
 
-        # If regex fails, we must produce SOMETHING distinct so embeddings aren't identical
         if not matches:
-            # Fallback: tokenize the raw query string into a simple chain graph
-            # This ensures 'SELECT ?a' is different from 'SELECT ?b' even if parsing fails
             self.last_used_fallback = True
             words = query.split()
-            for i, word in enumerate(words):
-                if i > 9:
-                    break
-                G.add_node(i, label=word)
+            for i, word in enumerate(words[:10]):
+                tok = "TOK:" + word
+                G.add_node(i, label=tok)
                 if i > 0:
                     G.add_edge(i - 1, i, label="next")
             return G
 
+        var_occurs = {}
+
         for s, p, o in matches:
-            s_lbl, p_lbl, o_lbl = self._clean(s), self._clean(p), self._clean(o)
+            s_lbl = self._node_label(s)
+            o_lbl = self._node_label(o)
+            s_id = self._ensure_node(G, node_map, s_lbl)
+            o_id = self._ensure_node(G, node_map, o_lbl)
 
-            if s_lbl not in node_map:
-                node_map[s_lbl] = len(G)
-                G.add_node(node_map[s_lbl], label=s_lbl)
+            if s_lbl.startswith("VAR:"):
+                var_occurs.setdefault(s_id, set()).add(o_id)
+            if o_lbl.startswith("VAR:"):
+                var_occurs.setdefault(o_id, set()).add(s_id)
 
-            if o_lbl not in node_map:
-                node_map[o_lbl] = len(G)
-                G.add_node(node_map[o_lbl], label=o_lbl)
+            p_clean = self._clean(p)
+            if any(ch in p for ch in "/|*+?^()") and not p.startswith("?"):
+                p_lbl = "PATH:" + p_clean
+                p_id = self._ensure_node(G, node_map, p_lbl)
+                G.add_edge(s_id, p_id, label="path_in")
+                G.add_edge(p_id, o_id, label="path_out")
+            else:
+                edge_label = "PRED:" + p_clean
+                G.add_edge(s_id, o_id, label=edge_label)
 
-            # Predicate is an edge attribute
-            G.add_edge(node_map[s_lbl], node_map[o_lbl], label=p_lbl)
+        for var_id, neighbors in var_occurs.items():
+            neighbors = list(neighbors)
+            for i in range(len(neighbors)):
+                for j in range(i + 1, len(neighbors)):
+                    G.add_edge(neighbors[i], neighbors[j], label="join")
+                    G.add_edge(neighbors[j], neighbors[i], label="join")
 
-        # 3. Add FILTER nodes and connect involved variables
         for f_match in self.filter_pattern.finditer(content):
             f_text = f_match.group(1).strip()
-            if not f_text:
+            if not f_text or is_noop_filter_text(f_text):
                 continue
-            # Skip no-op FILTER(true) — adds no semantics, would only inject noise
-            if is_noop_filter_text(f_text):
-                continue
-            f_label = "FILTER " + (f_text[:80] + "..." if len(f_text) > 80 else f_text)
-            f_id = len(G)
-            G.add_node(f_id, label=f_label)
-
+            clipped = f_text[:80] + "..." if len(f_text) > 80 else f_text
+            f_label = "FILTER:" + clipped
+            f_id = self._ensure_node(G, node_map, f_label)
             vars_in_filter = set(self.var_pattern.findall(f_text))
             for var in vars_in_filter:
-                v_lbl = self._clean(var)
-                if v_lbl not in node_map:
-                    node_map[v_lbl] = len(G)
-                    G.add_node(node_map[v_lbl], label=v_lbl)
-                G.add_edge(node_map[v_lbl], f_id, label="filter")
+                v_lbl = self._node_label(var)
+                v_id = self._ensure_node(G, node_map, v_lbl)
+                G.add_edge(v_id, f_id, label="uses_filter")
 
-        # 4. Add OPTIONAL nodes and connect to variables used in OPTIONAL block
         for o_match in self.optional_pattern.finditer(content):
             o_text = o_match.group(1).strip()
             if not o_text:
                 continue
-            opt_id = len(G)
-            G.add_node(opt_id, label="OPTIONAL")
-
+            opt_id = self._ensure_node(G, node_map, "OPTIONAL")
             vars_in_opt = set(self.var_pattern.findall(o_text))
             for var in vars_in_opt:
-                v_lbl = self._clean(var)
-                if v_lbl not in node_map:
-                    node_map[v_lbl] = len(G)
-                    G.add_node(node_map[v_lbl], label=v_lbl)
-                G.add_edge(opt_id, node_map[v_lbl], label="optional")
+                v_lbl = self._node_label(var)
+                v_id = self._ensure_node(G, node_map, v_lbl)
+                G.add_edge(opt_id, v_id, label="optional_scope")
+
+        if self.union_pattern.search(content):
+            union_id = self._ensure_node(G, node_map, "UNION")
+            for var in set(self.var_pattern.findall(content)):
+                v_lbl = self._node_label(var)
+                v_id = self._ensure_node(G, node_map, v_lbl)
+                G.add_edge(union_id, v_id, label="union_scope")
+
+        for v_match in self.values_pattern.finditer(content):
+            var, vals_text = v_match.groups()
+            values_id = self._ensure_node(G, node_map, "VALUES")
+            v_lbl = self._node_label(var)
+            v_id = self._ensure_node(G, node_map, v_lbl)
+            G.add_edge(values_id, v_id, label="binds")
+            for raw in self.value_token_pattern.findall(vals_text)[:10]:
+                val_lbl = self._node_label(raw)
+                val_id = self._ensure_node(G, node_map, val_lbl)
+                G.add_edge(values_id, val_id, label="value")
+
+        for b_match in self.bind_pattern.finditer(content):
+            expr, var = b_match.groups()
+            bind_id = self._ensure_node(G, node_map, "BIND")
+            v_lbl = self._node_label(var)
+            v_id = self._ensure_node(G, node_map, v_lbl)
+            G.add_edge(bind_id, v_id, label="defines")
+            for used_var in set(self.var_pattern.findall(expr)):
+                u_lbl = self._node_label(used_var)
+                u_id = self._ensure_node(G, node_map, u_lbl)
+                G.add_edge(u_id, bind_id, label="used_in_bind")
 
         return G
 
@@ -163,7 +197,5 @@ class WholeQueryGraphBuilder:
         query = " ".join(query.split())
         query = canonicalize_variables(query)
         G = nx.DiGraph()
-        G.add_node(0, label=query)
-        return G
-
+        G.add_node(0, label="QUERY:" + query)
         return G

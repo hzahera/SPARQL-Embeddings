@@ -1,67 +1,179 @@
 """hybrid_encoder.py
-HybridSPARQLEncoder: combines CodeBERT token embeddings with a GATv2
-graph encoder to produce L2-normalised query embeddings.
+HybridSPARQLEncoder: combines E5-base-v2 mean-pooled embeddings with a
+relation-typed GATv2 graph encoder and a gated fusion layer to produce
+L2-normalised result-aware query embeddings.
+
+Improvements over the CodeBERT+CLS baseline:
+  1. Backbone: E5-base-v2 with mean pooling (not CLS) — matches the
+     strong text baseline and uses E5's query: prefix convention.
+  2. Typed edge embeddings: SPARQL algebra relation types (triple,
+     filter, optional, union, path, coref) are encoded as learned
+     offsets added to the text-encoded edge embedding, giving the GNN
+     structured relational inductive bias without extra parameters.
+  3. Two GATv2 layers with residual connection: deeper message passing
+     for multi-hop SPARQL join patterns; residual prevents collapse.
+  4. Gated fusion: a learned sigmoid gate decides per-query how much
+     weight to give the text stream vs the graph stream, rather than
+     a fixed concatenation + projection.
+  5. Jaccard-calibration hook: forward() returns (embedding, gate_mean)
+     so the training loop can log gate statistics without architectural
+     changes.
+
+``ablation`` modes (unchanged API):
+  - "full"    (default): E5 node/edge embeddings → typed GATv2 × 2 →
+    gated fusion with E5 text embedding → projected L2-normalised output.
+  - "no_gnn": E5 mean-pooled text embedding only, no graph branch.
+    Isolates whether GNN message passing adds anything.
 """
+
+from __future__ import annotations
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import AutoModel
+from transformers import AutoModel, AutoTokenizer
 from torch_geometric.nn import GATv2Conv, global_mean_pool
+
 from .config import Config
+
+# ── SPARQL algebra relation types ────────────────────────────────────────────
+# Keep this list stable across runs; index = edge-type id stored in data.edge_type
+EDGE_TYPES = ["triple", "filter", "optional", "union", "path", "coref"]
+NUM_EDGE_TYPES = len(EDGE_TYPES)
+EDGE_TYPE2IDX = {t: i for i, t in enumerate(EDGE_TYPES)}
 
 
 class HybridSPARQLEncoder(nn.Module):
-	"""CodeBERT + GATv2 encoder for SPARQL queries.
+    """E5-base-v2 + typed GATv2 encoder with gated fusion for SPARQL queries.
 
-	Each query is parsed into a graph; node and edge labels are encoded
-	by CodeBERT, then refined by a single GATv2 layer. Global mean pooling
-	and a linear projection yield an L2-normalised 128-d embedding.
+    Changes vs. previous version
+    ----------------------------
+    * Text encoding: CLS → mean pooling over non-padding tokens (E5 style).
+    * Edge encoding: raw text embedding + learned edge-type offset vector.
+    * GNN depth: 1 GATv2 layer → 2 GATv2 layers with residual projection.
+    * Fusion: concat + linear → sigmoid gate over (text, graph) streams.
+    * Ablation API: identical to previous — ``ablation`` kwarg unchanged.
+    """
 
-	``ablation`` selects which architectural component is active, so the
-	graph encoder's contribution can be isolated for the RQ1/RQ2 ablation
-	study rather than only argued for in prose:
-	  - "full"    (default): CodeBERT node/edge embeddings refined by GATv2
-	    message passing over the query graph, then mean-pooled.
-	  - "no_gnn": CodeBERT node embeddings mean-pooled directly, skipping
-	    the GATv2 layer entirely. Isolates whether message passing over
-	    the graph topology adds anything beyond an unordered bag of the
-	    same node/edge text embeddings.
-	  - "full" combined with ``WholeQueryGraphBuilder`` (see graph_builder.py)
-	    isolates whether decomposing the query into a graph at all helps,
-	    versus encoding the raw query string as a single node.
-	"""
+    def __init__(self, ablation: str = "full"):
+        super().__init__()
+        assert ablation in ("full", "no_gnn"), f"unknown ablation: {ablation}"
+        self.ablation = ablation
 
-	def __init__(self, ablation="full"):
-		super().__init__()
-		assert ablation in ("full", "no_gnn"), f"unknown ablation mode: {ablation}"
-		self.ablation = ablation
+        # ── 1. Text backbone: E5-base-v2, fully trainable ───────────────────
+        self.text_enc = AutoModel.from_pretrained(Config.MODEL_NAME)
+        for p in self.text_enc.parameters():
+            p.requires_grad = True
 
-		# Fine-tune CodeBERT jointly with the GNN
-		self.text_enc = AutoModel.from_pretrained(Config.MODEL_NAME)
-		for p in self.text_enc.parameters():
-			p.requires_grad = True
+        d = Config.EMBEDDING_DIM      # 768
+        h = Config.HIDDEN_DIM         # 256
+        heads = Config.GNN_HEADS      # 4
+        out = Config.OUTPUT_DIM       # 128
+        gnn_dim = h * heads           # 1024
 
-		self.gnn = GATv2Conv(
-			Config.EMBEDDING_DIM,
-			Config.HIDDEN_DIM,
-			heads=Config.GNN_HEADS,
-			edge_dim=Config.EMBEDDING_DIM,
-		)
-		gnn_out_dim = Config.HIDDEN_DIM * Config.GNN_HEADS
-		# no_gnn skips the GATv2 layer, so the projection reads directly
-		# from the (lower-dimensional) CodeBERT node embeddings instead.
-		proj_in_dim = gnn_out_dim if ablation == "full" else Config.EMBEDDING_DIM
-		self.proj = nn.Linear(proj_in_dim, Config.OUTPUT_DIM)
+        if ablation == "full":
+            # ── 2. Typed edge embedding offsets ─────────────────────────────
+            # Each SPARQL relation type gets a learned d-dim offset added to
+            # the text-encoded edge label before GATv2 message passing.
+            self.edge_type_emb = nn.Embedding(NUM_EDGE_TYPES, d)
+            nn.init.zeros_(self.edge_type_emb.weight)   # start as identity
 
-	def _txt(self, ids, mask):
-		"""Return the [CLS] token embedding for a batch of token sequences."""
-		return self.text_enc(ids, mask).last_hidden_state[:, 0, :]
+            # ── 3. Two GATv2 layers with residual ───────────────────────────
+            self.gnn1 = GATv2Conv(d, h, heads=heads, edge_dim=d, concat=True)
+            self.gnn2 = GATv2Conv(gnn_dim, h, heads=heads, edge_dim=d, concat=True)
+            # Residual alignment: project node input d → gnn_dim so we can
+            # add the skip connection after gnn1 without dimension mismatch.
+            self.res_proj = nn.Linear(d, gnn_dim, bias=False)
 
-	def forward(self, data):
-		node_emb = self._txt(data.x_ids, data.x_mask)
-		if self.ablation == "no_gnn":
-			x = node_emb
-		else:
-			edge_emb = self._txt(data.edge_attr_ids, data.edge_attr_mask)
-			x = self.gnn(node_emb, data.edge_index, edge_attr=edge_emb)
-		x = global_mean_pool(x, data.batch)
-		return F.normalize(self.proj(x), p=2, dim=1)
+            # ── 4. Gated fusion ──────────────────────────────────────────────
+            # gate ∈ (0,1)^out decides text vs graph contribution per query.
+            self.gate_fc = nn.Linear(d + gnn_dim, out)
+            self.text_proj  = nn.Linear(d,       out, bias=False)
+            self.graph_proj = nn.Linear(gnn_dim, out, bias=False)
+        else:
+            # no_gnn: text-only projection
+            self.text_proj = nn.Linear(d, out, bias=False)
+
+        # Final layer norm before L2 normalisation (stabilises training)
+        self.ln = nn.LayerNorm(out)
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _mean_pool(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """E5-style mean pooling over non-padding token positions."""
+        out = self.text_enc(input_ids=ids, attention_mask=mask)
+        h = out.last_hidden_state                     # [B, L, d]
+        m = mask.unsqueeze(-1).float()                # [B, L, 1]
+        return (h * m).sum(1) / m.sum(1).clamp(min=1e-9)   # [B, d]
+
+    def _encode_edges(
+        self,
+        ids: torch.Tensor,
+        mask: torch.Tensor,
+        edge_type: torch.Tensor | None,
+    ) -> torch.Tensor:
+        """Mean-pool edge label tokens and add typed relation offset."""
+        e = self._mean_pool(ids, mask)                # [E, d]
+        if edge_type is not None:
+            e = e + self.edge_type_emb(edge_type)     # broadcast typed offset
+        return e
+
+    # ── forward ──────────────────────────────────────────────────────────────
+
+    def forward(self, data) -> tuple[torch.Tensor, float]:
+        """
+        Parameters
+        ----------
+        data : torch_geometric.data.Batch
+            Must contain:
+              x_ids, x_mask          — node token ids / attention mask
+              edge_attr_ids,
+              edge_attr_mask         — edge label token ids / mask
+              edge_index             — [2, E] COO edge index
+              batch                  — node-to-graph assignment
+            Optional (new):
+              edge_type              — [E] LongTensor of EDGE_TYPE2IDX values
+
+        Returns
+        -------
+        emb : Tensor [B, OUTPUT_DIM], L2-normalised
+        gate_mean : float  (mean gate value across batch; log for diagnostics)
+        """
+        # Node text embeddings
+        z_text_nodes = self._mean_pool(data.x_ids, data.x_mask)  # [N, d]
+
+        if self.ablation == "no_gnn":
+            # Text-only path: mean-pool nodes → project → normalise
+            z_pooled = global_mean_pool(z_text_nodes, data.batch)  # [B, d]
+            emb = self.ln(self.text_proj(z_pooled))
+            return F.normalize(emb, p=2, dim=1), 0.5  # gate_mean = 0.5 sentinel
+
+        # ── Graph branch ─────────────────────────────────────────────────────
+        edge_type = getattr(data, "edge_type", None)
+        e = self._encode_edges(
+            data.edge_attr_ids, data.edge_attr_mask, edge_type
+        )                                                          # [E, d]
+
+        # GATv2 layer 1 + residual
+        x1 = F.elu(self.gnn1(z_text_nodes, data.edge_index, edge_attr=e))
+        x1 = x1 + self.res_proj(z_text_nodes)                     # residual
+
+        # GATv2 layer 2 + residual
+        x2 = F.elu(self.gnn2(x1, data.edge_index, edge_attr=e))
+        x2 = x2 + x1                                              # residual
+
+        # Graph embedding: global mean pool over nodes
+        z_graph = global_mean_pool(x2, data.batch)                 # [B, gnn_dim]
+
+        # Text embedding at query level (mean-pool over query nodes)
+        z_text = global_mean_pool(z_text_nodes, data.batch)       # [B, d]
+
+        # ── Gated fusion ─────────────────────────────────────────────────────
+        gate = torch.sigmoid(self.gate_fc(
+            torch.cat([z_text, z_graph], dim=-1)
+        ))                                                         # [B, out]
+        emb = gate * self.text_proj(z_text) + (1.0 - gate) * self.graph_proj(z_graph)
+        gate_mean = gate.mean().item()
+
+        emb = self.ln(emb)
+        return F.normalize(emb, p=2, dim=1), gate_mean

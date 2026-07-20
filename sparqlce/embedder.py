@@ -88,7 +88,7 @@ class SPARQLEmbedder:
 		try:
 			batch = Batch.from_data_list(data_list).to(self.device)
 			with torch.no_grad():
-				embeddings = self.model(batch)
+				            embeddings, _ = self.model(batch)
 			out = embeddings.cpu().numpy()
 		except RuntimeError:
 			with torch.no_grad():
