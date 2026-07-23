@@ -55,7 +55,17 @@ class HybridSPARQLEncoder(nn.Module):
     * Ablation API: identical to previous — ``ablation`` kwarg unchanged.
     """
 
-    def __init__(self, ablation: str = "full"):
+    def __init__(self, ablation: str = "full", output_dim: int | None = None):
+        """
+        Parameters
+        ----------
+        output_dim : int | None
+            Final embedding width. Defaults to ``Config.OUTPUT_DIM``. Pass it
+            explicitly when loading a checkpoint trained at a different width —
+            the encoder's projection/gate/LayerNorm shapes depend on it, so a
+            mismatch makes ``load_state_dict`` fail. Training checkpoints record
+            the value they used (see scripts/train_sparqlce.py).
+        """
         super().__init__()
         assert ablation in ("full", "no_gnn"), f"unknown ablation: {ablation}"
         self.ablation = ablation
@@ -68,7 +78,8 @@ class HybridSPARQLEncoder(nn.Module):
         d = Config.EMBEDDING_DIM      # 768
         h = Config.HIDDEN_DIM         # 256
         heads = Config.GNN_HEADS      # 4
-        out = Config.OUTPUT_DIM       # 128
+        out = Config.OUTPUT_DIM if output_dim is None else output_dim
+        self.output_dim = out
         gnn_dim = h * heads           # 1024
 
         if ablation == "full":

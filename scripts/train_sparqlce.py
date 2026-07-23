@@ -34,6 +34,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from sparqlce.config import Config
 from sparqlce.graph_builder import SPARQLGraphBuilder, WholeQueryGraphBuilder
 from sparqlce.encoder import HybridSPARQLEncoder
 from sparqlce.dataset import (
@@ -275,7 +276,10 @@ def main():
         if val["mrr"] > best_mrr:
             best_mrr = val["mrr"]
             torch.save({"epoch": epoch, "model_state_dict": model.state_dict(),
-                        "val_metrics": val, "ablation": args.ablation}, ckpt_dir / "best_model.pt")
+                        "val_metrics": val, "ablation": args.ablation,
+                        # Record the embedding width: the eval-time encoder must
+                        # be built at the same width or load_state_dict fails.
+                        "output_dim": Config.OUTPUT_DIM}, ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
 
     best = torch.load(ckpt_dir / "best_model.pt", map_location=device)
@@ -289,6 +293,7 @@ def main():
             "epochs": args.epochs, "batch_size": args.batch_size,
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
             "augment_rename_prob": args.augment_rename_prob,
+            "output_dim": Config.OUTPUT_DIM,
             "val_metrics": best["val_metrics"], "test_metrics": test,
         }, f, indent=2)
     print(f"Saved checkpoint + metadata to {ckpt_dir}")

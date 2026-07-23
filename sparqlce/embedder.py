@@ -30,14 +30,30 @@ class SPARQLEmbedder:
 		# Accept both a raw state_dict (e.g. sparqlce/models/final_model_*.pt)
 		# and the wrapped {"model_state_dict": ..., "ablation": ...} dict that
 		# training checkpoints (best_model.pt) save.
+		output_dim = None
 		if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
 			state_dict = checkpoint["model_state_dict"]
 			ablation = ablation or checkpoint.get("ablation", "full")
+			output_dim = checkpoint.get("output_dim")
 		else:
 			state_dict = checkpoint
 			ablation = ablation or "full"
 
-		self.model = HybridSPARQLEncoder(ablation=_ABLATION_TO_ENCODER_MODE[ablation]).to(self.device)
+		# The embedding width is baked into the weights. Prefer the value the
+		# checkpoint was trained with; otherwise infer it from the weights, so
+		# a checkpoint trained at a different Config.OUTPUT_DIM still loads
+		# instead of raising an opaque size mismatch.
+		if output_dim is None:
+			ln_w = state_dict.get("ln.weight")
+			if ln_w is not None:
+				output_dim = int(ln_w.shape[0])
+		if output_dim is not None and output_dim != Config.OUTPUT_DIM:
+			print(f"  note: checkpoint output_dim={output_dim} differs from "
+			      f"Config.OUTPUT_DIM={Config.OUTPUT_DIM}; using the checkpoint's.")
+
+		self.model = HybridSPARQLEncoder(
+			ablation=_ABLATION_TO_ENCODER_MODE[ablation], output_dim=output_dim
+		).to(self.device)
 		self.model.load_state_dict(state_dict)
 		self.model.eval()
         
