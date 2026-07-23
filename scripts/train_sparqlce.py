@@ -36,7 +36,11 @@ if str(ROOT_DIR) not in sys.path:
 
 from sparqlce.graph_builder import SPARQLGraphBuilder, WholeQueryGraphBuilder
 from sparqlce.encoder import HybridSPARQLEncoder
-from sparqlce.dataset import SemanticSPARQLDataset, semantic_collate_fn_inbatch
+from sparqlce.dataset import (
+    SemanticSPARQLDataset,
+    semantic_collate_fn,
+    semantic_collate_fn_inbatch,
+)
 
 KG_PATHS = {
     "dbpedia": {
@@ -66,13 +70,39 @@ def infonce_inbatch(a_emb, p_emb, temperature):
     return F.cross_entropy(logits, labels)
 
 
+def infonce_hard(a_emb, p_emb, n_emb, neg_slices, temperature):
+    """InfoNCE with in-batch negatives PLUS each anchor's curated hard negatives.
+
+    For anchor i the candidate set is: its own positive (target), every other
+    anchor's positive (in-batch negatives), and the mined hard negatives listed
+    in neg_slices[i] (variable count, padded with -inf and masked out). Assumes
+    exactly one positive per anchor, so p_emb rows align 1:1 with a_emb rows.
+    """
+    a = F.normalize(a_emb, dim=1)
+    p = F.normalize(p_emb, dim=1)
+    b = a.size(0)
+    logits = a @ p.T / temperature                         # [B, B] (diag = pos)
+    if n_emb is not None and n_emb.size(0) > 0:
+        n = F.normalize(n_emb, dim=1)
+        max_neg = max((e - s) for s, e in neg_slices)
+        hard = a.new_full((b, max_neg), float("-inf"))     # padding -> masked
+        for i, (s, e) in enumerate(neg_slices):
+            if e > s:
+                hard[i, : e - s] = a[i] @ n[s:e].T / temperature
+        logits = torch.cat([logits, hard], dim=1)          # [B, B + max_neg]
+    labels = torch.arange(b, device=a.device)
+    return F.cross_entropy(logits, labels)
+
+
 @torch.no_grad()
 def evaluate_ranking(model, loader, device):
     model.eval()
     anchors, positives = [], []
     for batch in loader:
-        a_emb = F.normalize(model(batch[0].to(device)), dim=1)
-        p_emb = F.normalize(model(batch[1].to(device)), dim=1)
+        a_emb, _ = model(batch[0].to(device))
+        p_emb, _ = model(batch[1].to(device))
+        a_emb = F.normalize(a_emb, dim=1)
+        p_emb = F.normalize(p_emb, dim=1)
         anchors.append(a_emb.cpu())
         positives.append(p_emb.cpu())
     A = torch.cat(anchors)
@@ -87,10 +117,36 @@ def evaluate_ranking(model, loader, device):
     }
 
 
-def build_loaders(data_path, splits_path, seed, batch_size, graph_builder):
-    dataset = SemanticSPARQLDataset(
-        str(data_path), graph_builder=graph_builder, in_batch_negatives=True,
+def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
+                  hard_negatives=False, max_neg=8, augment_rename_prob=0.0):
+    """Build train/val/test loaders.
+
+    Two modes:
+      * in-batch (default): one positive per anchor, negatives are other batch
+        items. Collated by semantic_collate_fn_inbatch.
+      * hard_negatives: one positive + `max_neg` curated hard negatives per
+        anchor, collated by semantic_collate_fn so the loss can consume them.
+
+    Augmentation (random variable renaming) is applied ONLY to the training
+    view; val/test use a separate, deterministic dataset so metrics are stable.
+    """
+    if hard_negatives:
+        collate = semantic_collate_fn
+        common = dict(in_batch_negatives=False, max_pos_per_anchor=1, max_neg_per_anchor=max_neg)
+    else:
+        collate = semantic_collate_fn_inbatch
+        common = dict(in_batch_negatives=True)
+
+    train_dataset = SemanticSPARQLDataset(
+        str(data_path), graph_builder=graph_builder,
+        augment_rename_prob=augment_rename_prob, augment_seed=seed, **common,
     )
+    # Deterministic view for evaluation (no augmentation).
+    eval_dataset = SemanticSPARQLDataset(
+        str(data_path), graph_builder=graph_builder,
+        augment_rename_prob=0.0, **common,
+    )
+
     if splits_path.exists():
         with open(splits_path) as f:
             splits = json.load(f)
@@ -98,19 +154,23 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder):
         val_idx = splits.get("val_idx", splits.get("valid_idx", splits.get("val")))
         test_idx = splits.get("test_idx", splits.get("test"))
         assert train_idx and val_idx and test_idx, f"could not parse splits from {splits_path}"
-        train_ds, val_ds, test_ds = Subset(dataset, train_idx), Subset(dataset, val_idx), Subset(dataset, test_idx)
+        train_ds = Subset(train_dataset, train_idx)
+        val_ds, test_ds = Subset(eval_dataset, val_idx), Subset(eval_dataset, test_idx)
         print(f"Using fixed split from {splits_path}")
     else:
         print(f"WARNING: fixed split not found at {splits_path}; using seeded random split "
               f"(numbers will not be directly comparable to the paper's fixed-split runs)")
-        total = len(dataset)
+        total = len(train_dataset)
         n_train, n_val = int(0.80 * total), int(0.10 * total)
         n_test = total - n_train - n_val
         gen = torch.Generator().manual_seed(seed)
-        train_ds, val_ds, test_ds = random_split(dataset, [n_train, n_val, n_test], generator=gen)
+        train_split, val_split, test_split = random_split(
+            range(total), [n_train, n_val, n_test], generator=gen)
+        train_ds = Subset(train_dataset, list(train_split))
+        val_ds, test_ds = Subset(eval_dataset, list(val_split)), Subset(eval_dataset, list(test_split))
 
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
-                                         collate_fn=semantic_collate_fn_inbatch)
+                                         collate_fn=collate)
     return mk(train_ds, True), mk(val_ds, False), mk(test_ds, False)
 
 
@@ -131,6 +191,14 @@ def main():
     ap.add_argument("--grad-clip", type=float, default=1.0)
     ap.add_argument("--lr-text", type=float, default=1e-5)
     ap.add_argument("--lr-rest", type=float, default=1e-4)
+    ap.add_argument("--hard-negatives", action="store_true",
+                     help="use the corpus's curated hard negatives in the InfoNCE "
+                          "denominator (in addition to in-batch negatives)")
+    ap.add_argument("--max-neg", type=int, default=8,
+                     help="hard negatives per anchor when --hard-negatives is set")
+    ap.add_argument("--augment-rename-prob", type=float, default=0.0,
+                     help="probability of randomly renaming a query's variables "
+                          "(training view only); teaches variable-name invariance")
     ap.add_argument("--single-lr", type=float, default=None,
                      help="if set, use one LR for all params instead of differential LRs")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints"))
@@ -149,7 +217,9 @@ def main():
 
     paths = KG_PATHS[args.kg]
     train_loader, val_loader, test_loader = build_loaders(
-        paths["data"], paths["splits"], args.seed, args.batch_size, graph_builder
+        paths["data"], paths["splits"], args.seed, args.batch_size, graph_builder,
+        hard_negatives=args.hard_negatives, max_neg=args.max_neg,
+        augment_rename_prob=args.augment_rename_prob,
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
@@ -173,10 +243,20 @@ def main():
         sum_loss = sum_ce = sum_reg = 0.0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:02d}/{args.epochs}")
         for batch in pbar:
-            a_graphs, p_graphs, pos_js = batch[0].to(device), batch[1].to(device), batch[2].to(device)
             optimizer.zero_grad()
-            a_emb, p_emb = model(a_graphs), model(p_graphs)
-            loss_ce = infonce_inbatch(a_emb, p_emb, args.temperature)
+            if args.hard_negatives:
+                # semantic_collate_fn: (anchor, pos, neg, pos_slices, neg_slices,
+                #                       pos_js, neg_js); one positive per anchor.
+                a_emb, _ = model(batch[0].to(device))
+                p_emb, _ = model(batch[1].to(device))
+                n_emb, _ = model(batch[2].to(device))
+                neg_slices, pos_js = batch[4], batch[5].to(device)
+                loss_ce = infonce_hard(a_emb, p_emb, n_emb, neg_slices, args.temperature)
+            else:
+                a_graphs, p_graphs, pos_js = batch[0].to(device), batch[1].to(device), batch[2].to(device)
+                a_emb, _ = model(a_graphs)
+                p_emb, _ = model(p_graphs)
+                loss_ce = infonce_inbatch(a_emb, p_emb, args.temperature)
             a_n, p_n = F.normalize(a_emb, dim=1), F.normalize(p_emb, dim=1)
             cos = (a_n * p_n).sum(dim=1)
             loss_reg = (cos - pos_js).pow(2).mean()
@@ -207,6 +287,8 @@ def main():
         json.dump({
             "kg": args.kg, "seed": args.seed, "ablation": args.ablation,
             "epochs": args.epochs, "batch_size": args.batch_size,
+            "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
+            "augment_rename_prob": args.augment_rename_prob,
             "val_metrics": best["val_metrics"], "test_metrics": test,
         }, f, indent=2)
     print(f"Saved checkpoint + metadata to {ckpt_dir}")

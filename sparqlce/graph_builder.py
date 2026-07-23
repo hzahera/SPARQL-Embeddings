@@ -2,10 +2,28 @@
 Converts a SPARQL query string into a NetworkX graph whose nodes and
 edges are labelled with human-readable tokens for downstream GATv2 encoding.
 """
+import json
+import os
 import re
 import networkx as nx
 
 from .sparql_utils import canonicalize_variables, is_noop_filter_text
+
+# Wikidata id -> English label map, built by scripts/build_wikidata_labels.py.
+# Loaded once at import time; empty (no-op) if the file is absent, so DBpedia
+# and un-resolved corpora behave exactly as before.
+_LABELS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "datasets", "wikidata_labels.json"
+)
+try:
+    with open(_LABELS_PATH, encoding="utf-8") as _f:
+        WIKIDATA_LABELS = json.load(_f)
+except (OSError, ValueError):
+    WIKIDATA_LABELS = {}
+
+# Matches an optionally-prefixed / full-URI-reduced Wikidata id, e.g.
+# "wdt:P31", "wde:Q5", or a bare "P31" left after _clean strips the URI path.
+_WD_ID_RE = re.compile(r"^(?:[A-Za-z]+:)?([PQ]\d+)$")
 
 
 class SPARQLGraphBuilder:
@@ -55,6 +73,16 @@ class SPARQLGraphBuilder:
             term = term.rsplit("#", 1)[-1]
         if "/" in term:
             term = term.rsplit("/", 1)[-1]
+        # Expand opaque Wikidata ids to English labels so the E5 text stream
+        # sees prose (e.g. "P31" -> "instance of (P31)"). Keeping the id in
+        # parentheses preserves an exact-match anchor alongside the semantics.
+        # No-op on DBpedia terms (they never match _WD_ID_RE) and when the
+        # label map is empty.
+        if WIKIDATA_LABELS:
+            m = _WD_ID_RE.match(term)
+            if m and m.group(1) in WIKIDATA_LABELS:
+                wd_id = m.group(1)
+                return f"{WIKIDATA_LABELS[wd_id]} ({wd_id})"
         return term
 
     def _node_label(self, term):
