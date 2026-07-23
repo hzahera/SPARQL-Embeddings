@@ -1,10 +1,61 @@
 """SPARQL utilities for parsing and validation."""
 
+import json
+import os
 import re
 
 
 _VAR_RE = re.compile(r'\?[a-zA-Z_]\w*')
 _TRUE_RE = re.compile(r'^\s*true\s*$', re.IGNORECASE)
+
+# ── Wikidata label expansion ──────────────────────────────────────────────────
+# Shared by the SPARQLCE graph builder and the text baselines (E5) so every
+# model reads the SAME label-expanded query text — otherwise a comparison
+# credits SPARQLCE for a preprocessing step the baselines never received.
+_WD_LABELS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "datasets", "wikidata_labels.json"
+)
+_WD_LABELS_CACHE = None
+
+# Matches a Wikidata id as a full URI (<.../P31>), a prefixed qname (wdt:P31),
+# or a bare id (P31); captures the bare id in group 1 or 2.
+_WD_EXPAND_RE = re.compile(
+    r'<[^>]*?[/#]([PQ]\d+)>'                 # full URI  <http://.../P31>
+    r'|(?:[A-Za-z_][\w.\-]*:)?([PQ]\d+)\b'   # qname (wdt:P31) or bare id (P31)
+)
+
+
+def _wikidata_labels() -> dict:
+    """Lazily load the id->label map; empty dict (no-op) if absent."""
+    global _WD_LABELS_CACHE
+    if _WD_LABELS_CACHE is None:
+        try:
+            with open(_WD_LABELS_PATH, encoding="utf-8") as f:
+                _WD_LABELS_CACHE = json.load(f)
+        except (OSError, ValueError):
+            _WD_LABELS_CACHE = {}
+    return _WD_LABELS_CACHE
+
+
+def expand_wikidata_labels(query: str) -> str:
+    """Rewrite opaque Wikidata ids in a query string to ``label (ID)`` form.
+
+    e.g. ``?v0 wdt:P31 wde:Q5`` -> ``?v0 instance of (P31) human (Q5)``.
+    No-op on DBpedia queries (no P/Q ids) and when the label map is absent or a
+    given id has no English label. Mirrors the expansion the SPARQLCE graph
+    builder applies to node/edge labels, so text baselines get identical
+    semantic content.
+    """
+    labels = _wikidata_labels()
+    if not labels:
+        return query
+
+    def repl(m):
+        wid = m.group(1) or m.group(2)
+        lab = labels.get(wid)
+        return f"{lab} ({wid})" if lab else m.group(0)
+
+    return _WD_EXPAND_RE.sub(repl, query)
 
 
 def normalize_query(query: str) -> str:
