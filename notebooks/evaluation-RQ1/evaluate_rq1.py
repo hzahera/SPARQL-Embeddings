@@ -184,13 +184,16 @@ def build_sorted_pools_bm25(
     bm25: BM25Okapi,
     q_to_row: Dict[str, int],
     items: List[EvalItem],
-    corpus_queries: List[str]
+    corpus_queries: List[str],
+    transform=None,
 ) -> List[List[str]]:
     anchor_to_idx = q_to_row
     sorted_pools: List[List[str]] = []
 
     for anchor_q, _, _ in items:
-        tokens = anchor_q.lower().split()
+        # Anchor tokens must match how the corpus was tokenized: if the corpus
+        # was expanded (transform set), expand the anchor query too.
+        tokens = (transform(anchor_q) if transform else anchor_q).lower().split()
         scores = np.asarray(bm25.get_scores(tokens))
         if anchor_q in anchor_to_idx:
             scores = scores.copy()
@@ -385,19 +388,25 @@ def report(
 # Evaluators
 # ----------------------------
 
-def evaluate_tfidf(eval_items, global_corpus, relevance_scores_per_item, topks):
+def evaluate_tfidf(eval_items, global_corpus, relevance_scores_per_item, topks, transform=None):
+    # Fit on optionally label-expanded text, but keep q_to_row / lookups keyed
+    # by the ORIGINAL query string so eval_items still resolve. The anchor's row
+    # is its expanded vector, matching the corpus. (transform is a no-op unless
+    # passed — DBpedia callers are unaffected.)
+    corpus_text = [transform(q) for q in global_corpus] if transform else global_corpus
     tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1, 2))
-    X_tfidf = tfidf.fit_transform(global_corpus)
+    X_tfidf = tfidf.fit_transform(corpus_text)
     X_tfidf = sk_normalize(X_tfidf, norm="l2", axis=1)
     q_to_row = {q: i for i, q in enumerate(global_corpus)}
     tfidf_sorted = build_sorted_pools_tfidf(X_tfidf, q_to_row, eval_items, global_corpus)
     report("Baseline: TF-IDF", tfidf_sorted, eval_items, relevance_scores_per_item, topks)
 
-def evaluate_bm25(eval_items, global_corpus, relevance_scores_per_item, topks):
-    tokenized_corpus = [q.lower().split() for q in global_corpus]
+def evaluate_bm25(eval_items, global_corpus, relevance_scores_per_item, topks, transform=None):
+    corpus_text = [transform(q) for q in global_corpus] if transform else global_corpus
+    tokenized_corpus = [q.lower().split() for q in corpus_text]
     bm25 = BM25Okapi(tokenized_corpus)
     q_to_row = {q: i for i, q in enumerate(global_corpus)}
-    bm25_sorted = build_sorted_pools_bm25(bm25, q_to_row, eval_items, global_corpus)
+    bm25_sorted = build_sorted_pools_bm25(bm25, q_to_row, eval_items, global_corpus, transform=transform)
     report("Baseline: BM25", bm25_sorted, eval_items, relevance_scores_per_item, topks)
 
 def evaluate_sentence_transformer(model_name, display_name, eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=32, transform=None):
@@ -435,7 +444,7 @@ SPARQL_ENCODER_BASELINES = [
 ]
 
 
-def evaluate_sparql_encoder_baselines(eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=32):
+def evaluate_sparql_encoder_baselines(eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=32, transform=None):
     """Evaluate the prior-literature SPARQL/code encoder baselines (zero-shot,
     mean-pooled). Roster: SPARQL_ENCODER_BASELINES. Each model is wrapped in a
     try/except so one unavailable checkpoint doesn't abort the rest."""
@@ -443,7 +452,7 @@ def evaluate_sparql_encoder_baselines(eval_items, global_corpus, relevance_score
         try:
             evaluate_sentence_transformer(
                 model_id, display_name, eval_items, global_corpus,
-                relevance_scores_per_item, topks, batch_size=batch_size)
+                relevance_scores_per_item, topks, batch_size=batch_size, transform=transform)
         except Exception as e:
             print(f"Skip {display_name} ({model_id}): {e}")
 
@@ -467,8 +476,12 @@ def _causal_last_token_pool(last_hidden_states, attention_mask):
     return last_hidden_states[idx, seq_lens]
 
 
-def build_emb_map_code_llm(model_id, queries, batch_size=16, max_length=512):
-    """Encode queries with a decoder code-LLM via last-token pooling."""
+def build_emb_map_code_llm(model_id, queries, batch_size=16, max_length=512, transform=None):
+    """Encode queries with a decoder code-LLM via last-token pooling.
+
+    If ``transform`` is given, each query is transformed (e.g. Wikidata label
+    expansion) before encoding, but emb_map stays keyed by the ORIGINAL query.
+    """
     from transformers import AutoModel, AutoTokenizer
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(model_id, padding_side="left")
@@ -482,7 +495,8 @@ def build_emb_map_code_llm(model_id, queries, batch_size=16, max_length=512):
     with torch.no_grad():
         for i in range(0, len(queries), batch_size):
             batch = list(queries[i:i + batch_size])
-            enc = tokenizer(batch, padding=True, truncation=True,
+            texts = [transform(q) for q in batch] if transform else batch
+            enc = tokenizer(texts, padding=True, truncation=True,
                             max_length=max_length, return_tensors="pt").to(device)
             out = model(input_ids=enc["input_ids"], attention_mask=enc["attention_mask"])
             pooled = _causal_last_token_pool(out.last_hidden_state, enc["attention_mask"])
@@ -492,11 +506,11 @@ def build_emb_map_code_llm(model_id, queries, batch_size=16, max_length=512):
     return emb_map
 
 
-def evaluate_code_llm(model_id, display_name, eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=16):
+def evaluate_code_llm(model_id, display_name, eval_items, global_corpus, relevance_scores_per_item, topks, batch_size=16, transform=None):
     """Zero-shot decoder code-LLM (e.g. Qwen2.5-Coder) as an embedder via
     last-token pooling. Off-label use of a generative model; see note above."""
     try:
-        emb_map = build_emb_map_code_llm(model_id, global_corpus, batch_size=batch_size)
+        emb_map = build_emb_map_code_llm(model_id, global_corpus, batch_size=batch_size, transform=transform)
         sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus)
         report(display_name, sorted_pools, eval_items, relevance_scores_per_item, topks)
     except Exception as e:
