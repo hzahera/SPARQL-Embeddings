@@ -80,9 +80,10 @@ class SPARQLGraphBuilder:
         # label map is empty.
         if WIKIDATA_LABELS:
             m = _WD_ID_RE.match(term)
-            if m and m.group(1) in WIKIDATA_LABELS:
-                wd_id = m.group(1)
-                return f"{WIKIDATA_LABELS[wd_id]} ({wd_id})"
+            if m:
+                label = WIKIDATA_LABELS.get(m.group(1))
+                if label:  # skip ids with no / empty English label
+                    return f"{label} ({m.group(1)})"
         return term
 
     def _node_label(self, term):
