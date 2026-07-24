@@ -44,7 +44,7 @@ KG_FILES = {
     ],
     "wikidata": [
         DATASETS_DIR / "wikidata-triplets-dataset.json",
-        DATASETS_DIR / "wikidata_testset_RQ1_matched.json",
+        DATASETS_DIR / "wikidata_testset_RQ1.json",
     ],
 }
 

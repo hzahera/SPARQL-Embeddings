@@ -14,7 +14,7 @@ Anchors are drawn from the held-out Wikidata TEST split only. Where a bucket is
 short of the DBpedia target (only the 20-cap bucket, by 5), the deficit spills
 into the next lower bucket so the total stays 462.
 
-Output: datasets/wikidata_testset_RQ1_matched.json
+Output: datasets/wikidata_testset_RQ1.json
 
     python scripts/build_dbpedia_matched_wikidata.py
 """
@@ -27,7 +27,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 TRIP = ROOT / "datasets" / "wikidata-triplets-dataset.json"
 SPLITS = ROOT / "datasets" / "splits_wikidata.json"
-OUT = ROOT / "datasets" / "wikidata_testset_RQ1_matched.json"
+OUT = ROOT / "datasets" / "wikidata_testset_RQ1.json"
 
 JAC_MIN = 0.80        # positive threshold (DBpedia min observed 0.804)
 CAP = 20              # max positives / anchor (DBpedia cap)

@@ -38,7 +38,7 @@ from rank_bm25 import BM25Okapi
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))   # so `import sparqlce` (repo root) works from scripts/
-SPLIT = ROOT / "datasets" / "wikidata_testset_RQ1_matched.json"
+SPLIT = ROOT / "datasets" / "wikidata_testset_RQ1.json"
 TOPKS = [1, 3, 5, 10]   # @3/@5/@10 reported in the paper (matches the DBpedia table)
 BIN_ORDER = ["<0.3", "0.3-0.5", "0.5-0.8", ">=0.8"]
 

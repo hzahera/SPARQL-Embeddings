@@ -120,7 +120,7 @@ def build_emb_map_peft_qwen3(adapter_path, queries, batch_size=8,
 
 KG_TESTSETS = {
     "dbpedia": ROOT_DIR / "datasets" / "dbpedia_testset_RQ1.json",
-    "wikidata": ROOT_DIR / "datasets" / "wikidata_testset_RQ1_matched.json",
+    "wikidata": ROOT_DIR / "datasets" / "wikidata_testset_RQ1.json",
 }
 
 TOPKS = [3, 5, 10, 20]
