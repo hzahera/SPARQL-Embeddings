@@ -15,8 +15,6 @@ for DBpedia and Wikidata.
 - **`result_sets_dbpedia.json`** — cached true answer sets for the DBpedia
   RQ1 test corpus (used as an execution oracle by the evaluation and caching
   notebooks, so no live SPARQL endpoint is needed).
-- **`binary_datasets/`** — binary classifier train/val splits
-  (`dbpedia_train.json`, `dbpedia_val.json`).
 
 ## Not tracked (exceed GitHub's size limits)
 
