@@ -126,11 +126,11 @@ def sorted_pools_matrix(scores_fn, items, corpus):
     return pools
 
 
-def load_split_and_bins():
-    raw = json.load(open(SPLIT))
+def load_split_and_bins(split_path=SPLIT):
+    raw = json.load(open(split_path))
     corpus, seen = build_global_corpus(raw)
     items = build_eval_items(raw, corpus, seen)
-    bin_by_anchor = {_anchor(r): r["lexical_bin"] for r in raw}
+    bin_by_anchor = {_anchor(r): r.get("lexical_bin", "all") for r in raw}
     item_bins = [bin_by_anchor.get(a) for (a, _, _) in items]
     return raw, corpus, items, item_bins
 
@@ -145,7 +145,9 @@ def per_bin_report(name, sorted_pools, items, item_bins):
     groups = defaultdict(list)
     for sp, it, b in zip(sorted_pools, items, item_bins):
         groups[b].append((sp, it))
-    for b in BIN_ORDER + ["ALL"]:
+    present = [b for b in BIN_ORDER if b in groups] + \
+              [b for b in groups if b not in BIN_ORDER]
+    for b in present + ["ALL"]:
         if b == "ALL":
             pairs = [(sp, it) for sp, it, _ in zip(sorted_pools, items, item_bins)]
         else:
@@ -252,11 +254,15 @@ def main():
     ap.add_argument("--sparqlce", default=None, help="SparqlCE checkpoint path")
     ap.add_argument("--no-lexical", action="store_true",
                     help="skip TF-IDF/BM25 (e.g. when only adding a neural row)")
+    ap.add_argument("--split", default=str(SPLIT),
+                    help="path to the RQ1 split JSON (default: stratified split)")
     args = ap.parse_args()
 
-    raw, corpus, items, item_bins = load_split_and_bins()
-    print(f"split: {SPLIT.name}  anchors={len(items)}  corpus={len(corpus)}")
-    print("bins:", {b: item_bins.count(b) for b in BIN_ORDER})
+    split_path = Path(args.split)
+    raw, corpus, items, item_bins = load_split_and_bins(split_path)
+    print(f"split: {split_path.name}  anchors={len(items)}  corpus={len(corpus)}")
+    from collections import Counter
+    print("bins:", dict(Counter(item_bins)))
 
     if not args.no_lexical:
         run_tfidf(corpus, items, item_bins)
