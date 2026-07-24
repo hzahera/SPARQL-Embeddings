@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-OUT = Path(__file__).resolve().parents[1] / "results" / "figures"
+OUT = Path(__file__).resolve().parents[1] / "datasets" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 BINS = ["<0.3", "0.3-0.5", "0.5-0.8", ">=0.8"]
@@ -40,7 +40,7 @@ MRR10 = {
     "Qwen2.5-Coder": [0.029, 0.077, 0.304, 0.456],   # 0.216
     "GraphCodeBERT": [0.014, 0.083, 0.388, 0.683],   # 0.292
     "E5-FT":         [0.007, 0.050, 0.236, 0.363],   # 0.164
-    "SparqlCE":      [0.105, 0.074, 0.315, 0.553],   # 0.262
+    "SparqlCE":      [0.101, 0.060, 0.311, 0.541],   # combined run
 }
 HITS10 = {
     "TF-IDF":        [0.000, 0.071, 0.667, 0.924],   # 0.415
@@ -53,7 +53,7 @@ HITS10 = {
     "Qwen2.5-Coder": [0.052, 0.195, 0.505, 0.686],   # 0.360
     "GraphCodeBERT": [0.029, 0.200, 0.571, 0.886],   # 0.421
     "E5-FT":         [0.019, 0.124, 0.514, 0.705],   # 0.340
-    "SparqlCE":      [0.248, 0.186, 0.633, 0.871],   # 0.485
+    "SparqlCE":      [0.248, 0.157, 0.643, 0.871],   # combined run
 }
 
 GREY = ["TF-IDF", "BM25", "MiniLM", "MPNet", "SPBERT", "E5 (zs)", "CodeBERT", "Qwen2.5-Coder"]
