@@ -6,14 +6,24 @@ notebooks/evaluation-RQ1/evaluate_rq1.py, but groups anchors by the split's
 fixed `lexical_bin` field (NOT the notebook's report_stratified, which re-fits
 TF-IDF and drifts). Prints MRR@k / Hits@k per bin for each available method.
 
-Always runs the lexical baselines (TF-IDF, BM25 — no downloads, no checkpoint).
-Neural methods run only if their deps/checkpoint are present:
-  --st  MODEL_ID   a sentence-transformers model (needs sentence-transformers)
-  --sparqlce PATH  a SparqlCE checkpoint (needs torch + sparqlce)
+Always runs the lexical baselines (TF-IDF, BM25 — no downloads, no checkpoint)
+unless --no-lexical. Neural methods run only if their deps are present:
+  --st MODEL_ID     mean-pooled encoder / SentenceTransformer (repeatable)
+  --code-llm MODEL_ID  decoder code-LLM, last-token pooled (repeatable)
+  --sparqlce PATH   a SparqlCE checkpoint (needs torch + sparqlce)
 
     python scripts/eval_rq1_stratified.py
     python scripts/eval_rq1_stratified.py --st sentence-transformers/all-mpnet-base-v2
-    python scripts/eval_rq1_stratified.py --sparqlce path/to/final_model.pt
+
+    # full remaining paper roster in one run:
+    python scripts/eval_rq1_stratified.py \
+      --st intfloat/e5-base-v2 \
+      --st sentence-transformers/all-MiniLM-L6-v2 \
+      --st microsoft/codebert-base \
+      --st microsoft/graphcodebert-base \
+      --st razent/spbert-mlm-wso-base \
+      --code-llm Qwen/Qwen2.5-Coder-0.5B \
+      --sparqlce checkpoints_b128/wikidata/seed42_full/best_model.pt
 """
 import argparse
 import json
@@ -179,20 +189,64 @@ def run_sparqlce(ckpt, corpus, items, item_bins):
                    sorted_pools_matrix(scores, items, corpus), items, item_bins)
 
 
+def _causal_last_token_pool(last_hidden, attn):
+    import torch
+    if attn[:, -1].sum() == attn.shape[0]:      # left padding
+        return last_hidden[:, -1]
+    idx = attn.sum(dim=1) - 1
+    return last_hidden[torch.arange(last_hidden.shape[0]), idx]
+
+
+def run_code_llm(model_id, corpus, items, item_bins, batch_size=16, max_length=512):
+    """Decoder code-LLM (e.g. Qwen2.5-Coder) as an embedder via last-token pooling
+    — same recipe as evaluate_rq1.build_emb_map_code_llm."""
+    import torch
+    from transformers import AutoModel, AutoTokenizer
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    tok = AutoTokenizer.from_pretrained(model_id, padding_side="left")
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+    model = AutoModel.from_pretrained(
+        model_id, torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+    ).to(device).eval()
+    emb = {}
+    with torch.no_grad():
+        for i in range(0, len(corpus), batch_size):
+            batch = corpus[i:i + batch_size]
+            enc = tok(batch, padding=True, truncation=True, max_length=max_length,
+                      return_tensors="pt").to(device)
+            out = model(input_ids=enc["input_ids"], attention_mask=enc["attention_mask"])
+            pooled = _causal_last_token_pool(out.last_hidden_state, enc["attention_mask"])
+            pooled = torch.nn.functional.normalize(pooled.float(), p=2, dim=1)
+            for q, e in zip(batch, pooled.cpu().numpy()):
+                emb[q] = e
+    scores, _ = _emb_scores(emb, corpus)
+    per_bin_report(f"CodeLLM: {model_id}",
+                   sorted_pools_matrix(scores, items, corpus), items, item_bins)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--st", default=None, help="sentence-transformers model id")
+    ap.add_argument("--st", action="append", default=[], metavar="MODEL_ID",
+                    help="sentence-transformers / mean-pooled encoder id (repeatable)")
+    ap.add_argument("--code-llm", action="append", default=[], metavar="MODEL_ID",
+                    help="decoder code-LLM id, last-token pooled (repeatable)")
     ap.add_argument("--sparqlce", default=None, help="SparqlCE checkpoint path")
+    ap.add_argument("--no-lexical", action="store_true",
+                    help="skip TF-IDF/BM25 (e.g. when only adding a neural row)")
     args = ap.parse_args()
 
     raw, corpus, items, item_bins = load_split_and_bins()
     print(f"split: {SPLIT.name}  anchors={len(items)}  corpus={len(corpus)}")
     print("bins:", {b: item_bins.count(b) for b in BIN_ORDER})
 
-    run_tfidf(corpus, items, item_bins)
-    run_bm25(corpus, items, item_bins)
-    if args.st:
-        run_st(args.st, corpus, items, item_bins)
+    if not args.no_lexical:
+        run_tfidf(corpus, items, item_bins)
+        run_bm25(corpus, items, item_bins)
+    for model_id in args.st:
+        run_st(model_id, corpus, items, item_bins)
+    for model_id in getattr(args, "code_llm"):
+        run_code_llm(model_id, corpus, items, item_bins)
     if args.sparqlce:
         run_sparqlce(args.sparqlce, corpus, items, item_bins)
 
