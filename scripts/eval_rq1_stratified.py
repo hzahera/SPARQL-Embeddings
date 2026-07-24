@@ -100,6 +100,21 @@ def avg_hits_at_k(pools, items, k):
     return h / max(len(items), 1)
 
 
+def _dcg(rels):
+    return sum(r / np.log2(i + 2) for i, r in enumerate(rels))
+
+
+def avg_ndcg_at_k(pools, items, k):
+    """Binary-relevance nDCG@k, identical to evaluate_rq1.avg_ndcg_binary:
+    DCG over top-k (rel 1 if positive) / ideal DCG of min(#pos, k) ones."""
+    tot = 0.0
+    for pool, (_, _, pos) in zip(pools, items):
+        rels = [1.0 if q in pos else 0.0 for q in pool[:k]]
+        idcg = _dcg([1.0] * min(len(pos), k))
+        tot += (_dcg(rels) / idcg) if idcg > 0 else 0.0
+    return tot / max(len(items), 1)
+
+
 def sorted_pools_matrix(scores_fn, items, corpus):
     a2i = {q: i for i, q in enumerate(corpus)}
     pools = []
@@ -123,7 +138,8 @@ def load_split_and_bins():
 def per_bin_report(name, sorted_pools, items, item_bins):
     print(f"\n{'=' * 68}\n{name}\n{'=' * 68}")
     header = f"{'bin':>9} {'n':>4} " + " ".join(f"MRR@{k:<3}" for k in TOPKS) + \
-             "  " + " ".join(f"Hit@{k:<3}" for k in TOPKS)
+             "  " + " ".join(f"Hit@{k:<3}" for k in TOPKS) + \
+             "  " + " ".join(f"nDCG@{k:<2}" for k in TOPKS)
     print(header)
     print("-" * len(header))
     groups = defaultdict(list)
@@ -140,9 +156,11 @@ def per_bin_report(name, sorted_pools, items, item_bins):
         its = [i for _, i in pairs]
         mrr = [avg_mrr_at_k(sps, its, k) for k in TOPKS]
         hit = [avg_hits_at_k(sps, its, k) for k in TOPKS]
+        ndcg = [avg_ndcg_at_k(sps, its, k) for k in TOPKS]
         print(f"{b:>9} {len(pairs):>4} " +
               " ".join(f"{m:7.3f}" for m in mrr) + "  " +
-              " ".join(f"{h:7.3f}" for h in hit))
+              " ".join(f"{h:7.3f}" for h in hit) + "  " +
+              " ".join(f"{d:7.3f}" for d in ndcg))
 
 
 def run_tfidf(corpus, items, item_bins):
