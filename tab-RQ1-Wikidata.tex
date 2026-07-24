@@ -1,8 +1,8 @@
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{RQ1 retrieval on the DBpedia-matched Wikidata test split (\texttt{matched}): 462 anchors, positives ($\mathrm{jaccard}>0.8$, mean 7.94, cap 20) and 20 negatives per anchor, thresholds and size mirroring \texttt{dbpedia\_testset\_RQ1}. Best per column in \textbf{bold}. {\dagger}-shot.}
-\label{tab:rq1-wikidata-matched}
-\resizebox{\columnwidth}{!}{%
+\caption{RQ1 retrieval performance on Wikidata across MRR, Hits, and nDCG metrics, on the DBpedia-matched test split (462 anchors; positives $\mathrm{jaccard}>0.8$, mean 7.94, cap 20; 20 negatives per anchor), constructed to mirror the DBpedia RQ1 protocol. Best per column in \textbf{bold}. $^{\dagger}$~zero-shot.}
+\label{tab:rq1-wikidata}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{l ccc ccc ccc}
 \toprule
 & \multicolumn{3}{c}{\textbf{MRR}} & \multicolumn{3}{c}{\textbf{Hits}} & \multicolumn{3}{c}{\textbf{nDCG}} \\
@@ -26,4 +26,4 @@ E5-Finetuned & 0.414 & 0.421 & 0.431 & 0.478 & 0.513 & 0.584 & 0.380 & 0.379 & 0
 \bottomrule
 \end{tabular}%
 }
-\end{table}
+\end{table*}
