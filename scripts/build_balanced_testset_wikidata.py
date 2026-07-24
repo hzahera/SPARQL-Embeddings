@@ -62,10 +62,9 @@ OUT_PATH = ROOT / "datasets" / "wikidata_testset_RQ1_balanced.json"
 # target_fraction is used only when BALANCE=True (subsample to those proportions).
 # When BALANCE=False, every eligible anchor is kept and tagged by its sub-bin.
 BINS = [
-    ("low", 0.00, 0.30, 0.50),
-    ("mid", 0.30, 0.50, 0.50),
+    ("low", 0.00, 0.30, 1.00),
 ]
-DROP_ABOVE = 0.50      # keep only the surface-divergent regime (cos < 0.5)
+DROP_ABOVE = 0.30      # keep only the adversarial regime (cos < 0.3)
 BALANCE = False        # False: include ALL eligible anchors (no subsampling)
 JACCARD_MIN = 0.8
 SEED = 42
