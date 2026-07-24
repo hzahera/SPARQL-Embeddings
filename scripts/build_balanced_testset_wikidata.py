@@ -59,11 +59,14 @@ SRC_PATH = ROOT / "datasets" / "wikidata-triplets-dataset.json"
 OUT_PATH = ROOT / "datasets" / "wikidata_testset_RQ1_balanced.json"
 
 # Bins as (name, lo, hi, target_fraction); pairs with cos >= DROP_ABOVE removed.
+# target_fraction is used only when BALANCE=True (subsample to those proportions).
+# When BALANCE=False, every eligible anchor is kept and tagged by its sub-bin.
 BINS = [
     ("low", 0.00, 0.30, 0.50),
-    ("mid", 0.30, 0.80, 0.50),
+    ("mid", 0.30, 0.50, 0.50),
 ]
-DROP_ABOVE = 0.80
+DROP_ABOVE = 0.50      # keep only the surface-divergent regime (cos < 0.5)
+BALANCE = False        # False: include ALL eligible anchors (no subsampling)
 JACCARD_MIN = 0.8
 SEED = 42
 
@@ -131,31 +134,40 @@ def main() -> None:
     print(f"anchors with >=1 result-equivalent, in-range positive: {len(eligible)}")
     print("eligible per bin:", {b: sum(b in s for s in eligible.values()) for b in bin_names})
 
-    target = {b[0]: b[3] for b in BINS}
-
-    def assign(need):
-        got = {b: 0 for b in bin_names}
+    if not BALANCE:
+        # Include every eligible anchor, tagged by the bin of its hardest
+        # (lowest-cos) qualifying positive across the whole in-range set.
         chosen = {}
-        order = sorted(eligible, key=lambda a: (len(eligible[a]), rng.random()))
-        for a in order:
-            opts = [b for b in bin_names if b in eligible[a] and got[b] < need[b]]
-            if opts:
-                b = max(opts, key=lambda b: need[b] - got[b])
-                got[b] += 1
-                chosen[a] = b
-        return got, chosen
+        for a, bins in cand.items():
+            all_c = [(c, b) for b in bins for (_, c, _) in cand[a][b]]
+            _, b = min(all_c, key=lambda t: t[0])
+            chosen[a] = b
+        print(f"include-all split (cos < {DROP_ABOVE}): N={len(chosen)}")
+    else:
+        target = {b[0]: b[3] for b in BINS}
 
-    best = None
-    for N in range(len(eligible), 0, -1):
-        need = {b: round(target[b] * N) for b in bin_names}
-        diff = N - sum(need.values())
-        need[bin_names[-1]] += diff  # absorb rounding into last bin
-        got, chosen = assign(need)
-        if all(got[b] >= need[b] for b in need):
-            best = (N, need, chosen)
-            break
-    N, need, chosen = best
-    print(f"balanced split: N={N}  target={need}")
+        def assign(need):
+            got = {b: 0 for b in bin_names}
+            ch = {}
+            order = sorted(eligible, key=lambda a: (len(eligible[a]), rng.random()))
+            for a in order:
+                opts = [b for b in bin_names if b in eligible[a] and got[b] < need[b]]
+                if opts:
+                    b = max(opts, key=lambda b: need[b] - got[b])
+                    got[b] += 1
+                    ch[a] = b
+            return got, ch
+
+        best = None
+        for N in range(len(eligible), 0, -1):
+            need = {b: round(target[b] * N) for b in bin_names}
+            need[bin_names[-1]] += N - sum(need.values())
+            got, ch = assign(need)
+            if all(got[b] >= need[b] for b in need):
+                best = (N, need, ch)
+                break
+        N, need, chosen = best
+        print(f"balanced split: N={N}  target={need}")
 
     def pick(bin_name, cands):
         lo, hi = next((b[1], b[2]) for b in BINS if b[0] == bin_name)
