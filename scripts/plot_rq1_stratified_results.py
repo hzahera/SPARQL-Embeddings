@@ -28,18 +28,22 @@ MRR10 = {
     "TF-IDF":    [0.000, 0.024, 0.292, 0.557],
     "BM25":      [0.000, 0.042, 0.286, 0.531],
     "MPNet":     [0.004, 0.031, 0.152, 0.283],
+    "E5-FT":     [0.007, 0.050, 0.236, 0.363],
     "SparqlCE":  [0.105, 0.074, 0.315, 0.553],
 }
 HITS10 = {
     "TF-IDF":    [0.000, 0.071, 0.667, 0.924],
     "BM25":      [0.000, 0.100, 0.638, 0.900],
     "MPNet":     [0.010, 0.095, 0.362, 0.562],
+    "E5-FT":     [0.019, 0.124, 0.514, 0.705],
     "SparqlCE":  [0.248, 0.186, 0.633, 0.871],
 }
 STYLE = {
     "TF-IDF":   dict(color="#8C8C8C", marker="o", ls="--"),
     "BM25":     dict(color="#B0B0B0", marker="s", ls="--"),
     "MPNet":    dict(color="#DD8452", marker="^", ls="-."),
+    # E5-FT: same backbone as SparqlCE -> same colour family, dashed = weaker method
+    "E5-FT":    dict(color="#8DA5C9", marker="v", ls="--", lw=1.8),
     "SparqlCE": dict(color="#4C72B0", marker="D", ls="-", lw=2.5, ms=8),
 }
 
