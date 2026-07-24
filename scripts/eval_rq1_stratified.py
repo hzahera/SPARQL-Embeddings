@@ -27,6 +27,7 @@ from sklearn.preprocessing import normalize as sk_normalize
 from rank_bm25 import BM25Okapi
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))   # so `import sparqlce` (repo root) works from scripts/
 SPLIT = ROOT / "datasets" / "wikidata_testset_RQ1_stratified.json"
 TOPKS = [1, 5, 10]
 BIN_ORDER = ["<0.3", "0.3-0.5", "0.5-0.8", ">=0.8"]
