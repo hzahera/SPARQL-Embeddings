@@ -185,7 +185,21 @@ def main():
                      help="full: paper model. no_gnn: skip GATv2 message passing "
                           "(bag of node embeddings). no_decomposition: whole query "
                           "as one node, no graph structure at all.")
-    ap.add_argument("--epochs", type=int, default=20)
+    ap.add_argument("--epochs", type=int, default=20,
+                     help="max epochs (a cap); with --patience, training stops "
+                          "early when val MRR plateaus, so this need not match "
+                          "across runs -- the best-val checkpoint is what is saved")
+    ap.add_argument("--patience", type=int, default=0,
+                     help="early-stopping patience on val MRR (epochs without "
+                          "improvement > --min-delta before stopping). 0 disables "
+                          "early stopping. Use the SAME value across KGs/baselines "
+                          "so the epoch budget is not an unfair advantage.")
+    ap.add_argument("--min-delta", type=float, default=1e-4,
+                     help="minimum val-MRR gain to count as an improvement")
+    ap.add_argument("--amp", action="store_true",
+                     help="mixed-precision training (autocast + GradScaler); large "
+                          "memory saving -- use this if you hit CUDA OOM at big "
+                          "batch / many hard negatives")
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--temperature", type=float, default=0.05)
     ap.add_argument("--lambda-reg", type=float, default=0.3)
@@ -251,33 +265,40 @@ def main():
         ], weight_decay=args.weight_decay)
 
     best_mrr = -1.0
-    print(f"Training {args.kg}/{args.ablation} seed={args.seed} on {device} for {args.epochs} epochs")
+    best_epoch = 0
+    epochs_no_improve = 0
+    scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
+    print(f"Training {args.kg}/{args.ablation} seed={args.seed} on {device} for up to "
+          f"{args.epochs} epochs (patience={args.patience or 'off'}, amp={args.amp})")
     for epoch in range(1, args.epochs + 1):
         model.train()
         sum_loss = sum_ce = sum_reg = 0.0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:02d}/{args.epochs}")
         for batch in pbar:
             optimizer.zero_grad()
-            if args.hard_negatives:
-                # semantic_collate_fn: (anchor, pos, neg, pos_slices, neg_slices,
-                #                       pos_js, neg_js); one positive per anchor.
-                a_emb, _ = model(batch[0].to(device))
-                p_emb, _ = model(batch[1].to(device))
-                n_emb, _ = model(batch[2].to(device))
-                neg_slices, pos_js = batch[4], batch[5].to(device)
-                loss_ce = infonce_hard(a_emb, p_emb, n_emb, neg_slices, args.temperature)
-            else:
-                a_graphs, p_graphs, pos_js = batch[0].to(device), batch[1].to(device), batch[2].to(device)
-                a_emb, _ = model(a_graphs)
-                p_emb, _ = model(p_graphs)
-                loss_ce = infonce_inbatch(a_emb, p_emb, args.temperature)
-            a_n, p_n = F.normalize(a_emb, dim=1), F.normalize(p_emb, dim=1)
-            cos = (a_n * p_n).sum(dim=1)
-            loss_reg = (cos - pos_js).pow(2).mean()
-            loss = loss_ce + args.lambda_reg * loss_reg
-            loss.backward()
+            with torch.cuda.amp.autocast(enabled=args.amp):
+                if args.hard_negatives:
+                    # semantic_collate_fn: (anchor, pos, neg, pos_slices, neg_slices,
+                    #                       pos_js, neg_js); one positive per anchor.
+                    a_emb, _ = model(batch[0].to(device))
+                    p_emb, _ = model(batch[1].to(device))
+                    n_emb, _ = model(batch[2].to(device))
+                    neg_slices, pos_js = batch[4], batch[5].to(device)
+                    loss_ce = infonce_hard(a_emb, p_emb, n_emb, neg_slices, args.temperature)
+                else:
+                    a_graphs, p_graphs, pos_js = batch[0].to(device), batch[1].to(device), batch[2].to(device)
+                    a_emb, _ = model(a_graphs)
+                    p_emb, _ = model(p_graphs)
+                    loss_ce = infonce_inbatch(a_emb, p_emb, args.temperature)
+                a_n, p_n = F.normalize(a_emb, dim=1), F.normalize(p_emb, dim=1)
+                cos = (a_n * p_n).sum(dim=1)
+                loss_reg = (cos - pos_js).pow(2).mean()
+                loss = loss_ce + args.lambda_reg * loss_reg
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)                        # unscale before clip
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.grad_clip)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             sum_loss += loss.item(); sum_ce += loss_ce.item(); sum_reg += loss_reg.item()
             pbar.set_postfix(loss=f"{loss.item():.4f}", ce=f"{loss_ce.item():.4f}", reg=f"{loss_reg.item():.4f}")
 
@@ -286,14 +307,22 @@ def main():
         print(f"Epoch {epoch:02d} | train_loss={sum_loss/nb:.4f} (ce={sum_ce/nb:.4f} reg={sum_reg/nb:.4f}) "
               f"| val MRR={val['mrr']:.4f} Hits@1={val['hits@1']:.4f} Hits@5={val['hits@5']:.4f}")
 
-        if val["mrr"] > best_mrr:
+        if val["mrr"] > best_mrr + args.min_delta:
             best_mrr = val["mrr"]
+            best_epoch = epoch
+            epochs_no_improve = 0
             torch.save({"epoch": epoch, "model_state_dict": model.state_dict(),
                         "val_metrics": val, "ablation": args.ablation,
                         # Record the embedding width: the eval-time encoder must
                         # be built at the same width or load_state_dict fails.
                         "output_dim": Config.OUTPUT_DIM}, ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
+        else:
+            epochs_no_improve += 1
+            if args.patience and epochs_no_improve >= args.patience:
+                print(f"  early stop: no val-MRR gain > {args.min_delta} for "
+                      f"{args.patience} epochs (best {best_mrr:.4f} @ epoch {best_epoch})")
+                break
 
     best = torch.load(ckpt_dir / "best_model.pt", map_location=device)
     model.load_state_dict(best["model_state_dict"])
@@ -304,6 +333,8 @@ def main():
         json.dump({
             "kg": args.kg, "seed": args.seed, "ablation": args.ablation,
             "epochs": args.epochs, "batch_size": args.batch_size,
+            "patience": args.patience, "best_epoch": best_epoch, "amp": args.amp,
+            "temperature": args.temperature, "lambda_reg": args.lambda_reg,
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
             "augment_rename_prob": args.augment_rename_prob,
             "output_dim": Config.OUTPUT_DIM,
