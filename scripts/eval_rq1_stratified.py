@@ -135,6 +135,24 @@ def load_split_and_bins(split_path=SPLIT):
     return raw, corpus, items, item_bins
 
 
+def stratify_by_lexical(corpus, text_corpus, items):
+    """Assign each anchor a lexical bin from its mean TF-IDF cosine (over the
+    label-EXPANDED text -- the same text baselines read) to its positives. Bins
+    match BIN_ORDER so per_bin_report groups them. Computed on the fly so a plain
+    split with no `lexical_bin` field can still be reported per-stratum."""
+    X = sk_normalize(TfidfVectorizer(analyzer="word", ngram_range=(1, 2))
+                     .fit_transform(text_corpus), norm="l2", axis=1)
+    idx = {q: i for i, q in enumerate(corpus)}
+    bins = []
+    for a, _, pos in items:
+        cs = [float(X[idx[a]].multiply(X[idx[p]]).sum())
+              for p in pos if p in idx]
+        m = float(np.mean(cs)) if cs else 0.0
+        bins.append("<0.3" if m < 0.3 else "0.3-0.5" if m < 0.5
+                    else "0.5-0.8" if m < 0.8 else ">=0.8")
+    return bins
+
+
 def per_bin_report(name, sorted_pools, items, item_bins):
     print(f"\n{'=' * 68}\n{name}\n{'=' * 68}")
     header = f"{'bin':>9} {'n':>4} " + " ".join(f"MRR@{k:<3}" for k in TOPKS) + \
@@ -258,13 +276,15 @@ def main():
                     help="skip TF-IDF/BM25 (e.g. when only adding a neural row)")
     ap.add_argument("--split", default=str(SPLIT),
                     help="path to the RQ1 split JSON (default: stratified split)")
+    ap.add_argument("--stratify", action="store_true",
+                    help="compute lexical bins on the fly (mean expanded-text cos "
+                         "anchor->positives) and report per cos-bin, ignoring any "
+                         "lexical_bin field in the split")
     args = ap.parse_args()
 
     split_path = Path(args.split)
     raw, corpus, items, item_bins = load_split_and_bins(split_path)
     print(f"split: {split_path.name}  anchors={len(items)}  corpus={len(corpus)}")
-    from collections import Counter
-    print("bins:", dict(Counter(item_bins)))
 
     # Wikidata's opaque P/Q ids starve every TEXT baseline of lexical signal;
     # expand them to English labels so text baselines read the same semantic
@@ -273,6 +293,11 @@ def main():
     # text is not valid SPARQL syntax, only a plain-text stand-in.
     from sparqlce.sparql_utils import expand_wikidata_labels
     text_corpus = [expand_wikidata_labels(q) for q in corpus]
+
+    if args.stratify:
+        item_bins = stratify_by_lexical(corpus, text_corpus, items)
+    from collections import Counter
+    print("bins:", dict(Counter(item_bins)))
 
     if not args.no_lexical:
         run_tfidf(corpus, text_corpus, items, item_bins)
