@@ -32,8 +32,10 @@ Utility scripts for dataset generation, evaluation, training, and analysis.
 - **`eval_rq1_export.py`** — RQ1 evaluation with per-anchor score export (needed for paired significance testing; see `notebooks/evaluation-RQ1/evaluate_rq1.py` for the aggregate-only version).
 - **`compute_significance.py`** — cross-seed mean/std and a paired Wilcoxon signed-rank test against a baseline.
 - **`build_ablation_table.py`** — aggregates per-seed ablation exports into a LaTeX table.
+- **`run_caching_experiment.py`** — downstream semantic-caching simulation (`--kg {dbpedia,wikidata}`, model roster flags, `--min-answer-size`); see `results/caching/README.md`, the paper's current downstream-application experiment.
 
 ## Plotting
 
 - **`plot_robustness_radar.py`** — per-operator robustness radar (paper appendix figure).
 - **`plot_rank_stability.py`** — MRR-before/after-perturbation bar chart.
+- **`plot_caching_pareto.py`** — utility-vs-theta figure from `run_caching_experiment.py`'s pareto CSVs (paper `fig:caching`).
