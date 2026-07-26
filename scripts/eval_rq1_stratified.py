@@ -165,9 +165,9 @@ def per_bin_report(name, sorted_pools, items, item_bins):
               " ".join(f"{d:7.3f}" for d in ndcg))
 
 
-def run_tfidf(corpus, items, item_bins):
+def run_tfidf(corpus, text_corpus, items, item_bins):
     X = sk_normalize(TfidfVectorizer(analyzer="word", ngram_range=(1, 2))
-                     .fit_transform(corpus), norm="l2", axis=1)
+                     .fit_transform(text_corpus), norm="l2", axis=1)
     r2 = {q: i for i, q in enumerate(corpus)}
     def scores(a):
         s = (X @ X[r2[a]].T)
@@ -175,10 +175,11 @@ def run_tfidf(corpus, items, item_bins):
     per_bin_report("TF-IDF", sorted_pools_matrix(scores, items, corpus), items, item_bins)
 
 
-def run_bm25(corpus, items, item_bins):
-    bm25 = BM25Okapi([q.lower().split() for q in corpus])
+def run_bm25(corpus, text_corpus, items, item_bins):
+    bm25 = BM25Okapi([q.lower().split() for q in text_corpus])
+    xform = dict(zip(corpus, text_corpus))
     def scores(a):
-        return np.asarray(bm25.get_scores(a.lower().split()))
+        return np.asarray(bm25.get_scores(xform[a].lower().split()))
     per_bin_report("BM25", sorted_pools_matrix(scores, items, corpus), items, item_bins)
 
 
@@ -188,11 +189,11 @@ def _emb_scores(emb_map, corpus):
     return lambda a: M @ emb_map[a], r2
 
 
-def run_st(model_id, corpus, items, item_bins):
+def run_st(model_id, corpus, text_corpus, items, item_bins):
     from sentence_transformers import SentenceTransformer
     m = SentenceTransformer(model_id)
-    emb = {q: e for q, e in zip(corpus, m.encode(corpus, normalize_embeddings=True,
-                                                 convert_to_numpy=True))}
+    encoded = m.encode(text_corpus, normalize_embeddings=True, convert_to_numpy=True)
+    emb = {q: e for q, e in zip(corpus, encoded)}
     scores, _ = _emb_scores(emb, corpus)
     per_bin_report(f"SentenceTransformer: {model_id}",
                    sorted_pools_matrix(scores, items, corpus), items, item_bins)
@@ -217,7 +218,7 @@ def _causal_last_token_pool(last_hidden, attn):
     return last_hidden[torch.arange(last_hidden.shape[0]), idx]
 
 
-def run_code_llm(model_id, corpus, items, item_bins, batch_size=16, max_length=512):
+def run_code_llm(model_id, corpus, text_corpus, items, item_bins, batch_size=16, max_length=512):
     """Decoder code-LLM (e.g. Qwen2.5-Coder) as an embedder via last-token pooling
     — same recipe as evaluate_rq1.build_emb_map_code_llm."""
     import torch
@@ -232,13 +233,14 @@ def run_code_llm(model_id, corpus, items, item_bins, batch_size=16, max_length=5
     emb = {}
     with torch.no_grad():
         for i in range(0, len(corpus), batch_size):
-            batch = corpus[i:i + batch_size]
+            keys = corpus[i:i + batch_size]
+            batch = text_corpus[i:i + batch_size]
             enc = tok(batch, padding=True, truncation=True, max_length=max_length,
                       return_tensors="pt").to(device)
             out = model(input_ids=enc["input_ids"], attention_mask=enc["attention_mask"])
             pooled = _causal_last_token_pool(out.last_hidden_state, enc["attention_mask"])
             pooled = torch.nn.functional.normalize(pooled.float(), p=2, dim=1)
-            for q, e in zip(batch, pooled.cpu().numpy()):
+            for q, e in zip(keys, pooled.cpu().numpy()):
                 emb[q] = e
     scores, _ = _emb_scores(emb, corpus)
     per_bin_report(f"CodeLLM: {model_id}",
@@ -264,13 +266,21 @@ def main():
     from collections import Counter
     print("bins:", dict(Counter(item_bins)))
 
+    # Wikidata's opaque P/Q ids starve every TEXT baseline of lexical signal;
+    # expand them to English labels so text baselines read the same semantic
+    # content SparqlCE's graph builder resolves internally. No-op on DBpedia
+    # (no P/Q ids to match). SparqlCE keeps the raw `corpus` -- the expanded
+    # text is not valid SPARQL syntax, only a plain-text stand-in.
+    from sparqlce.sparql_utils import expand_wikidata_labels
+    text_corpus = [expand_wikidata_labels(q) for q in corpus]
+
     if not args.no_lexical:
-        run_tfidf(corpus, items, item_bins)
-        run_bm25(corpus, items, item_bins)
+        run_tfidf(corpus, text_corpus, items, item_bins)
+        run_bm25(corpus, text_corpus, items, item_bins)
     for model_id in args.st:
-        run_st(model_id, corpus, items, item_bins)
+        run_st(model_id, corpus, text_corpus, items, item_bins)
     for model_id in getattr(args, "code_llm"):
-        run_code_llm(model_id, corpus, items, item_bins)
+        run_code_llm(model_id, corpus, text_corpus, items, item_bins)
     if args.sparqlce:
         run_sparqlce(args.sparqlce, corpus, items, item_bins)
 
