@@ -1,6 +1,6 @@
 \begin{table*}[t]
 \centering
-\caption{RQ1 retrieval performance on Wikidata across MRR, Hits, and nDCG metrics, on the DBpedia-matched test split (462 anchors; positives $\mathrm{jaccard}>0.8$, mean 7.94, cap 20; 20 negatives per anchor). All \emph{text} baselines receive the same Wikidata label-expanded query text that SparqlCE resolves internally, for a fair comparison. Best per column in \textbf{bold}. {\dagger}-shot.}
+\caption{RQ1 retrieval on the full Wikidata test set (500 natural anchors spanning the lexical-similarity range; positives $\mathrm{jaccard}>0.8$, cap 20; 20 negatives per anchor). This aggregate row mixes easy (high-similarity) and hard (low-similarity) queries; the low-similarity stratum where SparqlCE dominates is reported separately in Table~\ref{tab:rq1-wikidata-lowsim}. All \emph{text} baselines receive the same Wikidata label-expanded query text SparqlCE resolves internally, for a fair comparison. Best per column in \textbf{bold}. {\dagger}-shot.}
 \label{tab:rq1-wikidata}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l ccc ccc ccc}
@@ -9,20 +9,20 @@
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
 Method & @3 & @5 & @10 & @3 & @5 & @10 & @3 & @5 & @10 \\
 \midrule
-TF-IDF & 0.465 & 0.474 & 0.482 & 0.506 & 0.543 & 0.604 & 0.447 & 0.453 & 0.460 \\
-BM25 & 0.464 & 0.474 & 0.480 & 0.509 & 0.556 & 0.597 & 0.448 & 0.455 & 0.457 \\
+TF-IDF & 0.459 & 0.465 & 0.469 & 0.486 & 0.510 & 0.544 & 0.436 & 0.436 & 0.443 \\
+BM25 & 0.451 & 0.457 & 0.461 & 0.482 & 0.508 & 0.536 & 0.433 & 0.433 & 0.436 \\
 \midrule
-SBERT/MiniLM $^{\dagger}$ & 0.485 & 0.492 & 0.501 & 0.535 & 0.565 & 0.636 & 0.467 & 0.467 & 0.471 \\
-SBERT/MPNet $^{\dagger}$ & 0.474 & 0.480 & 0.488 & 0.530 & 0.552 & 0.613 & 0.446 & 0.447 & 0.453 \\
-E5-base-v2 $^{\dagger}$ & 0.492 & 0.499 & 0.510 & 0.532 & 0.565 & 0.639 & 0.465 & 0.468 & 0.473 \\
-SPBERT $^{\dagger}$ & 0.414 & 0.426 & 0.434 & 0.457 & 0.511 & 0.569 & 0.386 & 0.391 & 0.399 \\
-CodeBERT $^{\dagger}$ & 0.361 & 0.370 & 0.378 & 0.413 & 0.452 & 0.515 & 0.329 & 0.332 & 0.340 \\
-GraphCodeBERT $^{\dagger}$ & 0.427 & 0.433 & 0.439 & 0.489 & 0.515 & 0.561 & 0.400 & 0.398 & 0.401 \\
-Qwen2.5-Coder-0.5B $^{\dagger}$ & 0.341 & 0.349 & 0.357 & 0.398 & 0.437 & 0.496 & 0.307 & 0.312 & 0.319 \\
+SBERT/MiniLM $^{\dagger}$ & 0.478 & 0.484 & 0.489 & 0.514 & 0.544 & 0.580 & 0.454 & 0.453 & 0.458 \\
+SBERT/MPNet $^{\dagger}$ & 0.471 & 0.479 & 0.483 & 0.514 & 0.546 & 0.578 & 0.437 & 0.442 & 0.447 \\
+E5-base-v2 $^{\dagger}$ & 0.484 & 0.489 & 0.495 & 0.520 & 0.540 & 0.582 & 0.454 & 0.458 & 0.464 \\
+SPBERT $^{\dagger}$ & 0.410 & 0.420 & 0.425 & 0.460 & 0.504 & 0.544 & 0.384 & 0.388 & 0.393 \\
+CodeBERT $^{\dagger}$ & 0.358 & 0.366 & 0.374 & 0.396 & 0.432 & 0.492 & 0.325 & 0.331 & 0.343 \\
+GraphCodeBERT $^{\dagger}$ & 0.414 & 0.421 & 0.426 & 0.460 & 0.488 & 0.530 & 0.383 & 0.384 & 0.391 \\
+Qwen2.5-Coder-0.5B $^{\dagger}$ & 0.341 & 0.351 & 0.354 & 0.386 & 0.430 & 0.456 & 0.295 & 0.303 & 0.309 \\
 \midrule
-E5-Finetuned & \textbf{0.570} & \textbf{0.584} & \textbf{0.591} & \textbf{0.632} & \textbf{0.693} & \textbf{0.747} & \textbf{0.544} & \textbf{0.558} & \textbf{0.569} \\
+E5-Finetuned & \textbf{0.555} & \textbf{0.566} & \textbf{0.573} & \textbf{0.600} & \textbf{0.650} & 0.704 & \textbf{0.529} & \textbf{0.539} & \textbf{0.555} \\
 \midrule
-SparqlCE (ours) & 0.519 & 0.536 & 0.548 & 0.582 & 0.656 & \textbf{0.747} & 0.489 & 0.507 & 0.527 \\
+SparqlCE (ours) & 0.520 & 0.535 & 0.544 & 0.580 & 0.646 & \textbf{0.712} & 0.487 & 0.503 & 0.519 \\
 \bottomrule
 \end{tabular}%
 }

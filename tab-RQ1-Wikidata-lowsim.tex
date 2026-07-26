@@ -1,0 +1,29 @@
+\begin{table*}[t]
+\centering
+\caption{RQ1 retrieval on the \textbf{low-lexical-similarity stratum} of the Wikidata test set (anchor--positive cosine $<0.3$; 250 of 500 anchors). This regime removes surface signal, isolating result-equivalence retrieval. All \emph{text} baselines receive the same Wikidata label-expanded query text SparqlCE resolves internally, for a fair comparison. Best per column in \textbf{bold}. {\dagger}-shot.}
+\label{tab:rq1-wikidata-lowsim}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l ccc ccc ccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{MRR}} & \multicolumn{3}{c}{\textbf{Hits}} & \multicolumn{3}{c}{\textbf{nDCG}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+Method & @3 & @5 & @10 & @3 & @5 & @10 & @3 & @5 & @10 \\
+\midrule
+TF-IDF & 0.065 & 0.073 & 0.077 & 0.076 & 0.112 & 0.140 & 0.044 & 0.043 & 0.036 \\
+BM25 & 0.071 & 0.078 & 0.082 & 0.096 & 0.128 & 0.156 & 0.051 & 0.044 & 0.039 \\
+\midrule
+SBERT/MiniLM $^{\dagger}$ & 0.092 & 0.100 & 0.108 & 0.128 & 0.164 & 0.220 & 0.073 & 0.071 & 0.073 \\
+SBERT/MPNet $^{\dagger}$ & 0.121 & 0.127 & 0.132 & 0.156 & 0.184 & 0.224 & 0.089 & 0.087 & 0.084 \\
+E5-base-v2 $^{\dagger}$ & 0.095 & 0.100 & 0.107 & 0.132 & 0.152 & 0.208 & 0.069 & 0.067 & 0.065 \\
+SPBERT $^{\dagger}$ & 0.059 & 0.071 & 0.078 & 0.084 & 0.136 & 0.188 & 0.041 & 0.045 & 0.043 \\
+CodeBERT $^{\dagger}$ & 0.060 & 0.064 & 0.071 & 0.076 & 0.096 & 0.152 & 0.042 & 0.039 & 0.042 \\
+GraphCodeBERT $^{\dagger}$ & 0.061 & 0.064 & 0.070 & 0.092 & 0.108 & 0.156 & 0.045 & 0.040 & 0.040 \\
+Qwen2.5-Coder-0.5B $^{\dagger}$ & 0.089 & 0.096 & 0.099 & 0.116 & 0.148 & 0.168 & 0.061 & 0.061 & 0.059 \\
+\midrule
+E5-Finetuned & 0.183 & 0.200 & 0.211 & 0.256 & 0.328 & 0.416 & 0.150 & 0.164 & 0.182 \\
+\midrule
+SparqlCE (ours) & \textbf{0.256} & \textbf{0.276} & \textbf{0.291} & \textbf{0.348} & \textbf{0.436} & \textbf{0.548} & \textbf{0.214} & \textbf{0.233} & \textbf{0.252} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
