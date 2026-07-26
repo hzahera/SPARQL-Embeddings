@@ -1,6 +1,6 @@
 \begin{table*}[t]
 \centering
-\caption{Semantic query-cache simulation (\S\ref{sec:caching}), $K{=}128$, $\theta{=}0.8$, FIFO cache, mean $\pm$ std over 5 seeds. Evaluated on queries whose true answer set has $\geq 5$ rows (drops singleton-answer queries, where Jaccard quality is a binary all-or-nothing signal rather than a graded one; \S\ref{sec:caching-protocol}). \textit{Combined} $=$ Hit rate $\times$ Result quality, the expected useful-hit value per incoming query; best per KG in \textbf{bold}. $^{\dagger}$~zero-shot.}
+\caption{Semantic query-cache simulation (\S\ref{sec:caching}), $K{=}128$, $\theta{=}0.8$, FIFO cache, mean $\pm$ std over 5 seeds. Evaluated on queries whose true answer set has $\geq 5$ rows (drops singleton-answer queries, where Jaccard quality is a binary all-or-nothing signal rather than a graded one; \S\ref{sec:caching-protocol}). On Wikidata, every text-based method (all but SparqlCE) reads P/Q ids expanded to English labels, matching the label resolution SparqlCE's graph builder applies internally, so no method is credited for a preprocessing step another didn't receive. \textit{Combined} $=$ Hit rate $\times$ Result quality, the expected useful-hit value per incoming query; best per KG in \textbf{bold}. $^{\dagger}$~zero-shot.}
 \label{tab:caching-headline}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l ccc ccc}
@@ -9,15 +9,15 @@
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
 Method & Hit rate & Quality & Combined & Hit rate & Quality & Combined \\
 \midrule
-TF-IDF & 0.079\,$\pm$\,0.007 & 0.275\,$\pm$\,0.027 & 0.022 & 0.105\,$\pm$\,0.000 & 0.427\,$\pm$\,0.042 & 0.045 \\
-BM25 & 0.073\,$\pm$\,0.008 & 0.230\,$\pm$\,0.047 & 0.017 & 0.000\,$\pm$\,0.000 & 0.000\,$\pm$\,0.000 & 0.000 \\
+TF-IDF & 0.047\,$\pm$\,0.006 & 0.350\,$\pm$\,0.029 & 0.016 & 0.105\,$\pm$\,0.000 & 0.427\,$\pm$\,0.042 & 0.045 \\
+BM25 & 0.087\,$\pm$\,0.011 & 0.205\,$\pm$\,0.035 & 0.018 & 0.000\,$\pm$\,0.000 & 0.000\,$\pm$\,0.000 & 0.000 \\
 \midrule
 E5-base-v2 $^{\dagger}$ & 0.996\,$\pm$\,0.000 & 0.001\,$\pm$\,0.002 & 0.001 & 0.991\,$\pm$\,0.000 & 0.068\,$\pm$\,0.051 & 0.067 \\
 GraphCodeBERT $^{\dagger}$ & 0.996\,$\pm$\,0.000 & 0.001\,$\pm$\,0.002 & 0.001 & 0.991\,$\pm$\,0.000 & 0.068\,$\pm$\,0.051 & 0.067 \\
 Qwen2.5-Coder-0.5B $^{\dagger}$ & 0.984\,$\pm$\,0.000 & 0.001\,$\pm$\,0.002 & 0.001 & 0.991\,$\pm$\,0.000 & 0.068\,$\pm$\,0.051 & 0.067 \\
-SBERT/MPNet $^{\dagger}$ & 0.946\,$\pm$\,0.005 & 0.029\,$\pm$\,0.015 & 0.027 & 0.909\,$\pm$\,0.007 & 0.139\,$\pm$\,0.067 & 0.126 \\
+SBERT/MPNet $^{\dagger}$ & 0.817\,$\pm$\,0.010 & 0.064\,$\pm$\,0.009 & 0.052 & 0.909\,$\pm$\,0.007 & 0.139\,$\pm$\,0.067 & 0.126 \\
 \midrule
-E5-Finetuned & 0.449\,$\pm$\,0.007 & 0.059\,$\pm$\,0.017 & 0.026 & 0.284\,$\pm$\,0.004 & 0.639\,$\pm$\,0.022 & 0.181 \\
+E5-Finetuned & 0.150\,$\pm$\,0.011 & 0.292\,$\pm$\,0.035 & 0.044 & 0.284\,$\pm$\,0.004 & 0.639\,$\pm$\,0.022 & 0.181 \\
 \midrule
 \textbf{SparqlCE (ours)} & 0.500\,$\pm$\,0.002 & 0.124\,$\pm$\,0.019 & \textbf{0.062} & 0.307\,$\pm$\,0.010 & 0.654\,$\pm$\,0.013 & \textbf{0.201} \\
 \bottomrule

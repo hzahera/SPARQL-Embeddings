@@ -7,6 +7,19 @@ cosine similarity to cache; ≥ θ ⇒ hit (return cached answer set, do not
 insert); < θ ⇒ miss (execute via the oracle, insert). Mean ± std over 5 seeds
 (stream shuffle order only — embeddings are computed once per model).
 
+**Wikidata fairness fix (commit `59d3b34`).** SparqlCE's graph builder
+resolves opaque Wikidata P/Q ids to English labels internally on every
+encode call; the script previously fed every other model (TF-IDF, BM25,
+sentence-transformers, code-LLMs, E5-Finetuned) the raw un-expanded SPARQL,
+an unfair comparison specific to Wikidata (DBpedia's URIs are already
+human-readable, so it was unaffected). Fixed by applying
+`sparqlce.sparql_utils.expand_wikidata_labels()` to every non-SparqlCE
+model's input text. E5-Finetuned was hit hardest — it was actually *trained*
+on label-expanded Wikidata text, so evaluating it on raw ids was a
+train/inference mismatch, not just an unfairness. All Wikidata numbers below
+are post-fix; DBpedia numbers are unaffected (no P/Q ids to expand) and
+unchanged.
+
 ## Headline setting: `--min-answer-size 5`
 
 The held-out test streams are answer-set-size skewed: **49% (Wikidata) / 46%
@@ -49,11 +62,11 @@ collapsed (see next section) — bold = best per column, per KG.
 | E5-base-v2 † | 0.996 ± 0.000 | 0.001 ± 0.002 | 0.001 |
 | GraphCodeBERT † | 0.996 ± 0.000 | 0.001 ± 0.002 | 0.001 |
 | Qwen2.5-Coder-0.5B † | 0.984 ± 0.000 | 0.001 ± 0.002 | 0.001 |
-| SBERT/MPNet † | 0.946 ± 0.005 | 0.029 ± 0.015 | 0.027 |
+| SBERT/MPNet † | 0.817 ± 0.010 | 0.064 ± 0.009 | 0.052 |
 | **SparqlCE (ours)** | 0.500 ± 0.002 | 0.124 ± 0.019 | **0.062** |
-| E5-Finetuned | 0.449 ± 0.007 | 0.059 ± 0.017 | 0.026 |
-| TF-IDF | 0.079 ± 0.007 | 0.275 ± 0.027 | 0.022 |
-| BM25 | 0.073 ± 0.008 | 0.230 ± 0.047 | 0.017 |
+| E5-Finetuned | 0.150 ± 0.011 | 0.292 ± 0.035 | 0.044 |
+| TF-IDF | 0.047 ± 0.006 | 0.350 ± 0.029 | 0.016 |
+| BM25 | 0.087 ± 0.011 | 0.205 ± 0.035 | 0.018 |
 
 ### DBpedia (K=128, θ=0.8, min-answer-size=5, n=115)
 
@@ -74,15 +87,15 @@ collapsed (see next section) — bold = best per column, per KG.
 
 ## Diagnosis: three zero-shot encoders are collapsed, not competitive
 
-E5-base-v2, GraphCodeBERT, and Qwen2.5-Coder-0.5B report **identical**
-hit rate and quality to 3 decimal places at every threshold tested. That's
-not a coincidence: at ~99% hit rate they are effectively caching "everything,
-always," so their measured quality is just the corpus's background
-answer-overlap rate, independent of which embedding produced it — i.e. they
-carry no usable signal for this task. Their apparent "advantage" on raw hit
-rate is the opposite of useful for a cache: it means they can't discriminate
-result-equivalent queries from unrelated ones at θ=0.8. Read their `hit×quality`
-column, not their hit rate, when comparing to SparqlCE/E5-Finetuned/lexical.
+E5-base-v2, GraphCodeBERT, and Qwen2.5-Coder-0.5B cluster tightly at
+~98–99.6% hit rate and ~0.001–0.008 quality at every threshold, on both KGs,
+regardless of the label-expansion fix — they are effectively caching
+"everything, always," so their measured quality is close to the corpus's
+background answer-overlap rate rather than any real discriminative signal.
+Their apparent "advantage" on raw hit rate is the opposite of useful for a
+cache: it means they can't tell result-equivalent queries from unrelated
+ones at θ=0.8. Read their `hit×quality` column, not their hit rate, when
+comparing to SparqlCE/E5-Finetuned/lexical.
 
 ## Full sweep (robustness check, not the headline)
 
@@ -92,10 +105,20 @@ column, not their hit rate, when comparing to SparqlCE/E5-Finetuned/lexical.
 
 | threshold | SparqlCE | E5-Finetuned | floor (collapsed encoders) |
 |---|---|---|---|
-| off (n=617) | 0.052 | 0.037 | ~0.001 |
-| ≥2 (n=313) | 0.048 | 0.021 | ~0.000 |
-| ≥5 (n=279) | **0.062** | 0.027 | ~0.001 |
-| ≥10 (n=246) | 0.070 | 0.027 | ~0.002 |
+| off (n=617) | 0.052 | **0.065** | ~0.001–0.003 |
+| ≥2 (n=313) | **0.050** | 0.035 | ~0.001 |
+| ≥5 (n=279) | **0.062** | 0.044 | ~0.001 |
+| ≥10 (n=246) | **0.070** | 0.054 | ~0.002 |
+
+E5-Finetuned only wins at the unfiltered threshold — and its hit rate is
+volatile in a way SparqlCE's isn't: it craters from 0.436 (off) to 0.136
+(≥2) the instant singleton-answer queries are removed, then stays flat
+(0.136 → 0.153) as the threshold rises further, while its quality keeps
+climbing (0.150 → 0.350). SparqlCE's hit rate barely moves across the same
+range (0.374 → 0.500). That reads as E5-Finetuned's unfiltered "win" leaning
+heavily on singleton-answer queries specifically — exactly the population
+the filter exists to set aside — while SparqlCE's numbers are stable
+evidence, not a threshold-dependent artifact.
 
 **DBpedia**
 
