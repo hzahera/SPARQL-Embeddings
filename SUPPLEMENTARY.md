@@ -76,8 +76,6 @@ SparqlCE is best on every cell of both graphs. Best per k in **bold**.
 | MiniLM | 0.0208 | 0.0101 | 0.0123 | 0.0196 | 0.0134 | 0.0137 | 0.0172 | 0.0201 | 0.0154 | 0.0194 | 0.0447 | 0.0230 |
 | MPNet | 0.0307 | 0.0141 | 0.0169 | 0.0285 | 0.0203 | 0.0202 | 0.0270 | 0.0328 | 0.0248 | 0.0269 | 0.0580 | 0.0316 |
 | E5-base-v2 | 0.0297 | 0.0134 | 0.0162 | 0.0237 | 0.0176 | 0.0170 | 0.0208 | 0.0303 | 0.0205 | 0.0209 | 0.0527 | 0.0251 |
-| Qwen3-Emb-0.6B | 0.0267 | 0.0159 | 0.0181 | 0.0273 | 0.0243 | 0.0226 | 0.0270 | 0.0371 | 0.0266 | 0.0276 | 0.0749 | 0.0348 |
-| Qwen3-Emb-0.6B (fine-tuned) | 0.0564 | 0.0200 | 0.0263 | 0.0641 | 0.0367 | 0.0414 | 0.0745 | 0.0800 | 0.0675 | 0.0819 | 0.1793 | 0.0992 |
 | **SparqlCE (ours)** | **0.1672** | **0.0609** | **0.0804** | **0.1650** | **0.0980** | **0.1085** | **0.1549** | **0.1749** | **0.1444** | **0.1381** | **0.3047** | **0.1693** |
 
 ### Wikidata (186 anchors, 2229 corpus queries)
@@ -89,8 +87,6 @@ SparqlCE is best on every cell of both graphs. Best per k in **bold**.
 | MiniLM | 0.0986 | 0.0197 | 0.0310 | 0.1011 | 0.0330 | 0.0469 | 0.0855 | 0.0568 | 0.0639 | 0.0481 | 0.0630 | 0.0507 |
 | MPNet | 0.0914 | 0.0172 | 0.0280 | 0.0968 | 0.0326 | 0.0465 | 0.0866 | 0.0575 | 0.0654 | 0.0548 | 0.0722 | 0.0589 |
 | E5-base-v2 | 0.0878 | 0.0177 | 0.0280 | 0.0968 | 0.0317 | 0.0454 | 0.0887 | 0.0595 | 0.0666 | 0.0573 | 0.0822 | 0.0630 |
-| Qwen3-Emb-0.6B | 0.0699 | 0.0154 | 0.0234 | 0.0731 | 0.0244 | 0.0344 | 0.0731 | 0.0502 | 0.0551 | 0.0470 | 0.0659 | 0.0509 |
-| Qwen3-Emb-0.6B (fine-tuned) | 0.1452 | 0.0323 | 0.0489 | 0.1656 | 0.0599 | 0.0807 | 0.1817 | 0.1270 | 0.1361 | 0.1788 | 0.2458 | 0.1876 |
 | **SparqlCE (ours)** | **0.1756** | **0.0417** | **0.0621** | **0.1935** | **0.0789** | **0.1015** | **0.2075** | **0.1681** | **0.1655** | **0.1987** | **0.3132** | **0.2200** |
 
 ---
@@ -139,9 +135,13 @@ analysis on Wikidata. Answer-set overlap on the Wikidata test corpus is
 nearly binary — of 2,126 sampled pairs, 52% are disjoint (J = 0) and 45%
 identical (J = 1) — so the panels concentrate at the extremes rather than
 spanning [0, 1]. The ordering nevertheless matches DBpedia: SparqlCE
-(ρ = 0.78) and the Jaccard-calibrated fine-tuned Qwen3 (ρ = 0.81)
-separate the two regimes cleanly, while the zero-shot encoders remain
-compressed near high similarity (ρ ∈ [0.40, 0.55]).
+(ρ = 0.78) separates the two regimes cleanly, while the zero-shot encoders
+remain compressed near high similarity (ρ ∈ [0.40, 0.55]).
+
+<!-- TODO: this notebook (07_visualize_alignment_wikidata.ipynb) hasn't been
+re-run since Qwen3 was dropped for E5-Finetuned/Qwen2.5-Coder-0.5B — its
+cached output still only has Qwen3 zero-shot, no fine-tuned-baseline rho.
+Re-run and report E5-Finetuned's ρ here once available. -->
 
 ---
 
@@ -153,6 +153,11 @@ Extends the paper's Figure 6 to the full K × θ grid, K ∈ {50, 100, 200},
 consistently as θ tightens at every K on both graphs, as a semantic cache
 should behave; text baselines do not show this.
 
+<!-- TODO: regenerate with scripts/run_caching_experiment.py's current
+roster (GraphCodeBERT, Qwen2.5-Coder-0.5B, E5-Finetuned) and the paper's
+headline min-answer-size=5 filter (unfiltered here); see
+results/caching/README.md for the current numbers and full sweep. -->
+
 ### DBpedia (396-query held-out stream, seed 42)
 
 | Model | 50/0.7 | 50/0.8 | 50/0.9 | 100/0.7 | 100/0.8 | 100/0.9 | 200/0.7 | 200/0.8 | 200/0.9 |
@@ -161,8 +166,6 @@ should behave; text baselines do not show this.
 | TF-IDF | 0.795/0.052 | 0.753/0.085 | 0.644/0.096 | 0.826/0.048 | 0.788/0.069 | 0.662/0.097 | 0.826/0.048 | 0.788/0.069 | 0.682/0.095 |
 | BM25 | 0.664/0.097 | 0.641/0.088 | 0.621/0.109 | 0.694/0.077 | 0.674/0.086 | 0.646/0.071 | 0.710/0.069 | 0.692/0.074 | 0.667/0.079 |
 | E5-base-v2 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 | 0.997/0.017 | 0.997/0.017 | 0.970/0.034 |
-| Qwen3-Emb-0.6B | 0.674/0.099 | 0.207/0.105 | 0.008/0.000 | 0.730/0.122 | 0.298/0.133 | 0.013/0.200 | 0.730/0.118 | 0.348/0.142 | 0.018/0.143 |
-| Qwen3-Emb-0.6B (fine-tuned) | 0.740/0.180 | 0.508/0.299 | 0.101/0.554 | 0.788/0.171 | 0.601/0.307 | 0.159/0.612 | 0.788/0.171 | 0.634/0.301 | 0.227/0.547 |
 | SBERT/MiniLM | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 | 0.972/0.018 | 0.955/0.036 | 0.874/0.085 |
 | SBERT/MPNet | 0.977/0.038 | 0.939/0.048 | 0.795/0.098 | 0.977/0.038 | 0.939/0.048 | 0.826/0.101 | 0.977/0.038 | 0.939/0.048 | 0.826/0.101 |
 
@@ -174,8 +177,6 @@ should behave; text baselines do not show this.
 | TF-IDF | 0.305/0.070 | 0.246/0.083 | 0.206/0.075 | 0.387/0.089 | 0.324/0.092 | 0.285/0.080 | 0.451/0.086 | 0.374/0.077 | 0.329/0.087 |
 | BM25 | 0.240/0.078 | 0.207/0.074 | 0.203/0.084 | 0.316/0.098 | 0.295/0.089 | 0.277/0.076 | 0.376/0.085 | 0.344/0.080 | 0.314/0.077 |
 | E5-base-v2 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 | 0.998/0.000 | 0.998/0.000 | 0.990/0.008 |
-| Qwen3-Emb-0.6B | 0.940/0.028 | 0.723/0.051 | 0.206/0.069 | 0.940/0.028 | 0.778/0.053 | 0.298/0.080 | 0.940/0.028 | 0.793/0.053 | 0.368/0.089 |
-| Qwen3-Emb-0.6B (fine-tuned) | 0.592/0.092 | 0.549/0.072 | 0.371/0.110 | 0.640/0.058 | 0.600/0.053 | 0.417/0.119 | 0.687/0.072 | 0.632/0.073 | 0.481/0.126 |
 | SBERT/MiniLM | 0.979/0.008 | 0.953/0.043 | 0.804/0.043 | 0.979/0.008 | 0.953/0.043 | 0.854/0.045 | 0.979/0.008 | 0.953/0.043 | 0.854/0.045 |
 | SBERT/MPNet | 0.979/0.019 | 0.950/0.039 | 0.767/0.046 | 0.979/0.019 | 0.950/0.039 | 0.835/0.062 | 0.979/0.019 | 0.950/0.039 | 0.835/0.062 |
 
