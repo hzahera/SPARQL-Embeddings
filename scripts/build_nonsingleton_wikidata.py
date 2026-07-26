@@ -14,7 +14,12 @@ non-singleton, result-equivalent pairs.
 
 Spec
 ----
-* Source     : held-out Wikidata TEST split only (no train/val -> no leakage).
+* Source     : held-out Wikidata TEST + VALID splits (SPLIT_KEYS). Train is
+               excluded -> no leakage: the trained models (SparqlCE, E5-FT) never
+               saw these anchors as training targets. VALID was used only for
+               checkpoint selection (mild optimism, disclosed) and is included to
+               reach a usable anchor count -- the oracle covers too few TEST
+               anchors alone for a large non-singleton set.
 * Anchor     : result set >= MIN_RESULT_SIZE rows (non-singleton).
 * Positive   : answer_jaccard > 0.8 (result-equivalent) AND result set >=
                MIN_RESULT_SIZE rows, capped at CAP/anchor.
@@ -48,6 +53,7 @@ MIN_RESULT_SIZE = 5          # anchor & positives must return >= this many rows
 CAP = 20
 MIN_POS = 1
 SEED = 42
+SPLIT_KEYS = ["test_idx", "valid_idx"]   # held-out only; train excluded (leak-free)
 
 _norm = lambda s: " ".join(s.split())
 
@@ -71,7 +77,9 @@ def load_result_sizes(wanted):
 def main():
     trip = json.load(open(TRIP))
     spl = json.load(open(SPLITS))
-    test = [trip[i] for i in spl["test_idx"]]
+    idxs = [i for key in SPLIT_KEYS for i in spl[key]]
+    test = [trip[i] for i in idxs]
+    print(f"source splits: {'+'.join(SPLIT_KEYS)}  ({len(test)} anchors)")
 
     wanted = set()
     for e in test:
