@@ -54,8 +54,11 @@ positives/negatives, and thresholds by
 (deterministic, seed 42; sampled from `test_idx` only — verified 0 train/val
 leak). Evaluate any RQ1 file with
 [`scripts/eval_rq1_stratified.py`](../scripts/eval_rq1_stratified.py)
-(`--split datasets/<file>.json`). On both KGs SparqlCE wins every metric/cutoff
-(Wikidata MRR@10 0.551 vs. DBpedia 0.544 — consistent).
+(`--split datasets/<file>.json`). All *text* baselines receive the same
+Wikidata label-expanded query text SparqlCE resolves internally
+(`expand_wikidata_labels`), for a fair comparison. On this natural-distribution
+Wikidata split the fine-tuned E5 baseline leads (MRR@10 0.591) with SparqlCE
+second (0.548, tying on Hits@10 at 0.747); see `tab-RQ1-Wikidata.tex`.
 
 ### RQ2 — robustness (`{dbpedia,wikidata}_testset_RQ2.json`)
 
