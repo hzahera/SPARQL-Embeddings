@@ -31,7 +31,8 @@ Examples
     python scripts/run_caching_experiment.py --kg wikidata \
         --sparqlce checkpoints_b128/wikidata/seed42_full/best_model.pt \
         --st intfloat/e5-base-v2 --st sentence-transformers/all-mpnet-base-v2 \
-        --code-llm Qwen/Qwen2.5-Coder-0.5B
+        --code-llm Qwen/Qwen2.5-Coder-0.5B \
+        --e5-finetuned checkpoints/e5_square_wikidata/best_model
 
 Outputs (results/caching/, gitignored): caching_<kg>_grid.csv,
 caching_<kg>_headline.csv, caching_<kg>_headline.tex, caching_<kg>_pareto.csv,
@@ -140,6 +141,31 @@ def embed_sparqlce(ckpt, texts):
     return e / (np.linalg.norm(e, axis=1, keepdims=True) + 1e-12)
 
 
+def embed_e5_finetuned(ckpt, texts, batch_size=16, max_length=512):
+    """Fine-tuned E5 checkpoint (AutoModel + tokenizer, saved via
+    ``backbone.save_pretrained``/``tokenizer.save_pretrained`` in
+    notebooks/finetuning/*_e5_contrastive_finetune_square*). Mean-pools over
+    non-padding tokens and applies the "query: " E5 prefix, matching training
+    (see E5SparqlEmbedder / mean_pool in that notebook)."""
+    import torch
+    from transformers import AutoModel, AutoTokenizer
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    tok = AutoTokenizer.from_pretrained(ckpt)
+    mdl = AutoModel.from_pretrained(ckpt).to(dev).eval()
+    out = []
+    with torch.no_grad():
+        for i in range(0, len(texts), batch_size):
+            batch = ["query: " + t for t in texts[i:i + batch_size]]
+            enc = tok(batch, padding=True, truncation=True,
+                      max_length=max_length, return_tensors="pt").to(dev)
+            h = mdl(**enc).last_hidden_state
+            mask = enc["attention_mask"].unsqueeze(-1).float()
+            pooled = (h * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
+            pooled = torch.nn.functional.normalize(pooled.float(), p=2, dim=1)
+            out.append(pooled.cpu().numpy())
+    return np.vstack(out)
+
+
 def embed_code_llm(model_id, texts, batch_size=16, max_length=512):
     import torch
     from transformers import AutoModel, AutoTokenizer
@@ -214,6 +240,9 @@ def main():
     ap.add_argument("--sparqlce", default=None)
     ap.add_argument("--st", action="append", default=[], metavar="MODEL_ID")
     ap.add_argument("--code-llm", action="append", default=[], metavar="MODEL_ID")
+    ap.add_argument("--e5-finetuned", default=None, metavar="CKPT_DIR",
+                     help="path to a fine-tuned E5 checkpoint dir (e.g. "
+                          "checkpoints/e5_square_<kg>/best_model)")
     ap.add_argument("--no-lexical", action="store_true")
     args = ap.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -250,6 +279,8 @@ def main():
         jobs.append((mid.split("/")[-1], (lambda m=mid: embed_code_llm(m, stream))))
     if args.sparqlce:
         jobs.append(("SparqlCE", lambda: embed_sparqlce(args.sparqlce, stream)))
+    if args.e5_finetuned:
+        jobs.append(("E5-ft", (lambda p=args.e5_finetuned: embed_e5_finetuned(p, stream))))
 
     grids = {}
     for name, emb_fn in jobs:
