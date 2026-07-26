@@ -41,6 +41,7 @@ and caching_<kg>_pareto.png if matplotlib is available.
 import argparse
 import csv
 import json
+import sys
 from collections import deque
 from pathlib import Path
 
@@ -50,6 +51,8 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import normalize as sk_normalize
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))  # so `sparqlce` imports without an editable install
 DS = ROOT / "datasets"
 OUT_DIR = ROOT / "results" / "caching"
 
