@@ -13,8 +13,7 @@ Contents:
 5. Per-operator robustness radar (RQ2)
 6. Embedding–answer-set alignment on Wikidata
 7. Full semantic caching grids (K × θ)
-8. Query-log compaction at equal budget
-9. Retrieval-at-scale latency benchmark
+8. Retrieval-at-scale latency benchmark
 
 ---
 
@@ -182,39 +181,7 @@ should behave; text baselines do not show this.
 
 ---
 
-## 8. Query-Log Compaction at Equal Budget
-
-An offline complement to the online caching simulation: compress a query
-log to *k* representative queries and measure how faithfully the kept
-queries stand in for the discarded ones. Corpus: the RQ1 DBpedia corpus
-(1,677 queries, oracle coverage 100%). Each model clusters the corpus by
-deterministic agglomerative clustering (average linkage) over its own
-cosine-distance matrix, cut at *k* clusters; each cluster's medoid
-represents its members, and fidelity is the answer-set Jaccard between
-every query and its medoid's true result set. Reported as **mean fidelity
-/ fraction at Jaccard ≥ 0.8**. Best per column in **bold**.
-
-| Model | k=84 (5%) | k=168 (10%) | k=335 (20%) | k=503 (30%) | k=838 (50%) |
-|---|---|---|---|---|---|
-| SparqlCE | 0.325/0.198 | **0.465**/**0.361** | 0.594/**0.515** | 0.669/0.574 | **0.809**/**0.751** |
-| TF-IDF | 0.154/0.108 | 0.237/0.174 | 0.314/0.275 | 0.348/0.327 | 0.540/0.527 |
-| BM25 | 0.089/0.068 | 0.161/0.138 | 0.266/0.240 | 0.363/0.340 | 0.553/0.537 |
-| E5-base-v2 | 0.187/0.120 | 0.234/0.177 | 0.329/0.293 | 0.404/0.385 | 0.585/0.566 |
-| Qwen3-Emb-0.6B | 0.182/0.119 | 0.247/0.189 | 0.343/0.296 | 0.441/0.395 | 0.617/0.581 |
-| Qwen3-Emb-0.6B (fine-tuned) | **0.337**/**0.201** | 0.454/0.327 | **0.608**/0.505 | **0.683**/**0.593** | 0.797/0.733 |
-| SBERT/MiniLM | 0.213/0.163 | 0.254/0.205 | 0.343/0.303 | 0.422/0.387 | 0.585/0.561 |
-| SBERT/MPNet | 0.218/0.163 | 0.268/0.210 | 0.367/0.308 | 0.470/0.413 | 0.645/0.595 |
-
-The two answer-overlap-supervised models are statistically
-indistinguishable at every budget (mean-fidelity differences of
-0.008–0.015) and roughly double every zero-shot baseline. SparqlCE's one
-consistent edge is the high-fidelity fraction at deployment-relevant
-budgets — consistent with the paper's conclusion that answer-overlap
-supervision, not architecture, drives most of the gain.
-
----
-
-## 9. Retrieval-at-Scale Latency Benchmark
+## 8. Retrieval-at-Scale Latency Benchmark
 
 Backs the "Retrieval at scale" paragraph in the paper. We isolate the
 corpus-dependent part of inference — the nearest-neighbor search over the

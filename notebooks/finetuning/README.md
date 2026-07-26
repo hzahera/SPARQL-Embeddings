@@ -42,5 +42,5 @@ architecture) is kept out of the baseline.
 The reported fine-tuned-baseline rows change from `Qwen3-Emb (fine-tuned)` to
 `E5-base-v2 (fine-tuned)`. Regenerate: RQ1 tables, RQ2 robustness
 (`notebooks/evaluation-RQ2/{DBpedia,Wikidata}/04b_eval_e5_finetuned_RQ2_*.ipynb`),
-caching/compaction, and the per-model ρ for Fig. 3. See
+caching, and the per-model ρ for Fig. 3. See
 `BASELINE_REDESIGN.md` for the full credit map and to-do list.

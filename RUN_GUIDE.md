@@ -64,7 +64,8 @@ dominated by disk I/O reading the whole 6.4GB file once — expect it to take a
 while:
 
 ```bash
-python scripts/build_hard_adversarial_rq1_wikidata.py \
+python scripts/build_hard_adversarial_rq1.py \
+  --kg wikidata \
   --triplets datasets/wikidata-triplets-dataset.json \
   --splits datasets/splits_wikidata.json \
   --result-sets datasets/result_sets_wikidata.json \
@@ -86,9 +87,14 @@ paper text instead of guessing.
 
 ## Step 5 — Downstream application
 
-- `notebooks/caching/caching_simulation_dbpedia.ipynb` — ✅ updated with new roster (RUN THIS FIRST to verify)
-- `notebooks/caching/caching_simulation_wikidata.ipynb` — ⚠ NOT YET updated (pending)
-- `notebooks/compaction/query_log_compaction_dbpedia.ipynb` — ⚠ NOT YET updated (pending)
+- `scripts/run_caching_experiment.py --kg {dbpedia,wikidata} --sparqlce <ckpt> --st ... --code-llm ... --e5-finetuned <ckpt> --min-answer-size 5`
+  — the paper's current downstream-application experiment (semantic query
+  caching). Headline setting: K=128, θ=0.8, `--min-answer-size 5` — see
+  [results/caching/README.md](results/caching/README.md) for the full sweep
+  and why 5 was chosen over 1/2/10.
+- `notebooks/caching/caching_simulation_{dbpedia,wikidata}.ipynb` — earlier
+  notebook form of the same experiment; the script above is the maintained
+  path going forward.
 
 ## Step 6 — Significance testing (optional, for paper's significance tables)
 
@@ -99,7 +105,6 @@ paper text instead of guessing.
 
 ## Known gaps to close after runs
 
-- Caching-Wikidata + compaction notebooks: apply the same baseline roster edits (blocked on verifying caching-DBpedia first).
 - `scripts/eval_rq1_export.py`: replace the `peft-qwen3` significance baseline path with the E5-ft full model.
 - `SUPPLEMENTARY.md` tables + paper rows: still labeled Qwen3; regenerate/rename with the E5-ft and Qwen2.5-Coder rows and the leak-free anchor/corpus counts (DBpedia 472/1881, Wikidata 1074/3869).
 - Verify `razent/spbert-mlm-wso-base` resolves (alt: `razent/spbert-mlm-zero`).
