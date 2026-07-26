@@ -282,20 +282,31 @@ def main():
         if n < 10:
             raise SystemExit("Too few queries left after --min-answer-size filter.")
 
+    # Text-based baselines need Wikidata's opaque P/Q ids expanded to English
+    # labels to see the same semantic content SparqlCE's graph builder resolves
+    # internally (sparqlce.sparql_utils.expand_wikidata_labels docstring); a
+    # no-op on DBpedia. SparqlCE keeps the raw SPARQL -- the expanded text is
+    # not valid SPARQL syntax, only a plain-text stand-in for tokenizers.
+    if args.kg == "wikidata":
+        from sparqlce.sparql_utils import expand_wikidata_labels
+        text_stream = [expand_wikidata_labels(a) for a in stream]
+    else:
+        text_stream = stream
+
     # model roster
     jobs = []
     if not args.no_lexical:
-        jobs += [("TF-IDF", lambda: embed("TF-IDF", stream)),
-                 ("BM25", lambda: embed("BM25", stream))]
+        jobs += [("TF-IDF", lambda: embed("TF-IDF", text_stream)),
+                 ("BM25", lambda: embed("BM25", text_stream))]
     for mid in args.st:
         short = mid.split("/")[-1]
-        jobs.append((short, (lambda m=mid: embed_st(m, stream))))
+        jobs.append((short, (lambda m=mid: embed_st(m, text_stream))))
     for mid in getattr(args, "code_llm"):
-        jobs.append((mid.split("/")[-1], (lambda m=mid: embed_code_llm(m, stream))))
+        jobs.append((mid.split("/")[-1], (lambda m=mid: embed_code_llm(m, text_stream))))
     if args.sparqlce:
         jobs.append(("SparqlCE", lambda: embed_sparqlce(args.sparqlce, stream)))
     if args.e5_finetuned:
-        jobs.append(("E5-ft", (lambda p=args.e5_finetuned: embed_e5_finetuned(p, stream))))
+        jobs.append(("E5-ft", (lambda p=args.e5_finetuned: embed_e5_finetuned(p, text_stream))))
 
     grids = {}
     for name, emb_fn in jobs:
