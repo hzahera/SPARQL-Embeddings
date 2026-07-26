@@ -36,6 +36,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from sparqlce.config import Config
 from sparqlce.graph_builder import SPARQLGraphBuilder, WholeQueryGraphBuilder
+from sparqlce import graph_builder as _graph_builder_module
 from sparqlce.encoder import HybridSPARQLEncoder
 from sparqlce.dataset import (
     SemanticSPARQLDataset,
@@ -203,7 +204,19 @@ def main():
     ap.add_argument("--single-lr", type=float, default=None,
                      help="if set, use one LR for all params instead of differential LRs")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints"))
+    ap.add_argument("--allow-unlabeled", action="store_true",
+                     help="skip the Wikidata label-map check (train on raw "
+                          "opaque P/Q ids intentionally, e.g. for an ablation)")
     args = ap.parse_args()
+
+    if args.kg == "wikidata" and not args.allow_unlabeled and not _graph_builder_module.WIKIDATA_LABELS:
+        raise SystemExit(
+            "datasets/wikidata_labels.json is missing or empty -- training on "
+            "Wikidata would silently use raw opaque P/Q ids instead of English "
+            "labels (see sparqlce/graph_builder.py). Run "
+            "scripts/build_wikidata_labels.py first, or pass --allow-unlabeled "
+            "if this is intentional."
+        )
 
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

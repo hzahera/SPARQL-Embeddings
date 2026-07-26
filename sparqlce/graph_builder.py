@@ -18,8 +18,12 @@ _LABELS_PATH = os.path.join(
 try:
     with open(_LABELS_PATH, encoding="utf-8") as _f:
         WIKIDATA_LABELS = json.load(_f)
+    print(f"[graph_builder] WIKIDATA_LABELS: {len(WIKIDATA_LABELS)} ids loaded from {_LABELS_PATH}")
 except (OSError, ValueError):
     WIKIDATA_LABELS = {}
+    print(f"[graph_builder] WIKIDATA_LABELS: not found at {_LABELS_PATH} -- "
+          f"Wikidata P/Q ids will NOT be expanded to English labels "
+          f"(run scripts/build_wikidata_labels.py first if training/evaluating on Wikidata)")
 
 # Matches an optionally-prefixed / full-URI-reduced Wikidata id, e.g.
 # "wdt:P31", "wde:Q5", or a bare "P31" left after _clean strips the URI path.
