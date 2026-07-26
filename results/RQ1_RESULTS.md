@@ -1,12 +1,25 @@
 # RQ1 results — retrieval
 
+**Stale checkpoint, superseded for the SparqlCE row.** This file's SparqlCE
+numbers (MRR@10 0.544) are from an older checkpoint,
+`final_model_mrr_0.4484.pt`. The paper's reported DBpedia RQ1 table
+(`tables/tab-RQ1-DBpedia.tex` in the paper repo) uses a newer checkpoint,
+`checkpoints/sparqlce_dbpedia/best_model.pt` (MRR@3/5/10 ≈ 0.73/0.74/0.74),
+the same one used for the caching experiment
+(`results/caching/README.md`). The baseline rows below (TF-IDF, BM25, every
+zero-shot encoder) are checkpoint-independent and still valid — only the
+**SparqlCE row is stale**. Re-run
+`notebooks/evaluation-RQ1/DBpedia/06_eval_sparqlce_dbpedia.ipynb` against
+the current checkpoint if you need this file's SparqlCE row updated rather
+than relying on the paper table.
+
 Generated from `notebooks/evaluation-RQ1/{DBpedia,Wikidata}/06_eval_sparqlce_*.ipynb`
 on the finalized, leak-free test sets (see `datasets/README.md`). Zero-shot
 baselines only — no fine-tuned model included in these runs (see the note at
 the bottom for how the fine-tuned E5 baseline compares separately).
 
 Test set: `dbpedia_testset_RQ1.json` — 462 anchors / 1841 corpus.
-Checkpoint: `final_model_mrr_0.4484.pt`.
+Checkpoint: `final_model_mrr_0.4484.pt` (see stale-checkpoint note above).
 
 ## Aggregate (whole test set, all 462 anchors)
 
