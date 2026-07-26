@@ -247,6 +247,10 @@ def main():
                      help="path to a fine-tuned E5 checkpoint dir (e.g. "
                           "checkpoints/e5_square_<kg>/best_model)")
     ap.add_argument("--no-lexical", action="store_true")
+    ap.add_argument("--min-answer-size", type=int, default=1, metavar="N",
+                     help="drop stream queries whose true answer set has fewer "
+                          "than N rows (default 1 = no filtering; singleton "
+                          "answer sets make Jaccard quality all-or-nothing)")
     args = ap.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -269,6 +273,14 @@ def main():
           f"median {int(np.median([len(x) for x in ans]))} max {max(len(x) for x in ans)})")
     if n < 10:
         raise SystemExit("Too few oracle-covered anchors — check result_sets file.")
+
+    if args.min_answer_size > 1:
+        kept = [(a, x) for a, x in zip(stream, ans) if len(x) >= args.min_answer_size]
+        stream, ans = [a for a, _ in kept], [x for _, x in kept]
+        n = len(stream)
+        print(f"[{args.kg}] after --min-answer-size {args.min_answer_size}: {n} queries remain")
+        if n < 10:
+            raise SystemExit("Too few queries left after --min-answer-size filter.")
 
     # model roster
     jobs = []
