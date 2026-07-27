@@ -89,6 +89,21 @@ def norm(s):
     return " ".join(str(s).split())
 
 
+def _q(entry):
+    """Query text of a positive/negative entry (dict in the triplet files, plain
+    string in some built splits)."""
+    if isinstance(entry, dict):
+        return str(entry.get("query") or entry.get("sparql") or "")
+    return str(entry or "")
+
+
+def _j(entry, default=1.0):
+    """answer_jaccard of an entry; `default` when the split does not carry it."""
+    if isinstance(entry, dict) and entry.get("answer_jaccard") is not None:
+        return float(entry["answer_jaccard"])
+    return default
+
+
 def is_scalar_aggregate(query):
     """True if the query projects an aggregate and does not GROUP BY."""
     head = re.split(r'\bWHERE\b', query, maxsplit=1, flags=re.IGNORECASE)[0]
@@ -160,7 +175,17 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--kg", choices=sorted(KG), required=True)
     ap.add_argument("--min-result-size", type=int, default=5,
-                    help="R1: min rows for anchor and each positive (default 5)")
+                    help="R1: min rows for anchor and each positive (default 5). "
+                         "Set 0 to DISABLE R1 entirely -- no execution oracle is "
+                         "then needed, and R2 alone is applied. On Wikidata this "
+                         "is usually what you want: see --from-split below.")
+    ap.add_argument("--from-split", default=None, metavar="PATH",
+                    help="apply the rules to an already-built RQ1 split instead "
+                         "of the raw triplets (e.g. "
+                         "datasets/wikidata_testset_RQ1_stratified.json). The "
+                         "source split's anchors and negatives are preserved, so "
+                         "leakage properties are inherited unchanged. Combine "
+                         "with --min-result-size 0 for an oracle-free build.")
     ap.add_argument("--jac-min", type=float, default=0.80,
                     help="positive iff answer_jaccard > this (default 0.80)")
     ap.add_argument("--cap", type=int, default=20, help="max positives per anchor")
@@ -182,26 +207,50 @@ def main():
     args = ap.parse_args()
 
     cfg = KG[args.kg]
-    trip_path = ROOT / "datasets" / cfg["triplets"]
-    if not trip_path.exists():
-        raise SystemExit(f"{trip_path} not found (see datasets/README.md).")
-    trip = json.load(open(trip_path))
-    spl = json.load(open(ROOT / "datasets" / cfg["splits"]))
-    keys = ["test_idx"] + (["valid_idx"] if args.splits == "test+valid" else [])
-    idxs = [i for k in keys for i in spl[k]]
-    held = [trip[i] for i in idxs]
-    print(f"[{args.kg}] source: {'+'.join(keys)}  ({len(held)} anchors, train excluded)")
+    if args.from_split:
+        src = Path(args.from_split)
+        if not src.exists():
+            raise SystemExit(f"{src} not found.")
+        held = json.load(open(src))
+        print(f"[{args.kg}] source: {src.name}  ({len(held)} anchors; leakage "
+              f"properties inherited from that split)")
+    else:
+        trip_path = ROOT / "datasets" / cfg["triplets"]
+        if not trip_path.exists():
+            raise SystemExit(f"{trip_path} not found (see datasets/README.md).")
+        trip = json.load(open(trip_path))
+        spl = json.load(open(ROOT / "datasets" / cfg["splits"]))
+        keys = ["test_idx"] + (["valid_idx"] if args.splits == "test+valid" else [])
+        idxs = [i for k in keys for i in spl[k]]
+        held = [trip[i] for i in idxs]
+        print(f"[{args.kg}] source: {'+'.join(keys)}  "
+              f"({len(held)} anchors, train excluded)")
 
-    wanted = set()
-    for e in held:
-        wanted.add(norm(e["anchor_query"]))
-        wanted.update(norm(p["query"]) for p in e["positive_queries"])
-    print(f"[{args.kg}] resolving result-set sizes for {len(wanted)} queries ...")
-    sizes = load_result_sizes(ROOT / "datasets" / cfg["results"], wanted)
-    print(f"[{args.kg}]   oracle coverage: {len(sizes)}/{len(wanted)} "
-          f"({len(sizes) / len(wanted) * 100:.1f}%); uncovered queries are treated "
-          f"as size 0 and dropped (conservative)")
-    size = lambda q: sizes.get(norm(q), 0)
+    if args.min_result_size <= 0:
+        print(f"[{args.kg}] R1 DISABLED (--min-result-size 0): no execution oracle "
+              f"used; R2 (scalar-aggregate collisions) applied alone.")
+        sizes = {}
+        size = lambda q: args.min_result_size      # always passes the R1 check
+    else:
+        wanted = set()
+        for e in held:
+            wanted.add(norm(e["anchor_query"]))
+            wanted.update(norm(_q(p)) for p in e["positive_queries"])
+        print(f"[{args.kg}] resolving result-set sizes for {len(wanted)} queries ...")
+        sizes = load_result_sizes(ROOT / "datasets" / cfg["results"], wanted)
+        cov = len(sizes) / max(len(wanted), 1)
+        print(f"[{args.kg}]   oracle coverage: {len(sizes)}/{len(wanted)} "
+              f"({cov * 100:.1f}%); uncovered queries are treated "
+              f"as size 0 and dropped (conservative)")
+        if cov < 0.75:
+            print(f"[{args.kg}]   WARNING: coverage below 75%. Most 'anchor_small' "
+                  f"drops below are UNKNOWN size, not verified-small, so R1 is "
+                  f"largely selecting for oracle presence. On Wikidata R1 also "
+                  f"correlates with high lexical similarity (multi-row queries are "
+                  f"the near-duplicate BIND/path template families), which skews "
+                  f"the split toward the easy >=0.8 bin. Consider "
+                  f"--min-result-size 0 --from-split <natural split>.")
+        size = lambda q: sizes.get(norm(q), 0)
 
     out = []
     drop = {"anchor_small": 0, "anchor_scalar_agg": 0,
@@ -217,19 +266,22 @@ def main():
             continue
         pos = []
         for p in e["positive_queries"]:
-            j = p.get("answer_jaccard")
-            if j is None or float(j) <= args.jac_min:
+            pq = _q(p)
+            # A split that does not record answer_jaccard was already built with
+            # a jaccard threshold, so treat a missing value as passing rather
+            # than silently discarding every positive.
+            j = _j(p, default=1.0)
+            if not pq or j <= args.jac_min:
                 drop["pos_jaccard"] += 1
                 continue
-            if size(p["query"]) < args.min_result_size:          # R1
+            if size(pq) < args.min_result_size:                  # R1
                 drop["pos_small"] += 1
                 continue
-            # R2 -- only a scalar-vs-scalar pair is a numeric coincidence
-            if (not args.keep_scalar_aggregates
-                    and a_scalar and is_scalar_aggregate(p["query"])):
+            # R2 -- a scalar-aggregate positive can only coincide numerically
+            if not args.keep_scalar_aggregates and is_scalar_aggregate(pq):
                 drop["pos_scalar_agg"] += 1
                 continue
-            pos.append((p["query"], float(j)))
+            pos.append((pq, j))
         if len(pos) < args.min_pos:
             drop["no_pos"] += 1
             continue
@@ -241,9 +293,8 @@ def main():
                 {"query": q, "answer_jaccard": round(j, 4), "result_size": size(q)}
                 for q, j in pos],
             "negative_queries": [
-                {"query": n["query"],
-                 "answer_jaccard": round(float(n.get("answer_jaccard", 0.0)), 4)}
-                for n in e["negative_queries"]],
+                {"query": _q(n), "answer_jaccard": round(_j(n, default=0.0), 4)}
+                for n in e.get("negative_queries", []) if _q(n)],
         })
 
     if not out:
@@ -283,8 +334,11 @@ def main():
     print(f"  dropped: {drop}")
     print(f"  positives/anchor: min {min(npos)} mean {np.mean(npos):.2f} "
           f"max {max(npos)} (total {sum(npos)})")
-    print(f"  result sizes: min {sz.min()} median {int(np.median(sz))} "
-          f"max {sz.max()} (all >= {args.min_result_size})")
+    if args.min_result_size > 0:
+        print(f"  result sizes: min {sz.min()} median {int(np.median(sz))} "
+              f"max {sz.max()} (all >= {args.min_result_size})")
+    else:
+        print("  result sizes: not resolved (R1 disabled, no oracle read)")
     print(f"  unique corpus queries: {len(corpus)}")
 
     try:

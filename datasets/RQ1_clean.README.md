@@ -73,14 +73,47 @@ paired test against E5-Finetuned comes out underpowered, `--min-result-size 3`
 (208 anchors) still breaks the singleton degeneracy and is defensible; report
 whichever you pre-commit to, not whichever wins.
 
-## Wikidata (must be built on the cluster)
-
-Needs `result_sets_wikidata.json` (~6 GB), streamed once with `ijson`, so
-runtime is dominated by reading that file:
+## Wikidata — use R2 only (do **not** apply R1 here)
 
 ```bash
-python scripts/build_clean_rq1.py --kg wikidata --splits test+valid --min-result-size 5
+python scripts/build_clean_rq1.py --kg wikidata --min-result-size 0 \
+  --from-split datasets/wikidata_testset_RQ1_stratified.json \
+  --out datasets/wikidata_testset_RQ1_clean.json
 ```
+
+**450 anchors, 1,923 corpus queries, no execution oracle needed**, natural
+lexical spread across all four bins:
+
+| | anchors | `<0.3` | `0.3–0.5` | `0.5–0.8` | `>=0.8` |
+|---|---|---|---|---|---|
+| **R2 only (recommended)** | **450** | 118 (26.2%) | 100 (22.2%) | 84 (18.7%) | 148 (32.9%) |
+| R1+R2, `min-result-size 3` | 291 | **2 (0.7%)** | 82 | 84 | 123 |
+
+### Why R1 must be disabled on Wikidata
+
+Two independent failures, both visible in the build output:
+
+1. **The oracle does not cover the splits.** `result_sets_wikidata.json` resolves
+   only **37.9%** (2,229/5,881) of test+valid queries — 2,229 is exactly the
+   Wikidata corpus size in `SUPPLEMENTARY.md` §3. The file is ~6 GB because a few
+   thousand queries return millions of rows each, not because it is broad. So
+   `anchor_small` drops are overwhelmingly *unknown* size, not *verified small*:
+   R1 ends up selecting for oracle presence. The builder now prints a WARNING
+   whenever coverage is below 75%.
+2. **R1 is a difficulty filter on Wikidata, pointing the wrong way.** The
+   multi-row Wikidata queries *are* the `BIND` / property-path template families,
+   which are lexical near-duplicates of one another. Requiring ≥3 rows therefore
+   selects *toward* high similarity (mean cos 0.704, 42.3% in `>=0.8`, 2 anchors
+   in `<0.3`) — the regime where a strong text encoder already wins. R1 was
+   designed to remove label degeneracy on DBpedia; on Wikidata it removes the
+   interesting half of the distribution.
+
+R2 needs no oracle and is unaffected by both problems. It removes 49
+scalar-aggregate anchors and 188 scalar-aggregate positives — the pairs whose
+`answer_jaccard = 1.0` only records that two numbers coincided.
+
+R1 remains correct and enabled by default for DBpedia, where the corpus has
+**0.0%** aggregates and no BIND/path template families.
 
 ## Evaluate — identical command, only `--split` changes
 
