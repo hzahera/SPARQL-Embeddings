@@ -66,33 +66,75 @@ for f in datasets/${KG}-triplets-dataset.json datasets/splits_${KG}.json; do
   [ -f "$f" ] || { echo "$f not found (see datasets/README.md)"; exit 1; }
 done
 
+# SKIP_E5FT=1 trains + exports ONLY SparqlCE for every seed (no E5-FT, no
+# significance) -- use it to bank the expensive SparqlCE checkpoints first when
+# E5-FT is flaky, then run the full sweep (or an E5-FT-only loop) later.
+SKIP_E5FT="${SKIP_E5FT:-0}"
+FAILED_SPARQLCE=()
+FAILED_E5FT=()
+
+# Per-seed steps are made non-fatal (set +e) so one seed's E5-FT OOM can never
+# discard another seed's already-trained SparqlCE checkpoint. Failures are
+# recorded and reported at the end; set -e is restored before the final stage.
+set +e
 for i in $(seq 0 $((N_SEEDS - 1))); do
   seed="${SEEDS[$i]}"
 
   echo "--- [$KG seed=$seed] training SparqlCE (batch $BATCH, <=$EPOCHS epochs) ---"
   python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp
+  if [ $? -ne 0 ]; then
+    echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
+    FAILED_SPARQLCE+=("$seed"); continue
+  fi
 
-  echo "--- [$KG seed=$seed] training E5-Finetuned baseline (batch $BATCH, <=$EPOCHS epochs) ---"
-  python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
-    --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp
-
-  echo "--- [$KG seed=$seed] exporting per-anchor scores ---"
+  # Export SparqlCE scores immediately, so the trained model AND its per-anchor
+  # scores are banked before the heavier, OOM-prone E5-FT step runs.
+  echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
   python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sparqlce \
     --checkpoint "checkpoints/$KG/seed${seed}_full/best_model.pt" \
     --seed "$seed" --ablation full \
     --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
+  [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
 
-  # E5-FT is a full fine-tune saved as a standalone HF/sentence-transformers
-  # directory, so --model-type sentence-transformer is correct here. (The
-  # peft-qwen3 path is only for bare LoRA adapter dirs and is now unused.)
-  python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
+  if [ "$SKIP_E5FT" = "1" ]; then
+    echo "--- [$KG seed=$seed] SKIP_E5FT=1: skipping E5-Finetuned (run it later) ---"
+    continue
+  fi
+
+  # E5-FT is non-fatal: if it OOMs/fails, every seed's SparqlCE is already safe.
+  # E5-FT is a full fine-tune saved as a standalone HF/sentence-transformers dir,
+  # so --model-type sentence-transformer is correct here.
+  echo "--- [$KG seed=$seed] training + exporting E5-Finetuned (batch $BATCH) ---"
+  python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
+    --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
+  && python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sentence-transformer \
     --model-name "checkpoints/e5_ft/$KG/seed${seed}/best_model" \
     --seed "$seed" --ablation baseline-e5ft \
     --out "results/significance/${TAG}_e5ft_seed${seed}.json"
+  [ $? -ne 0 ] && { echo "!!! [$KG seed=$seed] E5-FT FAILED -- SparqlCE safe; rerun E5-FT later"; FAILED_E5FT+=("$seed"); }
 done
+set -e
+
+[ ${#FAILED_SPARQLCE[@]} -ne 0 ] && echo "WARN: SparqlCE training failed for seeds: ${FAILED_SPARQLCE[*]}"
+
+if [ "$SKIP_E5FT" = "1" ]; then
+  echo "=== Done (SparqlCE only) ==="
+  echo "  checkpoints: checkpoints/$KG/seed*_full/best_model.pt"
+  echo "  scores:      results/significance/${TAG}_sparqlce_seed*.json"
+  echo "Run E5-FT + significance later:"
+  echo "  ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE $BATCH $EPOCHS"
+  exit 0
+fi
+
+if [ ${#FAILED_E5FT[@]} -ne 0 ]; then
+  echo "=== E5-FT incomplete for seeds: ${FAILED_E5FT[*]} -- skipping significance ==="
+  echo "SparqlCE checkpoints + scores are saved for all seeds. Rerun E5-FT for the"
+  echo "failed seeds, then run scripts/compute_significance.py to produce the summary."
+  exit 1
+fi
 
 echo "=== aggregating + paired significance test ==="
 python scripts/compute_significance.py \
