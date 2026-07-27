@@ -167,9 +167,17 @@ def main():
     ap.add_argument("--ablation", default="full", help="tag for the run, e.g. full/no_gnn/baseline-e5")
     ap.add_argument("--out", required=True)
     ap.add_argument("--batch-size", type=int, default=32)
+    ap.add_argument("--split", default=None,
+                     help="path to an RQ1 split JSON; defaults to the KG's "
+                          "standard test set. Every run being compared by "
+                          "compute_significance.py MUST use the same --split, "
+                          "since the paired Wilcoxon aligns per-anchor scores "
+                          "positionally.")
     args = ap.parse_args()
 
-    raw = load_triplets(str(KG_TESTSETS[args.kg]))
+    split_path = args.split or str(KG_TESTSETS[args.kg])
+    print(f"split: {split_path}")
+    raw = load_triplets(split_path)
     global_corpus, seen_q = build_global_corpus(raw)
     eval_items = build_eval_items(raw, global_corpus, seen_q)
     rel_maps = build_binary_relevance_maps(eval_items, global_corpus)
@@ -214,7 +222,7 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump({
-            "kg": args.kg, "model_type": args.model_type,
+            "kg": args.kg, "split": split_path, "model_type": args.model_type,
             "model_id": args.checkpoint or args.model_name, "seed": args.seed,
             "ablation": args.ablation, "anchors": anchors,
             "aggregate": aggregate, "per_anchor": per_anchor,

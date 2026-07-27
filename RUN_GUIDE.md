@@ -31,10 +31,45 @@ Qwen3-Embedding is **dense** (not MoE) and has been dropped in favor of Qwen2.5-
 - `notebooks/training/train_dbpedia.ipynb`
 - `notebooks/training/train_wikidata.ipynb`
 
+> ⚠ **Retrain both KGs after the `graph_builder.py` fixes.** The builder now
+> encodes BIND constants, SELECT projections/aggregates, GROUP BY, LIMIT/OFFSET,
+> MINUS/(NOT) EXISTS and SERVICE, and cleans property-path atoms so Wikidata
+> label expansion reaches them. Existing checkpoints were trained on the old
+> representation and cannot benefit. DBpedia graphs are unchanged by the fixes
+> (every affected construct occurs in 0.0% of the DBpedia corpus), so a DBpedia
+> retrain is a no-op re-run; Wikidata is the one that matters — exact
+> graph-duplicates in its RQ1 corpus drop 24.9% → 6.9% and the largest collision
+> class 216 → 18.
+
+## Step 1b — Build the clean natural RQ1 splits
+
+Unfiltered (natural lexical distribution) with the invalid labels removed; one
+identical protocol per KG. See [datasets/RQ1_clean.README.md](datasets/RQ1_clean.README.md).
+
+```bash
+python scripts/build_clean_rq1.py --kg dbpedia  --splits test+valid --min-result-size 5
+python scripts/build_clean_rq1.py --kg wikidata --splits test+valid --min-result-size 5   # cluster: needs the ~6GB oracle
+```
+
 ## Step 2 — Fine-tune the E5 baseline
 
+- `scripts/finetune_e5_baseline.py --kg {dbpedia,wikidata} --seed N` — scriptable,
+  seed-parameterized form of the notebooks below; needed for the multi-seed
+  significance test. Writes `checkpoints/e5_ft/<kg>/seed<N>/best_model`.
 - `notebooks/finetuning/04_e5_contrastive_finetune_square.ipynb` (DBpedia → `checkpoints/e5_square_dbpedia/best_model`)
 - `notebooks/finetuning/05_e5_contrastive_finetune_square_wikidata.ipynb` (Wikidata → `checkpoints/e5_square_wikidata/best_model`)
+
+> **On early stopping.** Both trainers already select the **best-val-MRR
+> checkpoint across epochs**, so an overfitted late-epoch model is never the one
+> saved. `--patience` therefore only truncates the run to save compute — it can
+> lose a late val improvement but cannot improve the selected checkpoint, and it
+> is not a fix for overfitting (best-val selection already is one). Whatever you
+> set, set the **same** `--patience` and `--min-delta` on both
+> `train_sparqlce.py` and `finetune_e5_baseline.py`.
+>
+> The `graph_builder.py` fixes do **not** affect E5-FT (it reads raw query
+> text), so existing E5-FT checkpoints stay valid. Retrain it for **seeds**, not
+> for the fixes.
 
 ## Step 3 — RQ1 (retrieval)
 
@@ -98,13 +133,31 @@ paper text instead of guessing.
 
 ## Step 6 — Significance testing (optional, for paper's significance tables)
 
-- Train 5 seeds/KG: `scripts/run_seed_sweep.sh` or `scripts/train_sparqlce.py --kg {dbpedia,wikidata} --seed {42..46}`
-- Export per seed: `scripts/eval_rq1_export.py --kg <kg> --model-type sparqlce --checkpoint <ckpt> --seed N --out results/significance/<kg>_seedN_full.json`
-- Export fine-tuned baseline: ⚠ the `--model-type peft-qwen3` path still targets the old Qwen3-ft adapter; needs updating for the E5-ft full model before this row is valid.
-- `scripts/compute_significance.py --sparqlce-glob "results/significance/<kg>_seed*_full.json" --baseline <baseline.json> --out results/significance/<kg>_full_summary.json`
+One command does everything — trains 5 seeds of **both** SparqlCE and the
+E5-Finetuned baseline, exports per-anchor scores for each, and runs the paired
+test:
+
+```bash
+./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean.json 3
+./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean.json  3
+```
+
+Notes:
+
+- **Both sides get the same seeds.** `compute_significance.py --baseline-glob`
+  compares **seed-averaged per-anchor scores**, so neither method is represented
+  by one arbitrary training run. The old `--baseline` (single-run) path still
+  works for back-compat but is weaker — prefer `--baseline-glob`.
+- **Every run must use the same `--split`.** The paired Wilcoxon aligns
+  per-anchor scores positionally; `compute_significance.py` now hard-errors on a
+  split or anchor-list mismatch instead of silently producing a meaningless
+  p-value.
+- E5-FT is a full fine-tune saved as a standalone HF directory, so
+  `--model-type sentence-transformer` is the correct export path for it. The
+  `peft-qwen3` path only ever applied to bare LoRA adapter dirs and is now unused.
 
 ## Known gaps to close after runs
 
-- `scripts/eval_rq1_export.py`: replace the `peft-qwen3` significance baseline path with the E5-ft full model.
 - `SUPPLEMENTARY.md` tables + paper rows: still labeled Qwen3; regenerate/rename with the E5-ft and Qwen2.5-Coder rows and the leak-free anchor/corpus counts (DBpedia 472/1881, Wikidata 1074/3869).
+- `SUPPLEMENTARY.md` §4 hyperparameter table still says the text backbone is CodeBERT; `sparqlce/config.py` uses `intfloat/e5-base-v2`. Reconcile before submission — it also changes whether "SparqlCE beats its own fine-tuned backbone" is the right phrasing for the E5-FT comparison.
 - Verify `razent/spbert-mlm-wso-base` resolves (alt: `razent/spbert-mlm-zero`).

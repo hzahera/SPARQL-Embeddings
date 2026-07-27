@@ -1,47 +1,68 @@
 #!/usr/bin/env bash
-# Fatal #1 fix: train N seeds per KG for the full model, eval each, and
-# aggregate mean +/- std + significance vs. the strongest baseline.
+# Multi-seed training + evaluation + significance for SparqlCE vs the
+# E5-Finetuned baseline, on a single named RQ1 split.
 #
-# Usage: ./scripts/run_seed_sweep.sh [n_seeds] [baseline_json_dbpedia] [baseline_json_wikidata]
+# BOTH sides get the same seeds, the same epoch budget, the same early-stopping
+# policy and the same eval split -- otherwise the paired test is not
+# like-for-like. The significance test compares SEED-AVERAGED per-anchor scores,
+# so neither method is represented by one arbitrary training run.
 #
-# Baseline JSONs must already exist -- generate them once with:
-#   python scripts/eval_rq1_export.py --kg dbpedia --model-type sentence-transformer \
-#       --model-name <qwen3-finetuned-path> --ablation baseline-qwen3ft \
-#       --out results/significance/dbpedia_baseline_qwen3ft.json
-# (or point --checkpoint at the fine-tuned Qwen3 export path if it isn't served
-# through sentence-transformers -- adjust the baseline eval call accordingly.)
+# Usage:
+#   ./scripts/run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience]
+#
+#   ./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean.json 3
+#   ./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean.json  3
+#
+# Prerequisite: SparqlCE must be retrained AFTER the graph_builder.py fixes --
+# old checkpoints were trained on the pre-fix representation. This script
+# retrains from scratch, so running it satisfies that.
 set -euo pipefail
 
-N_SEEDS="${1:-5}"
-BASELINE_DBPEDIA="${2:-results/significance/dbpedia_baseline_qwen3ft.json}"
-BASELINE_WIKIDATA="${3:-results/significance/wikidata_baseline_qwen3ft.json}"
+KG="${1:?usage: run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience]}"
+N_SEEDS="${2:-5}"
+SPLIT="${3:-datasets/${KG}_testset_RQ1_clean.json}"
+PATIENCE="${4:-3}"
 SEEDS=(42 43 44 45 46 47 48 49 50 51)
 
 cd "$(dirname "$0")/.."
+mkdir -p results/significance
 
-for kg in dbpedia wikidata; do
-  for i in $(seq 0 $((N_SEEDS - 1))); do
-    seed="${SEEDS[$i]}"
-    echo "=== training $kg seed=$seed ablation=full ==="
-    python scripts/train_sparqlce.py --kg "$kg" --seed "$seed" --ablation full
+TAG="$(basename "$SPLIT" .json)"
+echo "=== KG=$KG  seeds=$N_SEEDS  split=$SPLIT  patience=$PATIENCE ==="
+[ -f "$SPLIT" ] || { echo "split $SPLIT not found -- build it with scripts/build_clean_rq1.py --kg $KG"; exit 1; }
 
-    echo "=== evaluating $kg seed=$seed ==="
-    python scripts/eval_rq1_export.py --kg "$kg" \
-      --checkpoint "checkpoints/$kg/seed${seed}_full/best_model.pt" \
-      --seed "$seed" --ablation full \
-      --out "results/significance/${kg}_seed${seed}_full.json"
-  done
+for i in $(seq 0 $((N_SEEDS - 1))); do
+  seed="${SEEDS[$i]}"
+
+  echo "--- [$KG seed=$seed] training SparqlCE ---"
+  python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
+    --patience "$PATIENCE"
+
+  echo "--- [$KG seed=$seed] training E5-Finetuned baseline ---"
+  python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
+    --patience "$PATIENCE"
+
+  echo "--- [$KG seed=$seed] exporting per-anchor scores ---"
+  python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
+    --model-type sparqlce \
+    --checkpoint "checkpoints/$KG/seed${seed}_full/best_model.pt" \
+    --seed "$seed" --ablation full \
+    --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
+
+  # E5-FT is a full fine-tune saved as a standalone HF/sentence-transformers
+  # directory, so --model-type sentence-transformer is correct here. (The
+  # peft-qwen3 path is only for bare LoRA adapter dirs and is now unused.)
+  python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
+    --model-type sentence-transformer \
+    --model-name "checkpoints/e5_ft/$KG/seed${seed}/best_model" \
+    --seed "$seed" --ablation baseline-e5ft \
+    --out "results/significance/${TAG}_e5ft_seed${seed}.json"
 done
 
-echo "=== aggregating + significance test ==="
+echo "=== aggregating + paired significance test ==="
 python scripts/compute_significance.py \
-  --sparqlce-glob "results/significance/dbpedia_seed*_full.json" \
-  --baseline "$BASELINE_DBPEDIA" \
-  --out results/significance/dbpedia_full_summary.json
+  --sparqlce-glob "results/significance/${TAG}_sparqlce_seed*.json" \
+  --baseline-glob "results/significance/${TAG}_e5ft_seed*.json" \
+  --out "results/significance/${TAG}_summary.json"
 
-python scripts/compute_significance.py \
-  --sparqlce-glob "results/significance/wikidata_seed*_full.json" \
-  --baseline "$BASELINE_WIKIDATA" \
-  --out results/significance/wikidata_full_summary.json
-
-echo "Done. See results/significance/{dbpedia,wikidata}_full_summary.json"
+echo "Done -> results/significance/${TAG}_summary.json"
