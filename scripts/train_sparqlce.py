@@ -20,6 +20,7 @@ Writes:
 """
 import argparse
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -224,12 +225,16 @@ def main():
     args = ap.parse_args()
 
     if args.kg == "wikidata" and not args.allow_unlabeled and not _graph_builder_module.WIKIDATA_LABELS:
+        disabled = os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower() \
+            in ("1", "true", "yes", "on")
+        why = ("SPARQLCE_NO_WIKIDATA_LABELS is set, so labels are disabled"
+               if disabled else
+               "datasets/wikidata_labels.json is missing or empty")
         raise SystemExit(
-            "datasets/wikidata_labels.json is missing or empty -- training on "
-            "Wikidata would silently use raw opaque P/Q ids instead of English "
-            "labels (see sparqlce/graph_builder.py). Run "
-            "scripts/build_wikidata_labels.py first, or pass --allow-unlabeled "
-            "if this is intentional."
+            f"{why} -- training on Wikidata would use raw opaque P/Q ids instead "
+            "of English labels (see sparqlce/graph_builder.py). Pass "
+            "--allow-unlabeled if this is intentional (e.g. the no-expansion "
+            "run), or unset the env var / run scripts/build_wikidata_labels.py."
         )
 
     set_seed(args.seed)

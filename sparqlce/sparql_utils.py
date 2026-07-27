@@ -25,9 +25,21 @@ _WD_EXPAND_RE = re.compile(
 )
 
 
+# Global kill-switch: set SPARQLCE_NO_WIKIDATA_LABELS=1 to disable label
+# expansion everywhere (text baselines AND the graph builder), so every model
+# reads the raw opaque P/Q ids. This is the only *fair* way to turn expansion
+# off -- disabling it for the baselines alone while the graph builder still
+# resolves labels would re-introduce the original unfairness. Unset to restore.
+def _labels_disabled() -> bool:
+    return os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower() \
+        in ("1", "true", "yes", "on")
+
+
 def _wikidata_labels() -> dict:
-    """Lazily load the id->label map; empty dict (no-op) if absent."""
+    """Lazily load the id->label map; empty dict (no-op) if absent or disabled."""
     global _WD_LABELS_CACHE
+    if _labels_disabled():
+        return {}
     if _WD_LABELS_CACHE is None:
         try:
             with open(_WD_LABELS_PATH, encoding="utf-8") as f:

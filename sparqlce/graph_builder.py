@@ -15,15 +15,25 @@ from .sparql_utils import canonicalize_variables, is_noop_filter_text
 _LABELS_PATH = os.path.join(
     os.path.dirname(__file__), "..", "datasets", "wikidata_labels.json"
 )
-try:
-    with open(_LABELS_PATH, encoding="utf-8") as _f:
-        WIKIDATA_LABELS = json.load(_f)
-    print(f"[graph_builder] WIKIDATA_LABELS: {len(WIKIDATA_LABELS)} ids loaded from {_LABELS_PATH}")
-except (OSError, ValueError):
+# Global kill-switch (shared with sparql_utils): SPARQLCE_NO_WIKIDATA_LABELS=1
+# forces raw opaque P/Q ids here too, so SparqlCE and the text baselines are
+# disabled together -- the only fair way to run "without label expansion".
+_LABELS_DISABLED = os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower() \
+    in ("1", "true", "yes", "on")
+if _LABELS_DISABLED:
     WIKIDATA_LABELS = {}
-    print(f"[graph_builder] WIKIDATA_LABELS: not found at {_LABELS_PATH} -- "
-          f"Wikidata P/Q ids will NOT be expanded to English labels "
-          f"(run scripts/build_wikidata_labels.py first if training/evaluating on Wikidata)")
+    print("[graph_builder] WIKIDATA_LABELS: DISABLED via SPARQLCE_NO_WIKIDATA_LABELS "
+          "-- Wikidata P/Q ids kept raw (no expansion) for ALL models")
+else:
+    try:
+        with open(_LABELS_PATH, encoding="utf-8") as _f:
+            WIKIDATA_LABELS = json.load(_f)
+        print(f"[graph_builder] WIKIDATA_LABELS: {len(WIKIDATA_LABELS)} ids loaded from {_LABELS_PATH}")
+    except (OSError, ValueError):
+        WIKIDATA_LABELS = {}
+        print(f"[graph_builder] WIKIDATA_LABELS: not found at {_LABELS_PATH} -- "
+              f"Wikidata P/Q ids will NOT be expanded to English labels "
+              f"(run scripts/build_wikidata_labels.py first if training/evaluating on Wikidata)")
 
 # Matches an optionally-prefixed / full-URI-reduced Wikidata id, e.g.
 # "wdt:P31", "wde:Q5", or a bare "P31" left after _clean strips the URI path.
