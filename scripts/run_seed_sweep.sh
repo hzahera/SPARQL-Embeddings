@@ -18,6 +18,13 @@
 # retrains from scratch, so running it satisfies that.
 set -euo pipefail
 
+# The shared A100s fragment badly across the two back-to-back trainings per seed
+# (SparqlCE then E5-FT), leaving GiBs "reserved but unallocated" that a later
+# alloc cannot reuse -> spurious OOM even when a few hundred MiB are all that is
+# short. expandable_segments lets the allocator hand that memory back. Respect an
+# already-set value; otherwise default it on.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+
 KG="${1:?usage: run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs]}"
 N_SEEDS="${2:-5}"
 SPLIT="${3:-datasets/${KG}_testset_RQ1_clean.json}"
