@@ -65,12 +65,55 @@ class SPARQLGraphBuilder:
         self.value_token_pattern = re.compile(
             r'<[^>]+>|"[^"]*"|\?[a-zA-Z_][a-zA-Z0-9_]*|' + qname
         )
+        # Constants (IRIs, qnames, literals) usable as BIND operands.
+        self.const_token_pattern = re.compile(r'<[^>]+>|"[^"]*"|' + qname)
+        # Splits a property path into IRI/qname atoms and path operators, so
+        # each atom can be cleaned (and label-expanded) independently.
+        self.path_atom_pattern = re.compile(r'<[^>]+>|' + qname)
+        # Result-affecting constructs the DBpedia-era builder never saw.
+        self.select_clause_pattern = re.compile(
+            r'SELECT\s+(?:DISTINCT\s+|REDUCED\s+)?(.*?)(?=\bWHERE\b|\{)',
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.aggregate_pattern = re.compile(
+            r'\b(COUNT|SUM|AVG|MIN|MAX|GROUP_CONCAT|SAMPLE)\s*\(\s*(DISTINCT\s+)?'
+            r'(\*|\?[a-zA-Z_][a-zA-Z0-9_]*)',
+            re.IGNORECASE,
+        )
+        self.group_by_pattern = re.compile(
+            r'GROUP\s+BY\s+(.*?)(?=\bHAVING\b|\bORDER\b|\bLIMIT\b|\bOFFSET\b|$)',
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.limit_pattern = re.compile(r'\bLIMIT\s+(\d+)', re.IGNORECASE)
+        self.offset_pattern = re.compile(r'\bOFFSET\s+(\d+)', re.IGNORECASE)
+        self.minus_pattern = re.compile(r'MINUS\s*\{(.*?)\}', re.IGNORECASE | re.DOTALL)
+        self.not_exists_pattern = re.compile(
+            r'(NOT\s+EXISTS|EXISTS)\s*\{(.*?)\}', re.IGNORECASE | re.DOTALL
+        )
+        self.service_pattern = re.compile(
+            r'SERVICE\s+(?:SILENT\s+)?(<[^>]+>|\?[a-zA-Z_][a-zA-Z0-9_]*|' + qname + r')',
+            re.IGNORECASE,
+        )
 
-    def _extract_where_content(self, query):
+    def _split_query(self, query):
+        """Split a query into (header, where_body, tail).
+
+        ``header`` is everything before the WHERE block (the projection),
+        ``tail`` everything after it (GROUP BY / LIMIT / OFFSET). Both were
+        previously discarded, which made a ``SELECT (COUNT(?s) AS ?c)`` query
+        indistinguishable from the plain ``SELECT ?s`` over the same BGP.
+        """
         where_match = re.search(r'WHERE\s*\{', query, re.IGNORECASE)
         if not where_match:
-            return query
-        start = where_match.end()
+            # No explicit WHERE keyword: fall back to the first brace group.
+            brace = query.find('{')
+            if brace < 0:
+                return query, query, ""
+            start = brace + 1
+            header = query[:brace]
+        else:
+            start = where_match.end()
+            header = query[:where_match.start()]
         depth = 1
         i = start
         while i < len(query) and depth > 0:
@@ -79,7 +122,22 @@ class SPARQLGraphBuilder:
             elif query[i] == '}':
                 depth -= 1
             i += 1
-        return query[start:i - 1]
+        return header, query[start:i - 1], query[i:]
+
+    def _extract_where_content(self, query):
+        return self._split_query(query)[1]
+
+    def _clean_path(self, term):
+        """Clean each IRI/qname atom inside a property path, keeping operators.
+
+        ``_clean`` alone reduces ``(<http://.../P279>)*`` to ``P279>)*``, which
+        fails ``_WD_ID_RE`` and so silently skips Wikidata label expansion on
+        every property-path query -- while the text baselines' shared
+        ``expand_wikidata_labels`` does resolve the full-URI form. That asymmetry
+        handed the baselines prose and SPARQLCE opaque ids on the ~28% of the
+        Wikidata corpus that uses paths. Cleaning atom-wise removes it.
+        """
+        return self.path_atom_pattern.sub(lambda m: self._clean(m.group(0)), term)
 
     def _clean(self, term):
         term = term.strip('<>"')
@@ -111,7 +169,7 @@ class SPARQLGraphBuilder:
         if term in {"OPTIONAL", "UNION", "VALUES", "BIND"}:
             return term
         if any(ch in term for ch in "/|*+?^()") and not term.startswith("?"):
-            return "PATH:" + self._clean(term)
+            return "PATH:" + self._clean_path(term)
         return "ENT:" + self._clean(term)
 
     def _ensure_node(self, G, node_map, label):
@@ -125,7 +183,7 @@ class SPARQLGraphBuilder:
         G = nx.DiGraph()
         query = " ".join(query.split())
         query = canonicalize_variables(query)
-        content = self._extract_where_content(query)
+        header, content, tail = self._split_query(query)
         matches = self.triple_pattern.findall(content)
         node_map = {}
 
@@ -152,8 +210,9 @@ class SPARQLGraphBuilder:
             if o_lbl.startswith("VAR:"):
                 var_occurs.setdefault(o_id, set()).add(s_id)
 
-            p_clean = self._clean(p)
-            if any(ch in p for ch in "/|*+?^()") and not p.startswith("?"):
+            is_path = any(ch in p for ch in "/|*+?^()") and not p.startswith("?")
+            p_clean = self._clean_path(p) if is_path else self._clean(p)
+            if is_path:
                 p_lbl = "PATH:" + p_clean
                 p_id = self._ensure_node(G, node_map, p_lbl)
                 G.add_edge(s_id, p_id, label="path_in")
@@ -213,7 +272,13 @@ class SPARQLGraphBuilder:
 
         for b_match in self.bind_pattern.finditer(content):
             expr, var = b_match.groups()
-            bind_id = self._ensure_node(G, node_map, "BIND")
+            expr = expr.strip()
+            # One node PER BIND expression, not a single shared "BIND" node.
+            # The old shared node dropped the bound constant entirely, so
+            # BIND(wd:Q5 AS ?s) and BIND(wd:Q42 AS ?s) produced byte-identical
+            # graphs -- 216 Wikidata queries collapsed onto one signature.
+            clipped = expr[:80] + "..." if len(expr) > 80 else expr
+            bind_id = self._ensure_node(G, node_map, "BIND:" + clipped)
             v_lbl = self._node_label(var)
             v_id = self._ensure_node(G, node_map, v_lbl)
             G.add_edge(bind_id, v_id, label="defines")
@@ -221,8 +286,105 @@ class SPARQLGraphBuilder:
                 u_lbl = self._node_label(used_var)
                 u_id = self._ensure_node(G, node_map, u_lbl)
                 G.add_edge(u_id, bind_id, label="used_in_bind")
+            # Constants bound by the expression become first-class nodes, so a
+            # BIND-ed entity joins the graph exactly like a triple-pattern term.
+            for raw in self.const_token_pattern.findall(expr)[:10]:
+                c_lbl = self._node_label(raw)
+                c_id = self._ensure_node(G, node_map, c_lbl)
+                G.add_edge(c_id, bind_id, label="bind_value")
+
+        self._add_projection(G, node_map, query, header)
+        self._add_modifiers(G, node_map, tail)
+        self._add_negation_scopes(G, node_map, content)
 
         return G
+
+    # ── result-affecting constructs outside the plain BGP ────────────────────
+
+    def _add_projection(self, G, node_map, query, header):
+        """Encode SELECT projections and aggregates.
+
+        The WHERE body alone cannot distinguish ``SELECT ?s`` from
+        ``SELECT (COUNT(?s) AS ?c)`` over the same BGP, yet they return
+        completely different results. Sub-SELECT projections are parsed too, so
+        the semantic content of a subquery survives even though the wrapping
+        itself stays invisible (subquery wrapping is answer-preserving and is an
+        RQ2 invariance operator -- it must not become a distinguishing feature).
+
+        DISTINCT and ORDER BY are deliberately NOT encoded: both preserve the
+        answer *set*, and `distinct_toggle` is an RQ2 invariance operator.
+        """
+        seen_projection = False
+        for m in self.select_clause_pattern.finditer(query):
+            clause = m.group(1).strip()
+            if not clause:
+                continue
+            for agg_m in self.aggregate_pattern.finditer(clause):
+                fn = agg_m.group(1).upper()
+                arg = agg_m.group(3)
+                agg_id = self._ensure_node(G, node_map, "AGG:" + fn)
+                if arg.startswith("?"):
+                    a_id = self._ensure_node(G, node_map, self._node_label(arg))
+                    G.add_edge(a_id, agg_id, label="aggregated_by")
+            if seen_projection:
+                continue        # arity node reflects the outermost projection
+            seen_projection = True
+            if "*" in clause and not self.aggregate_pattern.search(clause):
+                self._ensure_node(G, node_map, "PROJECT:*")
+                continue
+            proj_vars = self.var_pattern.findall(clause)
+            if not proj_vars:
+                continue
+            proj_id = self._ensure_node(G, node_map, f"PROJECT:{len(set(proj_vars))}")
+            for var in dict.fromkeys(proj_vars):
+                v_id = self._ensure_node(G, node_map, self._node_label(var))
+                G.add_edge(proj_id, v_id, label="projects")
+
+    def _add_modifiers(self, G, node_map, tail):
+        """Encode GROUP BY / LIMIT / OFFSET -- all of which change the result set."""
+        for g_match in self.group_by_pattern.finditer(tail):
+            group_vars = self.var_pattern.findall(g_match.group(1))
+            if not group_vars:
+                continue
+            grp_id = self._ensure_node(G, node_map, "GROUPBY")
+            for var in dict.fromkeys(group_vars):
+                v_id = self._ensure_node(G, node_map, self._node_label(var))
+                G.add_edge(grp_id, v_id, label="groups_by")
+        lim = self.limit_pattern.search(tail)
+        if lim:
+            self._ensure_node(G, node_map, f"MODIFIER:LIMIT={lim.group(1)}")
+        off = self.offset_pattern.search(tail)
+        if off:
+            self._ensure_node(G, node_map, f"MODIFIER:OFFSET={off.group(1)}")
+
+    def _add_negation_scopes(self, G, node_map, content):
+        """Encode MINUS / (NOT) EXISTS / SERVICE.
+
+        Triples inside a MINUS or NOT EXISTS block are matched by
+        ``triple_pattern`` and were previously folded into the graph as ordinary
+        conjunctive patterns -- i.e. an exclusion was encoded as an inclusion.
+        Tagging the variables in scope at least makes the negation visible.
+        """
+        for m_match in self.minus_pattern.finditer(content):
+            scope_vars = set(self.var_pattern.findall(m_match.group(1)))
+            if not scope_vars:
+                continue
+            minus_id = self._ensure_node(G, node_map, "MINUS")
+            for var in scope_vars:
+                v_id = self._ensure_node(G, node_map, self._node_label(var))
+                G.add_edge(minus_id, v_id, label="minus_scope")
+        for e_match in self.not_exists_pattern.finditer(content):
+            kind = "NOT_EXISTS" if e_match.group(1).upper().startswith("NOT") else "EXISTS"
+            scope_vars = set(self.var_pattern.findall(e_match.group(2)))
+            if not scope_vars:
+                continue
+            ex_id = self._ensure_node(G, node_map, kind)
+            for var in scope_vars:
+                v_id = self._ensure_node(G, node_map, self._node_label(var))
+                G.add_edge(ex_id, v_id, label="exists_scope")
+        for s_match in self.service_pattern.finditer(content):
+            endpoint = s_match.group(1)
+            self._ensure_node(G, node_map, "SERVICE:" + self._clean(endpoint))
 
 
 class WholeQueryGraphBuilder:
