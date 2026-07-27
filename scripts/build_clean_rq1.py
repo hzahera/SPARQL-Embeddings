@@ -278,7 +278,8 @@ def main():
         corpus.update(norm(p["query"]) for p in r["positive_queries"])
         corpus.update(norm(n["query"]) for n in r["negative_queries"])
 
-    print(f"\n{"reported" if args.report_only else "wrote"} {len(out)} anchors -> {out_path}")
+    verb = "reported" if args.report_only else "wrote"
+    print(f"\n{verb} {len(out)} anchors -> {out_path}")
     print(f"  dropped: {drop}")
     print(f"  positives/anchor: min {min(npos)} mean {np.mean(npos):.2f} "
           f"max {max(npos)} (total {sum(npos)})")
