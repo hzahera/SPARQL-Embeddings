@@ -70,6 +70,11 @@ done
 # significance) -- use it to bank the expensive SparqlCE checkpoints first when
 # E5-FT is flaky, then run the full sweep (or an E5-FT-only loop) later.
 SKIP_E5FT="${SKIP_E5FT:-0}"
+# SKIP_SPARQLCE=1 skips SparqlCE train+export and runs ONLY E5-FT (then
+# significance) -- use it to add E5-FT later without retraining the SparqlCE
+# models banked by an earlier SKIP_E5FT=1 run. The earlier run's
+# ${TAG}_sparqlce_seed*.json score files are reused by the significance step.
+SKIP_SPARQLCE="${SKIP_SPARQLCE:-0}"
 FAILED_SPARQLCE=()
 FAILED_E5FT=()
 
@@ -80,23 +85,29 @@ set +e
 for i in $(seq 0 $((N_SEEDS - 1))); do
   seed="${SEEDS[$i]}"
 
-  echo "--- [$KG seed=$seed] training SparqlCE (batch $BATCH, <=$EPOCHS epochs) ---"
-  python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
-    --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp
-  if [ $? -ne 0 ]; then
-    echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
-    FAILED_SPARQLCE+=("$seed"); continue
-  fi
+  if [ "$SKIP_SPARQLCE" != "1" ]; then
+    echo "--- [$KG seed=$seed] training SparqlCE (batch $BATCH, <=$EPOCHS epochs) ---"
+    python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
+      --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp
+    if [ $? -ne 0 ]; then
+      echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
+      FAILED_SPARQLCE+=("$seed"); continue
+    fi
 
-  # Export SparqlCE scores immediately, so the trained model AND its per-anchor
-  # scores are banked before the heavier, OOM-prone E5-FT step runs.
-  echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
-  python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
-    --model-type sparqlce \
-    --checkpoint "checkpoints/$KG/seed${seed}_full/best_model.pt" \
-    --seed "$seed" --ablation full \
-    --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
-  [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
+    # Export SparqlCE scores immediately, so the trained model AND its per-anchor
+    # scores are banked before the heavier, OOM-prone E5-FT step runs.
+    echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
+    python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
+      --model-type sparqlce \
+      --checkpoint "checkpoints/$KG/seed${seed}_full/best_model.pt" \
+      --seed "$seed" --ablation full \
+      --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
+    [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
+  else
+    echo "--- [$KG seed=$seed] SKIP_SPARQLCE=1: reusing banked SparqlCE scores ---"
+    [ -f "results/significance/${TAG}_sparqlce_seed${seed}.json" ] || \
+      echo "!!! [$KG seed=$seed] no banked SparqlCE scores -- significance will be incomplete for this seed"
+  fi
 
   if [ "$SKIP_E5FT" = "1" ]; then
     echo "--- [$KG seed=$seed] SKIP_E5FT=1: skipping E5-Finetuned (run it later) ---"
