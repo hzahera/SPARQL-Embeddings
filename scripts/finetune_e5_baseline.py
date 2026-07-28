@@ -159,7 +159,13 @@ def main():
                     help="early-stopping patience on val MRR; 0 = off (notebook "
                          "behaviour). Use the SAME value as train_sparqlce.py.")
     ap.add_argument("--min-delta", type=float, default=0.0)
-    ap.add_argument("--lr", type=float, default=1e-5)
+    ap.add_argument("--lr", type=float, default=None,
+                    help="learning rate. Default: 1e-5 LINEARLY SCALED from the "
+                         "notebook's effective batch of 32, i.e. "
+                         "1e-5 * (batch_size*grad_accum)/32. Fixing 1e-5 while "
+                         "raising the batch to 128 leaves ~8x fewer optimizer "
+                         "steps at an unchanged step size and badly undertrains "
+                         "the baseline -- pass an explicit value to override.")
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--grad-accum", type=int, default=2, help="effective batch 32")
     ap.add_argument("--scale", type=float, default=20.0, help="1 / tau, tau=0.05")
@@ -169,6 +175,12 @@ def main():
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints" / "e5_ft"))
     ap.add_argument("--amp", action="store_true")
     args = ap.parse_args()
+
+    eff_batch = args.batch_size * args.grad_accum
+    if args.lr is None:
+        args.lr = 1e-5 * eff_batch / 32.0
+        print(f"[e5-ft] --lr not given: linearly scaling the notebook's 1e-5 at "
+              f"effective batch 32 to {args.lr:.2e} at effective batch {eff_batch}")
 
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
