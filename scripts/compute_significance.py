@@ -19,6 +19,7 @@ Usage:
 import argparse
 import glob
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -28,13 +29,29 @@ TOPKS = [3, 5, 10, 20]
 METRICS = [f"{m}@{k}" for m in ("mrr", "ndcg") for k in TOPKS]
 
 
-def load_runs(pattern):
+def load_runs(pattern, expect_seeds=None):
     runs = []
     for path in sorted(glob.glob(pattern)):
-        with open(path) as f:
-            runs.append(json.load(f))
+        try:
+            with open(path) as f:
+                runs.append(json.load(f))
+        except ValueError as e:
+            # A run killed by ENOSPC used to leave a truncated JSON at the real
+            # path; exports are atomic now, but old files may still be around.
+            raise SystemExit(f"{path} is not valid JSON ({e}) -- it is a partial "
+                             f"export. Delete it and re-run that seed.")
     if not runs:
         raise SystemExit(f"no files matched {pattern}")
+    if expect_seeds is not None:
+        got = {r.get("seed") for r in runs}
+        missing = sorted(set(expect_seeds) - got)
+        if missing:
+            raise SystemExit(
+                f"{pattern}: seeds {missing} are missing (found {sorted(got)}). "
+                f"Aggregating a partial seed set silently produces a summary "
+                f"labelled with fewer seeds than the run was meant to have -- "
+                f"re-run them first: SEEDS=\"{' '.join(map(str, missing))}\" "
+                f"./scripts/run_seed_sweep.sh ...")
     return runs
 
 
@@ -232,13 +249,31 @@ def main():
                           "per-anchor scores, so neither side is represented by one "
                           "arbitrary training run.")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--expect-seeds", default=None,
+                    help="comma-separated seeds that MUST all be present on both "
+                         "sides, e.g. 42,43,44,45,46. Without it a partial sweep "
+                         "still produces a summary, just with fewer seeds than "
+                         "intended -- run_seed_sweep.sh always passes it.")
     args = ap.parse_args()
 
-    sparqlce_runs = load_runs(args.sparqlce_glob)
+    expect = ([int(s) for s in args.expect_seeds.split(",") if s.strip()]
+              if args.expect_seeds else None)
+    sparqlce_runs = load_runs(args.sparqlce_glob, expect)
     cross_seed = cross_seed_stats(sparqlce_runs)
 
     if args.baseline_glob:
-        baseline_runs = load_runs(args.baseline_glob)
+        baseline_runs = load_runs(args.baseline_glob, expect)
+        # seed_average() collapses each side independently, so unequal seed sets
+        # would compare a 5-seed mean against a 4-seed mean without complaining.
+        sp_seeds = {r.get("seed") for r in sparqlce_runs}
+        bl_seeds = {r.get("seed") for r in baseline_runs}
+        if sp_seeds != bl_seeds:
+            raise SystemExit(
+                f"seed sets differ: SparqlCE has {sorted(sp_seeds)}, baseline has "
+                f"{sorted(bl_seeds)}. The comparison must average the SAME seeds "
+                f"on both sides -- re-run the missing ones "
+                f"(SparqlCE-only: {sorted(sp_seeds - bl_seeds)}, "
+                f"baseline-only: {sorted(bl_seeds - sp_seeds)}).")
         check_same_split(sparqlce_runs + baseline_runs, "sparqlce+baseline")
         sp_avg = seed_average(sparqlce_runs, "sparqlce")
         bl_avg = seed_average(baseline_runs, "baseline")
@@ -282,8 +317,12 @@ def main():
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    tmp_path = out_path.with_name(out_path.name + ".partial")
+    with open(tmp_path, "w") as f:      # atomic: never leave a truncated summary
         json.dump(summary, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, out_path)
 
     print(f"n_seeds={summary['n_seeds']}  seeds={summary['seeds']}  "
           f"split={summary['split']}")

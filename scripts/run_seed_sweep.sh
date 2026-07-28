@@ -58,7 +58,22 @@ EPOCHS="${6:-60}"
 # in the first sweep it dropped E5-FT from 0.590 to 0.480 aggregate MRR@10 and
 # from 0.758 to 0.118 in the 0.3-0.5 bin. Never compare against that run.
 E5_LR="${7:-}"
-SEEDS=(42 43 44 45 46 47 48 49 50 51)
+# SEEDS="43 44 45 46" in the ENVIRONMENT overrides the default list, to redo
+# exactly the seeds that failed without retraining the ones already banked.
+# When it is set and no explicit seed COUNT was passed, the count follows the
+# override. The significance step globs whatever score files exist for this
+# split tag, so seeds banked by an earlier partial run are picked up too.
+if [ -n "${SEEDS:-}" ]; then
+  read -r -a SEEDS <<< "$SEEDS"
+  [ -z "${2:-}" ] && N_SEEDS="${#SEEDS[@]}"
+  echo "SEEDS override: running seeds ${SEEDS[*]} (n=$N_SEEDS)"
+else
+  SEEDS=(42 43 44 45 46 47 48 49 50 51)
+fi
+if [ "$N_SEEDS" -gt "${#SEEDS[@]}" ]; then
+  echo "requested $N_SEEDS seeds but only ${#SEEDS[@]} are defined: ${SEEDS[*]}"
+  exit 1
+fi
 
 cd "$(dirname "$0")/.."
 mkdir -p results/significance
@@ -77,6 +92,27 @@ fi
 for f in datasets/${KG}-triplets-dataset.json datasets/splits_${KG}.json; do
   [ -f "$f" ] || { echo "$f not found (see datasets/README.md)"; exit 1; }
 done
+
+# Pre-flight: disk. Each seed writes a SparqlCE checkpoint plus a full E5-FT HF
+# directory (~0.4GB), and a mid-training ENOSPC loses that seed's whole run --
+# on the first noleak sweep seeds 43-46 died this way, one after another, each
+# costing a full training. Checking up front turns hours of wasted GPU into an
+# immediate error. MIN_FREE_GB=0 disables.
+MIN_FREE_GB="${MIN_FREE_GB:-15}"
+if [ "$MIN_FREE_GB" != "0" ]; then
+  mkdir -p checkpoints
+  FREE_GB=$(df -Pk checkpoints | awk 'NR==2 {printf "%d", $4/1024/1024}')
+  echo "disk: ${FREE_GB}GB free on the checkpoints filesystem (need >=${MIN_FREE_GB}GB)"
+  if [ "$FREE_GB" -lt "$MIN_FREE_GB" ]; then
+    echo "!!! not enough free space for $N_SEEDS seeds."
+    echo "    Biggest reclaimable items are usually:"
+    echo "      du -sh ~/.cache/huggingface checkpoints results   # look here first"
+    echo "      rm -rf ~/.cache/huggingface/hub                   # re-downloads on demand"
+    echo "      rm -rf checkpoints/e5_ft/$KG/seed*/best_model     # ~0.4GB each, retrainable"
+    echo "    Then rerun. Set MIN_FREE_GB=0 to skip this check."
+    exit 1
+  fi
+fi
 
 # Pre-flight: refuse to spend GPU hours producing a number measured on eval
 # pairs the models were trained on. Cheap (seconds) relative to the sweep.
@@ -186,7 +222,19 @@ PYCHECK
 done
 set -e
 
-[ ${#FAILED_SPARQLCE[@]} -ne 0 ] && echo "WARN: SparqlCE training failed for seeds: ${FAILED_SPARQLCE[*]}"
+# A SparqlCE failure used to only WARN here. But the loop `continue`s past
+# E5-FT for that seed, so FAILED_E5FT stays empty and the E5-FT gate below never
+# fires -- a run where 4 of 5 seeds died still reached the significance step and
+# would have written a summary computed from the one surviving seed, labelled
+# n_seeds=1 in a file named like the 5-seed one. Fail loudly instead.
+if [ ${#FAILED_SPARQLCE[@]} -ne 0 ]; then
+  echo "=== SparqlCE training FAILED for seeds: ${FAILED_SPARQLCE[*]} -- skipping significance ==="
+  echo "E5-FT was skipped for those seeds too (the loop moves to the next seed),"
+  echo "so BOTH sides are incomplete. Fix the cause, then rerun just those seeds:"
+  echo "  SEEDS=\"${FAILED_SPARQLCE[*]}\" ./scripts/run_seed_sweep.sh $KG ${#FAILED_SPARQLCE[@]} $SPLIT $PATIENCE $BATCH $EPOCHS"
+  echo "and run scripts/compute_significance.py once every seed is present."
+  exit 1
+fi
 
 if [ "$SKIP_E5FT" = "1" ]; then
   echo "=== Done (SparqlCE only) ==="
@@ -205,9 +253,14 @@ if [ ${#FAILED_E5FT[@]} -ne 0 ]; then
 fi
 
 echo "=== aggregating + paired significance test ==="
+# Seeds that must ALL be present before a summary is written. With a SEEDS
+# override (resuming failed seeds) this run only covers part of the intended
+# set, so pass the full one: EXPECT_SEEDS="42,43,44,45,46".
+ALL_SEEDS="${EXPECT_SEEDS:-$(IFS=,; echo "${SEEDS[*]:0:$N_SEEDS}")}"
 python scripts/compute_significance.py \
   --sparqlce-glob "results/significance/${TAG}_sparqlce_seed*.json" \
   --baseline-glob "results/significance/${TAG}_e5ft_seed*.json" \
+  --expect-seeds "$ALL_SEEDS" \
   --out "results/significance/${TAG}_summary.json"
 
 echo "Done -> results/significance/${TAG}_summary.json"

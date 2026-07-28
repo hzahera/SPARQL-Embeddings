@@ -308,7 +308,12 @@ def main():
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    # Write to a temp file in the same directory and rename over the target, so
+    # a full disk (or a kill) leaves either the previous file or nothing --
+    # never a half-written JSON at the real path that a later glob picks up and
+    # aggregates as if it were a complete run.
+    tmp_path = out_path.with_name(out_path.name + ".partial")
+    with open(tmp_path, "w") as f:
         json.dump({
             "kg": args.kg, "split": split_path, "model_type": args.model_type,
             "model_id": args.checkpoint or args.model_name, "seed": args.seed,
@@ -321,6 +326,9 @@ def main():
                 in ("1", "true", "yes", "on")),
             "aggregate": aggregate, "per_anchor": per_anchor,
         }, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())   # ENOSPC surfaces here, before the rename
+    os.replace(tmp_path, out_path)
     print(f"Saved per-anchor scores for {len(anchors)} anchors to {out_path}")
     print(f"Aggregate: {json.dumps(aggregate, indent=2)}")
 
