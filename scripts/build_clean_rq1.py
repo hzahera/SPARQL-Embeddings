@@ -35,6 +35,25 @@ R2. NO SCALAR-AGGREGATE COLLISIONS. Drop pairs where both queries return a
     row count; R2 makes the rule explicit and still applies where the execution
     oracle has no entry for a query.
 
+R3. NO MEMORIZED PAIRS (``--leak-filter``, ON by default). The train/valid/test
+    split in `splits_{kg}.json` partitions ANCHOR GROUPS, but the same SPARQL
+    query text recurs across groups, so a held-out group can restate a pair the
+    model was trained on verbatim. On `wikidata_testset_RQ1_clean.json` as built
+    without this rule, 1448/1935 (74.8%) of the eval positive pairs are also
+    train positive pairs and 397/450 anchors have at least one. That is not a
+    fairness problem between two models -- both trained on the same pairs -- but
+    it inflates both numbers and it inflates them UNEQUALLY: SparqlCE scored
+    0.795 MRR@10 on leaked anchors vs 0.577 on the rest, while E5-FT scored
+    0.475 vs 0.521, collapsing a +0.32 gap to +0.06. A retrieval claim measured
+    on restated training pairs is a memorization measurement.
+
+    The rule drops any positive whose {anchor, positive} text pair (whitespace-
+    normalized, direction-agnostic -- the relation is symmetric) also occurs in
+    the training groups; an anchor left with fewer than --min-pos positives is
+    dropped entirely. --leak-splits controls whether the valid groups count as
+    seen: they do by default, because BOTH trainers select their checkpoint on
+    val MRR, so a val pair leaks through model selection.
+
 Everything else matches the existing DBpedia RQ1 protocol: positives
 `answer_jaccard > --jac-min`, capped at --cap per anchor, strongest overlap
 first; the shipped `answer_jaccard = 0` distractors as negatives; held-out
@@ -142,6 +161,37 @@ def load_result_sizes(path, wanted):
     return sizes
 
 
+def seen_pairs(kg, which="train+valid"):
+    """{frozenset({anchor_text, positive_text})} for every pair a model saw.
+
+    Reconstructs the training groups exactly as train_sparqlce.py and
+    finetune_e5_baseline.py do (an item is skipped unless it has >=1 positive
+    AND >=1 negative), so the set matches what was actually optimized over
+    rather than what the raw triplet file contains.
+    """
+    trip = json.load(open(ROOT / "datasets" / KG[kg]["triplets"]))
+    spl = json.load(open(ROOT / "datasets" / KG[kg]["splits"]))
+    groups = []
+    for item in trip:
+        a = item.get("anchor_query")
+        if not a:
+            continue
+        pos = [_q(p) for p in item.get("positive_queries", []) if _q(p)]
+        neg = [_q(n) for n in item.get("negative_queries", []) if _q(n)]
+        if not pos or not neg:
+            continue
+        groups.append((norm(a), [norm(p) for p in pos]))
+
+    keys = ["train_idx"] + (["valid_idx"] if which == "train+valid" else [])
+    pairs = set()
+    for k in keys:
+        for i in spl.get(k, []):
+            if i < len(groups):
+                a, pos = groups[i]
+                pairs.update(frozenset((a, p)) for p in pos)
+    return pairs, keys
+
+
 def lexical_profile(records):
     """Mean anchor->positive TF-IDF cosine per anchor, on raw query text.
 
@@ -192,6 +242,20 @@ def main():
     ap.add_argument("--min-pos", type=int, default=1, help="min positives to keep an anchor")
     ap.add_argument("--splits", default="test", choices=["test", "test+valid"],
                     help="held-out splits to draw anchors from; train is NEVER used")
+    ap.add_argument("--leak-filter", default="pair",
+                    choices=["pair", "anchor", "off"],
+                    help="R3, memorized-pair removal (default 'pair'). 'pair' "
+                         "drops each positive whose {anchor,positive} pair was "
+                         "trained on; 'anchor' drops the whole anchor if ANY of "
+                         "its positives leaked (strictest, much smaller split); "
+                         "'off' reproduces the old leaky build -- only for "
+                         "measuring the leakage effect, never for a headline "
+                         "number. See the R3 section of the module docstring.")
+    ap.add_argument("--leak-splits", default="train+valid",
+                    choices=["train", "train+valid"],
+                    help="which groups count as 'seen' for R3 (default "
+                         "train+valid: both trainers select on val MRR, so a val "
+                         "pair leaks through checkpoint selection)")
     ap.add_argument("--keep-scalar-aggregates", action="store_true",
                     help="disable R2 (kept only for ablating the rule's effect)")
     ap.add_argument("--target-n", type=int, default=None,
@@ -252,9 +316,24 @@ def main():
                   f"--min-result-size 0 --from-split <natural split>.")
         size = lambda q: sizes.get(norm(q), 0)
 
+    if args.leak_filter == "off":
+        print(f"[{args.kg}] R3 DISABLED (--leak-filter off): the split WILL contain "
+              f"anchor-positive pairs both models were trained on. Numbers measured "
+              f"on it partly reflect memorization -- see the R3 docstring section.")
+        trained_pairs, leak_keys = set(), []
+    else:
+        trained_pairs, leak_keys = seen_pairs(args.kg, args.leak_splits)
+        print(f"[{args.kg}] R3 '{args.leak_filter}': {len(trained_pairs)} pairs seen "
+              f"in {'+'.join(leak_keys)} will be excluded from the eval labels")
+
+    def is_leaked(anchor, positive):
+        return frozenset((norm(anchor), norm(positive))) in trained_pairs
+
     out = []
+    n_leaked_pairs_seen = 0
     drop = {"anchor_small": 0, "anchor_scalar_agg": 0,
-            "pos_jaccard": 0, "pos_small": 0, "pos_scalar_agg": 0, "no_pos": 0}
+            "pos_jaccard": 0, "pos_small": 0, "pos_scalar_agg": 0,
+            "pos_leaked": 0, "anchor_leaked": 0, "no_pos": 0}
     for e in held:
         a = e["anchor_query"]
         a_scalar = is_scalar_aggregate(a)
@@ -265,6 +344,7 @@ def main():
             drop["anchor_scalar_agg"] += 1
             continue
         pos = []
+        anchor_leaked = False
         for p in e["positive_queries"]:
             pq = _q(p)
             # A split that does not record answer_jaccard was already built with
@@ -281,7 +361,18 @@ def main():
             if not args.keep_scalar_aggregates and is_scalar_aggregate(pq):
                 drop["pos_scalar_agg"] += 1
                 continue
+            # R3 -- this exact pair was optimized over during training
+            if is_leaked(a, pq):
+                n_leaked_pairs_seen += 1
+                anchor_leaked = True
+                drop["pos_leaked"] += 1
+                continue
             pos.append((pq, j))
+        # 'anchor' mode: one memorized positive disqualifies the whole anchor,
+        # so no anchor in the split is one the model was partly trained toward.
+        if anchor_leaked and args.leak_filter == "anchor":
+            drop["anchor_leaked"] += 1
+            continue
         if len(pos) < args.min_pos:
             drop["no_pos"] += 1
             continue
@@ -314,7 +405,20 @@ def main():
               f"{args.target_n}; keeping all. Lower --min-result-size or use "
               f"--splits test+valid to raise the yield.")
 
-    out_path = Path(args.out) if args.out else ROOT / "datasets" / cfg["out"]
+    if args.out:
+        out_path = Path(args.out)
+    elif args.from_split:
+        # Never silently overwrite the source split (the default --out is the
+        # KG's canonical name, which IS the usual --from-split source).
+        src = Path(args.from_split)
+        if args.leak_filter == "off":
+            raise SystemExit(
+                f"--from-split with --leak-filter off would rewrite {src.name} "
+                f"with identical content. Pass --report-only to just measure the "
+                f"leakage, or --out to write somewhere explicit.")
+        out_path = src.with_name(f"{src.stem}_noleak.json")
+    else:
+        out_path = ROOT / "datasets" / cfg["out"]
     if args.report_only:
         print(f"  --report-only: not writing {out_path}")
     else:
@@ -340,6 +444,31 @@ def main():
     else:
         print("  result sizes: not resolved (R1 disabled, no oracle read)")
     print(f"  unique corpus queries: {len(corpus)}")
+
+    if args.leak_filter == "off":
+        # Still MEASURE the leakage even when not filtering, so a run built this
+        # way cannot be reported without the number being visible.
+        measured, mkeys = seen_pairs(args.kg, args.leak_splits)
+        tot = sum(len(r["positive_queries"]) for r in out)
+        lk = sum(1 for r in out for p in r["positive_queries"]
+                 if frozenset((norm(r["anchor_query"]), norm(p["query"]))) in measured)
+        la = sum(1 for r in out if any(
+            frozenset((norm(r["anchor_query"]), norm(p["query"]))) in measured
+            for p in r["positive_queries"]))
+        print(f"  R3 NOT APPLIED -- leakage present: {lk}/{tot} positive pairs "
+              f"({lk / max(tot, 1):.1%}) and {la}/{len(out)} anchors "
+              f"({la / max(len(out), 1):.1%}) were trained on "
+              f"({'+'.join(mkeys)}). Report this number if you report this split.")
+    else:
+        remaining = sum(1 for r in out for p in r["positive_queries"]
+                        if frozenset((norm(r["anchor_query"]), norm(p["query"])))
+                        in trained_pairs)
+        print(f"  R3 applied ({args.leak_filter}, vs {'+'.join(leak_keys)}): removed "
+              f"{n_leaked_pairs_seen} memorized pairs"
+              + (f" and {drop['anchor_leaked']} anchors touched by one"
+                 if args.leak_filter == "anchor" else "")
+              + f"; {remaining} remain (must be 0)")
+        assert remaining == 0, "R3 failed to remove every memorized pair"
 
     try:
         prof = lexical_profile(out)

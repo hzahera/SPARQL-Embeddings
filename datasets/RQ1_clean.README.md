@@ -45,6 +45,45 @@ mild, disclosed optimism that applies equally to SparqlCE and E5-Finetuned, and
 is included because the execution oracle covers too few test-only anchors. Same
 precedent and same disclosure as the non-singleton set.
 
+**Group-level disjointness is not pair-level disjointness.** The above was the
+only leakage claim this file made, and it is not sufficient. `splits_{kg}.json`
+partitions anchor *groups*, but the same SPARQL query text recurs across groups,
+so a held-out group can restate an anchor–positive pair that was optimized over
+during training. Measured on the first builds of these files:
+
+| split | eval positive pairs also trained on | anchors with ≥1 |
+|---|---|---|
+| `wikidata_testset_RQ1_clean.json` | 1,635 / 1,935 (84.5%) | 424 / 450 (94.2%) |
+| `dbpedia_testset_RQ1_clean.json` | 1,116 / 1,325 (84.2%) | 144 / 152 (94.7%) |
+
+(vs `train_idx` alone, excluding valid: Wikidata 1,448/1,935 = 74.8%.)
+
+Both models train on the same pairs, so this is **not** an unfairness between
+them — but it does not help them equally, which makes it decisive for the
+headline number. On the 5-seed Wikidata sweep:
+
+| MRR@10 | leaked anchors | non-leaked | all |
+|---|---|---|---|
+| SparqlCE | 0.795 | 0.577 | 0.770 |
+| E5-Finetuned | 0.475 | 0.521 | 0.480 |
+| **gap** | **+0.321** | **+0.057** | +0.290 |
+
+Roughly 85% of the reported gap comes from restated training pairs. **R3
+(`--leak-filter`, on by default) removes them**, producing the `_noleak` files
+that everything downstream should use:
+
+| split | anchors | positives |
+|---|---|---|
+| `wikidata_testset_RQ1_clean_noleak.json` | 136 | 300 |
+| `dbpedia_testset_RQ1_clean_noleak.json` | 51 | 209 |
+
+Audit any split (and break exported scores down by leaked/non-leaked) with
+[`scripts/check_leakage.py`](../scripts/check_leakage.py); `run_seed_sweep.sh`
+runs it as a pre-flight and refuses a leaky split unless `ALLOW_LEAKY_SPLIT=1`.
+The smaller anchor counts are the honest measurable subset — a 136-anchor
+uncontaminated result supports a claim that a 450-anchor contaminated one does
+not.
+
 ## DBpedia (built, committed)
 
 `--kg dbpedia --splits test+valid --min-result-size 5`
