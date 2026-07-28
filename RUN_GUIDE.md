@@ -138,11 +138,39 @@ E5-Finetuned baseline, exports per-anchor scores for each, and runs the paired
 test:
 
 ```bash
-./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean.json 3
-./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean.json  3
+# build the leak-free splits once (fast, no oracle needed)
+python scripts/build_clean_rq1.py --kg wikidata \
+  --from-split datasets/wikidata_testset_RQ1_clean.json --min-result-size 0
+python scripts/build_clean_rq1.py --kg dbpedia \
+  --from-split datasets/dbpedia_testset_RQ1_clean.json --min-result-size 0
+
+./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean_noleak.json 3
+./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean_noleak.json  3
 ```
 
 Notes:
+
+- **Use the `_noleak` splits.** The plain `_clean` splits share 84% of their
+  anchor–positive pairs with the training groups (group-level split, but query
+  text recurs across groups). That inflated SparqlCE's Wikidata lead from +0.06
+  to +0.29 MRR@10 — see `datasets/RQ1_clean.README.md` → Leakage and
+  `scripts/check_leakage.py`. The sweep now refuses a leaky split unless
+  `ALLOW_LEAKY_SPLIT=1`.
+- **Pull on the GPU box before running.** The sweep verifies from
+  `run_metadata.json` that E5-FT trained at the batch-scaled LR
+  (`1e-5 × batch/32`) and aborts if not: a pre-217fb8b checkout silently trains
+  the baseline at 1e-5 on batch 128, costing it ~0.11 MRR@10.
+- **Text baselines get label expansion + the E5 `"query: "` prefix** at eval
+  (`eval_rq1_export.py --expand-labels/--text-prefix`, both `auto`). Without the
+  first, a Wikidata text baseline ranks opaque `P31`/`Q5` ids while SparqlCE's
+  graph builder resolves them internally; without the second, E5 is evaluated
+  without the prefix it was trained with. `compute_significance.py` warns when
+  the runs it aggregates predate this.
+- **Two p-values are reported.** The anchor-level Wilcoxon treats the training
+  run as fixed and cannot see cross-seed variance (SparqlCE ranged 0.571–0.881
+  MRR@10 across seeds while its anchor-level p read 1e-32). The seed-level
+  paired t-test is the one that reflects retraining instability, along with the
+  distribution-free "worst SparqlCE seed vs best baseline seed" check.
 
 - **Both sides get the same seeds.** `compute_significance.py --baseline-glob`
   compares **seed-averaged per-anchor scores**, so neither method is represented

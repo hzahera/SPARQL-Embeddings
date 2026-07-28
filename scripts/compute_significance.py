@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import wilcoxon
+from scipy.stats import wilcoxon, ttest_rel
 
 TOPKS = [3, 5, 10, 20]
 METRICS = [f"{m}@{k}" for m in ("mrr", "ndcg") for k in TOPKS]
@@ -139,6 +139,86 @@ def paired_test(sparqlce_run, baseline_run):
     return results
 
 
+def input_parity(sparqlce_runs, baseline_runs):
+    """Surface the eval-time input transforms both sides actually used.
+
+    eval_rq1_export.py records what it fed each model. Runs exported before that
+    was recorded have no field at all -- which is exactly the case that needs
+    flagging, because that version encoded text baselines on raw opaque Wikidata
+    ids while SparqlCE's graph builder resolved labels internally.
+    """
+    kgs = {r.get("kg") for r in sparqlce_runs + baseline_runs}
+    bl = [r.get("input_transform") for r in baseline_runs]
+    info = {
+        "kg": sorted(k for k in kgs if k),
+        "baseline_input_transform": sorted({str(x) for x in bl}),
+        "sparqlce_labels_disabled": sorted(
+            {bool(r.get("sparqlce_labels_disabled")) for r in sparqlce_runs}),
+        "warnings": [],
+    }
+    if any(x is None for x in bl):
+        info["warnings"].append(
+            "baseline runs predate input-transform recording -- re-export them "
+            "with the current eval_rq1_export.py. The old version gave text "
+            "baselines no Wikidata label expansion and no E5 'query: ' prefix, "
+            "both of which handicap the baseline relative to SparqlCE.")
+    elif "wikidata" in kgs and not any(
+            x and "expand_wikidata_labels" in x for x in bl):
+        info["warnings"].append(
+            "Wikidata run whose text baseline did NOT get label expansion while "
+            "SparqlCE resolves labels internally -- not a like-for-like input.")
+    return info
+
+
+def seed_level_test(sparqlce_runs, baseline_runs):
+    """Paired test with the SEED as the unit of analysis.
+
+    The anchor-level Wilcoxon on seed-averaged scores answers "does this method
+    rank these 450 anchors better", treating anchors as independent and the
+    training run as fixed. It therefore cannot see cross-seed variance at all:
+    on the first Wikidata sweep SparqlCE ranged 0.571-0.881 MRR@10 across seeds
+    (sigma=0.135, ~50x the baseline's) and the anchor-level p was still 1e-32.
+    Report BOTH -- this one answers the question a reviewer actually asks, "does
+    the method beat the baseline when you retrain it", and it is the one that
+    degrades honestly when training is unstable.
+
+    Requires the same seeds on both sides (the sweep guarantees it); pairs on
+    the seed value, not on file order.
+    """
+    sp_by_seed = {r.get("seed"): r for r in sparqlce_runs}
+    bl_by_seed = {r.get("seed"): r for r in baseline_runs}
+    seeds = sorted(s for s in sp_by_seed.keys() & bl_by_seed.keys() if s is not None)
+    if len(seeds) < 3:
+        return {"note": f"only {len(seeds)} paired seeds -- seed-level test skipped "
+                        f"(needs >=3 to be meaningful)", "seeds": seeds}
+
+    out = {"unit": "seed", "n_seeds": len(seeds), "seeds": seeds}
+    for metric in METRICS:
+        a = np.array([sp_by_seed[s]["aggregate"][metric] for s in seeds
+                      if metric in sp_by_seed[s]["aggregate"]], dtype=float)
+        b = np.array([bl_by_seed[s]["aggregate"][metric] for s in seeds
+                      if metric in bl_by_seed[s]["aggregate"]], dtype=float)
+        if len(a) != len(seeds) or len(b) != len(seeds):
+            continue
+        t = ttest_rel(a, b)
+        # One-sided (SparqlCE > baseline): halve the two-sided p when the sign
+        # agrees, else it is the complement.
+        p_one = t.pvalue / 2 if t.statistic > 0 else 1 - t.pvalue / 2
+        out[metric] = {
+            "sparqlce_mean": float(a.mean()), "sparqlce_std": float(a.std(ddof=1)),
+            "baseline_mean": float(b.mean()), "baseline_std": float(b.std(ddof=1)),
+            "mean_diff": float((a - b).mean()),
+            "t_statistic": float(t.statistic),
+            "p_value_one_sided": float(p_one),
+            "significant_at_0.05": bool(p_one < 0.05),
+            # Distribution-free and the strongest claim available at n=5: does
+            # the WORST SparqlCE seed still beat the BEST baseline seed?
+            "worst_sparqlce_beats_best_baseline": bool(a.min() > b.max()),
+            "worst_sparqlce": float(a.min()), "best_baseline": float(b.max()),
+        }
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sparqlce-glob", required=True,
@@ -168,6 +248,7 @@ def main():
         baseline_seeds = [r.get("seed") for r in baseline_runs]
         baseline_model = baseline_runs[0].get("model_id")
         rep_seed = None
+        seed_level = seed_level_test(sparqlce_runs, baseline_runs)
     else:
         with open(args.baseline) as f:
             baseline_run = json.load(f)
@@ -180,6 +261,8 @@ def main():
         baseline_seeds = [baseline_run.get("seed")]
         baseline_model = baseline_run.get("model_id")
         rep_seed = rep_run.get("seed")
+        seed_level = {"note": "single-seed baseline -- a seed-level test needs "
+                              "per-seed baseline runs (--baseline-glob)"}
 
     summary = {
         "n_seeds": len(sparqlce_runs),
@@ -192,6 +275,9 @@ def main():
         "baseline_seeds": baseline_seeds,
         "baseline_cross_seed_stats": baseline_cross_seed,
         "significance_vs_baseline": sig,
+        "significance_seed_level": seed_level,
+        "input_parity": input_parity(sparqlce_runs, baseline_runs
+                                     if args.baseline_glob else [baseline_run]),
     }
 
     out_path = Path(args.out)
@@ -216,6 +302,27 @@ def main():
         p = s.get("p_value")
         flag = "*" if s.get("significant_at_0.05") else " "
         print(f"  {metric:10s} p={p}  mean_diff={s.get('mean_diff'):.4f} {flag}")
+
+    if seed_level.get("note"):
+        print(f"\nSeed-level test: {seed_level['note']}")
+    else:
+        print(f"\nSEED-LEVEL paired t-test (unit = seed, n={seed_level['n_seeds']}, "
+              f"one-sided) -- report this ALONGSIDE the anchor-level p above; it "
+              f"is the one that reflects training instability:")
+        for metric in METRICS:
+            s = seed_level.get(metric)
+            if not s:
+                continue
+            flag = "*" if s["significant_at_0.05"] else " "
+            dom = "  [worst SparqlCE seed > best baseline seed]" \
+                if s["worst_sparqlce_beats_best_baseline"] else ""
+            print(f"  {metric:10s} {s['sparqlce_mean']:.4f}+/-{s['sparqlce_std']:.4f} vs "
+                  f"{s['baseline_mean']:.4f}+/-{s['baseline_std']:.4f}  "
+                  f"p={s['p_value_one_sided']:.4g} {flag}{dom}")
+
+    for w in summary["input_parity"]["warnings"]:
+        print(f"\n!! INPUT PARITY: {w}")
+
     print(f"\nSaved to {out_path}")
 
 

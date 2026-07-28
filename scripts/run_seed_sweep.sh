@@ -10,8 +10,14 @@
 # Usage:
 #   ./scripts/run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs]
 #
-#   ./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean.json 5 128 60
-#   ./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1.json        5 128 60
+#   ./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean_noleak.json 5 128 60
+#   ./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean_noleak.json  5 128 60
+#
+# Use the _noleak splits. The plain _clean splits share anchor-positive PAIRS
+# with the training groups (84.5% of Wikidata's pairs), which inflates both
+# models unequally and turns the headline gap into a memorization measurement --
+# see scripts/check_leakage.py. This script refuses a leaky split unless
+# ALLOW_LEAKY_SPLIT=1.
 #
 # Prerequisite: SparqlCE must be retrained AFTER the graph_builder.py fixes --
 # old checkpoints were trained on the pre-fix representation. This script
@@ -72,6 +78,27 @@ for f in datasets/${KG}-triplets-dataset.json datasets/splits_${KG}.json; do
   [ -f "$f" ] || { echo "$f not found (see datasets/README.md)"; exit 1; }
 done
 
+# Pre-flight: refuse to spend GPU hours producing a number measured on eval
+# pairs the models were trained on. Cheap (seconds) relative to the sweep.
+if [ "${ALLOW_LEAKY_SPLIT:-0}" != "1" ]; then
+  python scripts/check_leakage.py --kg "$KG" --split "$SPLIT"; leak_rc=$?
+  if [ $leak_rc -eq 1 ]; then
+    echo "!!! leakage audit could not run (see error above) -- fix it rather than"
+    echo "    skipping: an unaudited split is how the 84.5%-leaked sweep happened."
+    exit 1
+  elif [ $leak_rc -ne 0 ]; then
+    echo ""
+    echo "!!! $SPLIT contains anchor-positive pairs from the training groups."
+    echo "    Build a leak-free split first:"
+    echo "      python scripts/build_clean_rq1.py --kg $KG --from-split $SPLIT \\"
+    echo "        --min-result-size 0 --leak-filter pair"
+    echo "    then rerun with the _noleak split. Set ALLOW_LEAKY_SPLIT=1 to"
+    echo "    override (only to MEASURE the leakage effect, never for a headline"
+    echo "    number)."
+    exit 1
+  fi
+fi
+
 # SKIP_E5FT=1 trains + exports ONLY SparqlCE for every seed (no E5-FT, no
 # significance) -- use it to bank the expensive SparqlCE checkpoints first when
 # E5-FT is flaky, then run the full sweep (or an E5-FT-only loop) later.
@@ -124,6 +151,8 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
   # E5-FT is a full fine-tune saved as a standalone HF/sentence-transformers dir,
   # so --model-type sentence-transformer is correct here.
   echo "--- [$KG seed=$seed] training + exporting E5-Finetuned (batch $BATCH) ---"
+  E5_META="checkpoints/e5_ft/$KG/seed${seed}/run_metadata.json"
+  rm -f "$E5_META"   # so the LR check below can never pass on a stale file
   python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
     ${E5_LR:+--lr "$E5_LR"} \
@@ -133,6 +162,27 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     --seed "$seed" --ablation baseline-e5ft \
     --out "results/significance/${TAG}_e5ft_seed${seed}.json"
   [ $? -ne 0 ] && { echo "!!! [$KG seed=$seed] E5-FT FAILED -- SparqlCE safe; rerun E5-FT later"; FAILED_E5FT+=("$seed"); }
+
+  # Verify the baseline was actually trained at the batch-scaled LR. A GPU box
+  # running a checkout from before the LR-scaling fix silently trains E5-FT at
+  # 1e-5 on batch 128 and lands at ~0.480 aggregate MRR@10 instead of ~0.590 --
+  # a 0.11 MRR handicap that looks exactly like a real result. This is a
+  # comparison-invalidating bug, so it is FATAL rather than a warning.
+  if [ -z "$E5_LR" ] && [ -f "$E5_META" ]; then
+    python - "$E5_META" "$BATCH" "$seed" <<'PYCHECK' || { echo "!!! [$KG seed=$seed] aborting: baseline LR is wrong, any comparison from this run is invalid"; exit 1; }
+import json, sys
+meta_path, batch, seed = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+m = json.load(open(meta_path))
+got, want = float(m.get("lr", 0)), 1e-5 * batch / 32.0
+if abs(got - want) > 0.05 * want:
+    print(f"!!! seed={seed} E5-FT trained at lr={got:.2e}, expected {want:.2e} "
+          f"(1e-5 scaled from effective batch 32 to {batch}).")
+    print("    The GPU box is running finetune_e5_baseline.py from before commit "
+          "217fb8b -- git pull there and rerun the baseline.")
+    sys.exit(1)
+print(f"[lr-check] seed={seed} E5-FT lr={got:.2e} (correct for batch {batch})")
+PYCHECK
+  fi
 done
 set -e
 
