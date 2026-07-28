@@ -25,7 +25,7 @@ set -euo pipefail
 # already-set value; otherwise default it on.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-KG="${1:?usage: run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs]}"
+KG="${1:?usage: run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs] [e5_lr]}"
 N_SEEDS="${2:-5}"
 SPLIT="${3:-datasets/${KG}_testset_RQ1_clean.json}"
 PATIENCE="${4:-3}"
@@ -46,6 +46,12 @@ BATCH="${5:-128}"
 # so raising this does not change its LR trajectory; E5-FT's cosine schedule
 # stretches with it, which is the normal way to train that recipe longer.
 EPOCHS="${6:-60}"
+# E5-FT learning rate. Empty => finetune_e5_baseline.py linearly scales the
+# notebook's 1e-5 (tuned at effective batch 32) to the batch used here. Holding
+# 1e-5 fixed while raising the batch to 128 undertrains the baseline badly:
+# in the first sweep it dropped E5-FT from 0.590 to 0.480 aggregate MRR@10 and
+# from 0.758 to 0.118 in the 0.3-0.5 bin. Never compare against that run.
+E5_LR="${7:-}"
 SEEDS=(42 43 44 45 46 47 48 49 50 51)
 
 cd "$(dirname "$0")/.."
@@ -120,6 +126,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
   echo "--- [$KG seed=$seed] training + exporting E5-Finetuned (batch $BATCH) ---"
   python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
+    ${E5_LR:+--lr "$E5_LR"} \
   && python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sentence-transformer \
     --model-name "checkpoints/e5_ft/$KG/seed${seed}/best_model" \

@@ -275,7 +275,8 @@ def main():
                 break
 
     json.dump({"kg": args.kg, "seed": args.seed, "model": MODEL_NAME,
-               "lr": args.lr, "epochs_max": args.epochs, "best_epoch": best_epoch,
+               "lr": args.lr, "effective_batch_lr_scaled_from": 32,
+               "epochs_max": args.epochs, "best_epoch": best_epoch,
                "patience": args.patience, "best_val_mrr": best_mrr,
                "effective_batch": args.batch_size * args.grad_accum,
                "scale": args.scale, "history": history},
