@@ -31,10 +31,10 @@ def rows(pattern):
         except (OSError, ValueError):
             continue
         hist = m.get("history") or []
-        n_ep = len(hist) or m.get("epochs_run") or None
+        n_ep = len(hist) or m.get("epochs_ran") or m.get("epochs_run") or None
         out.append({
             "path": p,
-            "kind": "e5ft" if "e5_ft" in p or m.get("model") else "sparqlce",
+            "kind": "e5ft" if ("e5_ft" in p or m.get("model")) else "sparqlce",
             "kg": m.get("kg"), "seed": m.get("seed"),
             "best_epoch": m.get("best_epoch"),
             "epochs_ran": n_ep,
@@ -42,7 +42,9 @@ def rows(pattern):
             "patience": m.get("patience"),
             "batch": m.get("batch_size") or m.get("effective_batch"),
             "lr": m.get("lr") or m.get("lr_text"),
-            "best_val": m.get("best_val_mrr") or m.get("best_val_mrr_full"),
+            "best_val": (m.get("best_val_mrr")
+                         or (m.get("val_metrics") or {}).get("mrr")
+                         or (m.get("val_metrics") or {}).get("val_mrr")),
             "history": hist,
         })
     return out

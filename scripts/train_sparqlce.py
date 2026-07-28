@@ -337,7 +337,9 @@ def main():
     with open(ckpt_dir / "run_metadata.json", "w") as f:
         json.dump({
             "kg": args.kg, "seed": args.seed, "ablation": args.ablation,
-            "epochs": args.epochs, "batch_size": args.batch_size,
+            "epochs": args.epochs, "epochs_ran": epoch, "batch_size": args.batch_size,
+            "lr_text": args.lr_text, "lr_rest": args.lr_rest,
+            "single_lr": args.single_lr, "min_delta": args.min_delta,
             "patience": args.patience, "best_epoch": best_epoch, "amp": args.amp,
             "temperature": args.temperature, "lambda_reg": args.lambda_reg,
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
