@@ -25,9 +25,31 @@ a new one with MEAN pooling.") -- silently mismatching the last-token
 pooling used everywhere else for this model, without raising an error.
 --model-type sentence-transformer remains correct for genuine standalone
 HF/ST models (E5, zero-shot Qwen3, MiniLM, MPNet).
+
+Text-model input parity
+-----------------------
+Two transforms are applied to the corpus BEFORE encoding it with a text model
+(sentence-transformer / peft-qwen3), neither of which applies to SparqlCE:
+
+1. Wikidata label expansion (``--expand-labels auto``). SparqlCE's graph builder
+   resolves ``wdt:P31`` to ``instance of (P31)`` internally, so a text baseline
+   fed the raw opaque ids is ranking on strictly less semantic content than
+   SparqlCE sees. eval_rq1_stratified.py has always expanded labels for its text
+   baselines; this script did not, which silently handicapped every Wikidata
+   text row it produced. Set ``--expand-labels never`` to compare on raw ids --
+   but then also set SPARQLCE_NO_WIKIDATA_LABELS=1 so SparqlCE loses them too.
+
+2. The E5 ``query: `` prefix (``--text-prefix auto``). finetune_e5_baseline.py
+   trains every input with that prefix, and E5 is prefix-sensitive; encoding
+   without it at eval time is a train/test mismatch that costs the baseline
+   accuracy for no methodological reason.
+
+Both are auto-enabled from --kg and the model id, printed at startup, and
+recorded in the output JSON so a run's input parity is auditable after the fact.
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -46,6 +68,9 @@ from evaluate_rq1 import (  # noqa: E402
     build_emb_map_sentence_transformer, build_sorted_pools_global, dcg,
 )
 from sparqlce.embedder import SPARQLEmbedder  # noqa: E402
+from sparqlce.sparql_utils import expand_wikidata_labels  # noqa: E402
+
+E5_PREFIX = "query: "
 
 PEFT_QWEN3_BASE = "Qwen/Qwen3-Embedding-0.6B"
 PEFT_QWEN3_MAX_LENGTH = 512
@@ -70,9 +95,47 @@ def _gc_collect_and_empty_cache():
         torch.cuda.empty_cache()
 
 
+def build_text_transform(kg, model_id, expand_labels="auto", text_prefix="auto"):
+    """Build the query-text transform for a TEXT model, and describe it.
+
+    Returns ``(transform, description)`` where transform maps a raw query string
+    to the string actually encoded. SparqlCE never uses this -- it consumes raw
+    SPARQL and resolves labels inside its own graph builder, which is precisely
+    why the text side needs the expansion to be comparable.
+    """
+    steps = []
+
+    do_expand = (expand_labels == "always"
+                 or (expand_labels == "auto" and kg == "wikidata"))
+    if do_expand:
+        # No-op if datasets/wikidata_labels.json is absent or
+        # SPARQLCE_NO_WIKIDATA_LABELS=1 -- the same switch the graph builder
+        # honours, so the two sides can only ever be turned off together.
+        if expand_wikidata_labels("wdt:P31") == "wdt:P31":
+            print("[parity] WARNING: --expand-labels is on but expansion is a no-op "
+                  "(datasets/wikidata_labels.json missing, or "
+                  "SPARQLCE_NO_WIKIDATA_LABELS is set). If SparqlCE still has "
+                  "labels, this run is NOT a like-for-like comparison.")
+        else:
+            steps.append("expand_wikidata_labels")
+
+    model_id = str(model_id or "")
+    do_prefix = (text_prefix == "always"
+                 or (text_prefix == "auto" and "e5" in model_id.lower()))
+    if do_prefix:
+        steps.append(f"prefix {E5_PREFIX!r}")
+
+    def transform(q):
+        text = expand_wikidata_labels(q) if do_expand else q
+        return (E5_PREFIX + text) if do_prefix else text
+
+    desc = " + ".join(steps) if steps else "none (raw query text)"
+    return (transform if steps else None), desc
+
+
 def build_emb_map_peft_qwen3(adapter_path, queries, batch_size=8,
                               max_length=PEFT_QWEN3_MAX_LENGTH,
-                              base_model=PEFT_QWEN3_BASE):
+                              base_model=PEFT_QWEN3_BASE, transform=None):
     """Encode queries with a fine-tuned Qwen3-Embedding LoRA adapter,
     reconstructing the exact training-time architecture: base model +
     PEFT adapter + last-token pooling + L2 normalization. See module
@@ -104,7 +167,10 @@ def build_emb_map_peft_qwen3(adapter_path, queries, batch_size=8,
     with torch.inference_mode():
         for i in range(0, len(queries), batch_size):
             batch = queries[i:i + batch_size]
-            tok = tokenizer(batch, padding=True, truncation=True,
+            # Encode the transformed text but key the map by the RAW query --
+            # every downstream lookup (pools, relevance maps) uses raw text.
+            texts = [transform(q) for q in batch] if transform else batch
+            tok = tokenizer(texts, padding=True, truncation=True,
                              max_length=max_length, return_tensors="pt")
             tok = {k: v.to(device) for k, v in tok.items()}
             out = model(input_ids=tok["input_ids"], attention_mask=tok["attention_mask"])
@@ -173,6 +239,18 @@ def main():
                           "compute_significance.py MUST use the same --split, "
                           "since the paired Wilcoxon aligns per-anchor scores "
                           "positionally.")
+    ap.add_argument("--expand-labels", default="auto",
+                     choices=["auto", "always", "never"],
+                     help="expand Wikidata P/Q ids to labels for TEXT models "
+                          "(auto = on for --kg wikidata). SparqlCE resolves them "
+                          "internally, so 'never' is only fair combined with "
+                          "SPARQLCE_NO_WIKIDATA_LABELS=1. See module docstring.")
+    ap.add_argument("--text-prefix", default="auto",
+                     choices=["auto", "always", "never"],
+                     help=f"prepend {E5_PREFIX!r} for TEXT models (auto = on when "
+                          f"'e5' appears in the model id). E5 is trained with this "
+                          f"prefix by finetune_e5_baseline.py; omitting it at eval "
+                          f"time is a train/test mismatch.")
     args = ap.parse_args()
 
     split_path = args.split or str(KG_TESTSETS[args.kg])
@@ -184,13 +262,21 @@ def main():
 
     if args.model_type == "sparqlce":
         assert args.checkpoint, "--checkpoint required for --model-type sparqlce"
+        text_transform, transform_desc = None, "n/a (SparqlCE consumes raw SPARQL)"
         model = SPARQLEmbedder(args.checkpoint)
         emb_map = build_emb_map_sparqlce(model, global_corpus, batch_size=args.batch_size)
-    elif args.model_type == "peft-qwen3":
+    else:
+        text_transform, transform_desc = build_text_transform(
+            args.kg, args.checkpoint or args.model_name,
+            expand_labels=args.expand_labels, text_prefix=args.text_prefix)
+        print(f"[parity] text input transform: {transform_desc}")
+
+    if args.model_type == "peft-qwen3":
         assert args.model_name, "--model-name (adapter dir) required for --model-type peft-qwen3"
         emb_map = build_emb_map_peft_qwen3(args.model_name, global_corpus,
-                                            batch_size=args.batch_size or 8)
-    else:
+                                            batch_size=args.batch_size or 8,
+                                            transform=text_transform)
+    elif args.model_type != "sparqlce":
         from sentence_transformers import SentenceTransformer
         assert args.model_name, "--model-name required for --model-type sentence-transformer"
         model_path = Path(args.model_name)
@@ -204,7 +290,9 @@ def main():
                 "instead."
             )
         model = SentenceTransformer(args.model_name)
-        emb_map = build_emb_map_sentence_transformer(model, global_corpus, batch_size=args.batch_size)
+        emb_map = build_emb_map_sentence_transformer(model, global_corpus,
+                                                     batch_size=args.batch_size,
+                                                     transform=text_transform)
     sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus)
 
     anchors = [a for a, _, _ in eval_items]
@@ -225,6 +313,12 @@ def main():
             "kg": args.kg, "split": split_path, "model_type": args.model_type,
             "model_id": args.checkpoint or args.model_name, "seed": args.seed,
             "ablation": args.ablation, "anchors": anchors,
+            "input_transform": transform_desc,
+            "expand_labels": args.expand_labels,
+            "text_prefix": args.text_prefix,
+            "sparqlce_labels_disabled": bool(
+                os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower()
+                in ("1", "true", "yes", "on")),
             "aggregate": aggregate, "per_anchor": per_anchor,
         }, f, indent=2)
     print(f"Saved per-anchor scores for {len(anchors)} anchors to {out_path}")
