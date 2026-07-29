@@ -1,10 +1,14 @@
-# RQ1 evaluation splits — `{dbpedia,wikidata}-testsplit-RQ1.json`
+# RQ1 evaluation splits — `wikidata-testsplit-RQ1.json`
 
-The canonical RQ1 retrieval splits, built by
-[`scripts/build_clean_rq1.py`](../scripts/build_clean_rq1.py) with **one
-identical protocol per knowledge graph** — the same command, changing only
-`--kg`, produces both files. They are deterministic: rebuilding reproduces them
-byte-for-byte.
+The canonical RQ1 retrieval split, built by
+[`scripts/build_clean_rq1.py`](../scripts/build_clean_rq1.py). Deterministic:
+rebuilding reproduces it byte-for-byte.
+
+> **DBpedia has no split at present.** It was deleted deliberately, to be rebuilt
+> from scratch along with its experiments. The rules below still apply to it (the
+> builder is one command per graph, `--kg dbpedia`), and the DBpedia figures
+> quoted under R4 are retained because they are what motivated the rule — but no
+> `dbpedia-testsplit-RQ1.json` exists until it is rebuilt.
 
 ```bash
 python scripts/build_clean_rq1.py --kg wikidata --min-result-size 0 --out datasets/wikidata-testsplit-RQ1.json
