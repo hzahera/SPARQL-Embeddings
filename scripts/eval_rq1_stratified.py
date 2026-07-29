@@ -26,7 +26,10 @@ unless --no-lexical. Neural methods run only if their deps are present:
       --sparqlce checkpoints_b128/wikidata/seed42_full/best_model.pt
 """
 import argparse
+import importlib.util
 import json
+import os
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -41,6 +44,40 @@ sys.path.insert(0, str(ROOT))   # so `import sparqlce` (repo root) works from sc
 SPLIT = ROOT / "datasets" / "wikidata-testsplit-RQ1.json"
 TOPKS = [1, 3, 5, 10]   # @3/@5/@10 reported in the paper (matches the DBpedia table)
 BIN_ORDER = ["<0.3", "0.3-0.5", "0.5-0.8", ">=0.8"]
+
+_WD_ID_RE = re.compile(r'\b[PQ]\d+\b')
+
+
+def _load_label_expander():
+    """Import expand_wikidata_labels without importing the sparqlce package.
+
+    `sparqlce/__init__.py` imports torch; sparql_utils does not. Loading the
+    submodule by path keeps the lexical rows runnable on a torch-free machine.
+    """
+    path = ROOT / "sparqlce" / "sparql_utils.py"
+    spec = importlib.util.spec_from_file_location("_sparqlce_sparql_utils", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.expand_wikidata_labels
+
+
+def _label_coverage(corpus, expand):
+    """(distinct P/Q ids in the corpus, how many the label map resolves)."""
+    ids = set()
+    for q in corpus:
+        ids.update(_WD_ID_RE.findall(q))
+    # An id is resolved iff expanding a probe containing it changes the string.
+    resolved = sum(1 for i in ids if expand(f"wdt:{i}") != f"wdt:{i}")
+    return len(ids), resolved
+
+
+def _is_wikidata(corpus):
+    """True if the corpus carries opaque P/Q ids that label expansion targets."""
+    if os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower() \
+            in ("1", "true", "yes", "on"):
+        return False
+    return any(_WD_ID_RE.search(q) for q in corpus[:50])
+
 
 # --- pure helpers, identical logic to evaluate_rq1.py (kept torch-free here so
 # the lexical baselines run without torch/sparqlce/sentence-transformers) ---
@@ -122,7 +159,14 @@ def sorted_pools_matrix(scores_fn, items, corpus):
         s = scores_fn(a).copy()
         if a in a2i:
             s[a2i[a]] = -np.inf
-        pools.append([corpus[i] for i in np.argsort(-s)])
+        # kind="stable": ties MUST break by corpus position, which is fixed by
+        # the split file. Default argsort is introsort -- tie order then depends
+        # on the numpy build, so the same split scores differently on two
+        # machines. This is not a corner case for the lexical rows: on
+        # dbpedia-testsplit-RQ1, 219/219 anchors (BM25) and 218/219 (TF-IDF)
+        # have tied scores inside the top-10, and the drift is worth ~0.04
+        # MRR@10 on BM25 -- larger than several margins the paper reports.
+        pools.append([corpus[i] for i in np.argsort(-s, kind="stable")])
     return pools
 
 
@@ -303,8 +347,34 @@ def main():
     # content SparqlCE's graph builder resolves internally. No-op on DBpedia
     # (no P/Q ids to match). SparqlCE keeps the raw `corpus` -- the expanded
     # text is not valid SPARQL syntax, only a plain-text stand-in.
-    from sparqlce.sparql_utils import expand_wikidata_labels
+    #
+    # Loaded by file path, not `from sparqlce.sparql_utils import ...`: the
+    # package __init__ pulls in torch, and the lexical rows are supposed to run
+    # without it (see module docstring). sparql_utils itself is torch-free.
+    expand_wikidata_labels = _load_label_expander()
     text_corpus = [expand_wikidata_labels(q) for q in corpus]
+
+    # expand_wikidata_labels is a silent no-op on ids it cannot resolve, so a
+    # missing -- or half-built, which build_wikidata_labels.py checkpoints to
+    # disk on interrupt -- label map still "succeeds": the text baselines would
+    # read raw P/Q ids while SparqlCE resolves labels internally, exactly the
+    # preprocessing asymmetry the expansion exists to remove. Report coverage
+    # and refuse to score an unfair comparison.
+    if _is_wikidata(corpus):
+        n_ids, n_resolved = _label_coverage(corpus, expand_wikidata_labels)
+        pct = 100.0 * n_resolved / n_ids if n_ids else 0.0
+        print(f"wikidata label coverage: {n_resolved}/{n_ids} distinct ids ({pct:.1f}%)")
+        if pct < 99.0:
+            sys.exit(
+                f"!!! Only {pct:.1f}% of this split's P/Q ids resolve to a label.\n"
+                "    datasets/wikidata_labels.json is missing or incomplete, so the\n"
+                "    text baselines below would be scored on ids SparqlCE reads as\n"
+                "    labels -- an unfair comparison. Build/finish the map with\n"
+                "        python scripts/build_wikidata_labels.py\n"
+                "    (it resumes from a partial map). To score raw ids for ALL\n"
+                "    models on purpose, set SPARQLCE_NO_WIKIDATA_LABELS=1 -- that\n"
+                "    switch applies to the graph builder too, keeping it fair."
+            )
 
     if args.stratify:
         item_bins = stratify_by_lexical(corpus, text_corpus, items)

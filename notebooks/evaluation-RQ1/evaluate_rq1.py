@@ -176,7 +176,7 @@ def build_sorted_pools_global(
         if anchor_q in anchor_to_idx:
             scores = scores.copy()
             scores[anchor_to_idx[anchor_q]] = np.finfo(scores.dtype).min
-        order = np.argsort(-scores)
+        order = np.argsort(-scores, kind="stable")
         sorted_pools.append([corpus_queries[i] for i in order])
     return sorted_pools
 
@@ -198,7 +198,7 @@ def build_sorted_pools_bm25(
         if anchor_q in anchor_to_idx:
             scores = scores.copy()
             scores[anchor_to_idx[anchor_q]] = np.finfo(scores.dtype).min
-        order = np.argsort(-scores)
+        order = np.argsort(-scores, kind="stable")
         sorted_pools.append([corpus_queries[i] for i in order])
     return sorted_pools
 
@@ -221,7 +221,7 @@ def build_sorted_pools_tfidf(
         if anchor_q in anchor_to_idx:
             sims = sims.copy()
             sims[anchor_to_idx[anchor_q]] = np.finfo(sims.dtype).min
-        order = np.argsort(-sims)
+        order = np.argsort(-sims, kind="stable")
         sorted_pools.append([corpus_queries[i] for i in order])
     return sorted_pools
 
