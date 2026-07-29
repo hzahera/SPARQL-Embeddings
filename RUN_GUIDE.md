@@ -84,16 +84,18 @@ python scripts/build_rq1_twoaxis.py --kg dbpedia \
 
 # 4. Training and validation files, same rules, WITH hard negatives.
 for s in train valid; do
-  python scripts/build_rq1_twoaxis.py --kg dbpedia --from-split $s \
+  python scripts/build_rq1_twoaxis.py --kg dbpedia --from-split $s --neg-max 0.2 \
     --splits datasets/splits_dbpedia_components.json \
     --result-sets datasets/result_sets_dbpedia_v2.json \
     --out datasets/dbpedia-$s-RQ1.json
 done
 ```
 
-Then train against the per-split files (**not** `--kg dbpedia` alone — the
-integer-index path addresses the old group split and now hard-errors if the
-record counts disagree):
+Pass the **same `--neg-max` to all three** (see "Choosing --neg-max" below), or
+train, valid and test stop meaning the same thing.
+
+Then train both models against the per-split files — **not** `--kg dbpedia`
+alone, which addresses the old group split:
 
 ```bash
 python scripts/train_sparqlce.py --kg dbpedia --seed 42 \
@@ -101,7 +103,40 @@ python scripts/train_sparqlce.py --kg dbpedia --seed 42 \
   --val-file   datasets/dbpedia-valid-RQ1.json \
   --test-file  datasets/dbpedia-testsplit-RQ1.json \
   --hard-negatives --max-neg 16
+
+python scripts/finetune_e5_baseline.py --kg dbpedia --seed 42 \
+  --train-file datasets/dbpedia-train-RQ1.json \
+  --val-file   datasets/dbpedia-valid-RQ1.json
 ```
+
+Both **must** get the same `--train-file`. Training SparqlCE on the component
+split while the baseline keeps the old group split would compare two models over
+different corpora, and the old split's training anchors sit inside the new test
+components.
+
+### Choosing `--neg-max`
+
+`--neg-max` is where a candidate stops being "unjudged" and becomes a negative.
+The default 0.0 (only fully disjoint queries are negatives) is far too strict on
+DBpedia: answer sets are small and drawn from a shared vocabulary, so most pairs
+share one row by coincidence, 94% of the test pool ends up unjudged, and each
+anchor ranks ~15 candidates of which 12.6 are positives — a metric that cannot
+separate two systems.
+
+The measured overlap distribution is bimodal: **44% of test pairs at
+`0.05 < J <= 0.1`** (two ~15-row answer sets sharing exactly one row —
+coincidence, not partial relevance) and **43% at `0.5 < J <= 0.8`** (substantial
+overlap, genuinely ambiguous). Between them is a valley, and on the **test**
+split the `0.2-0.3` bin is empty, so any threshold in it yields a bit-identical
+split. `--neg-max 0.2` is therefore not a tuned value on the split that gets
+reported. The builder prints a sensitivity table making this checkable; note
+that train and valid *do* have a little mass there (0.5% and 0.3%), so state the
+insensitivity claim about the test split specifically.
+
+The `0.5-0.8` band stays unjudged, which drops ~123 candidates per anchor from
+each ranking. Disclose that: result-equivalence is not transitive, but connected
+components treat it as if it were, so a component pool contains many
+chain-related, partially-overlapping queries.
 
 ### What changed and why
 

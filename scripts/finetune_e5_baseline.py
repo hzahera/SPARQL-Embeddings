@@ -172,6 +172,11 @@ def main():
     ap.add_argument("--max-len", type=int, default=512)
     ap.add_argument("--warmup-frac", type=float, default=0.05)
     ap.add_argument("--weight-decay", type=float, default=1e-2)
+    ap.add_argument("--train-file", default=None,
+                    help="self-contained training split (scripts/build_rq1_twoaxis.py "
+                         "--from-split train). Must be the SAME file SparqlCE "
+                         "trains on, or the two are not comparable.")
+    ap.add_argument("--val-file", default=None, help="see --train-file")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints" / "e5_ft"))
     ap.add_argument("--amp", action="store_true")
     args = ap.parse_args()
@@ -185,7 +190,7 @@ def main():
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     paths = KG_PATHS[args.kg]
-    if not paths["data"].exists():
+    if not (args.train_file or args.val_file) and not paths["data"].exists():
         raise SystemExit(f"{paths['data']} not found (see datasets/README.md).")
 
     ckpt_dir = Path(args.ckpt_root) / args.kg / f"seed{args.seed}"
@@ -201,14 +206,37 @@ def main():
                                   return_tensors="pt")
         return tk(list(a)), tk(list(p)), tk(list(n))
 
-    dataset = SquareTextDataset(paths["data"])
-    if paths["splits"].exists():
+    if args.train_file or args.val_file:
+        # Per-split files, as emitted by scripts/build_rq1_twoaxis.py. The
+        # baseline MUST read the same data as SparqlCE: training it on the old
+        # group split while SparqlCE trains on the component split would compare
+        # two models over different corpora, and the old split's train anchors
+        # land inside the new test components.
+        if not (args.train_file and args.val_file):
+            raise SystemExit("per-split mode needs both --train-file and --val-file")
+        train_ds = SquareTextDataset(args.train_file)
+        val_ds = SquareTextDataset(args.val_file)
+        dataset = train_ds
+        print(f"per-split files: train={len(train_ds)} val={len(val_ds)}")
+    elif paths["splits"].exists():
+        dataset = SquareTextDataset(paths["data"])
         spl = json.load(open(paths["splits"]))
         val_idx = spl.get("valid_idx", spl.get("val_idx"))
+        # Subset indexes the dataset's KEPT groups, not the file's records; those
+        # coincide only while nothing is filtered out. Asserted rather than
+        # assumed -- a misalignment would silently train on the wrong queries.
+        with open(paths["data"]) as f:
+            n_records = len(json.load(f))
+        if len(dataset) != n_records:
+            raise SystemExit(
+                f"{paths['data'].name} has {n_records} records but {len(dataset)} "
+                f"survived filtering, so the indices in {paths['splits'].name} no "
+                f"longer address the intended queries. Use --train-file/--val-file.")
         train_ds = Subset(dataset, spl["train_idx"])
         val_ds = Subset(dataset, val_idx)
         print(f"fixed split: train={len(train_ds)} val={len(val_ds)}")
     else:
+        dataset = SquareTextDataset(paths["data"])
         print(f"WARNING: {paths['splits']} not found; using a seeded random split")
         gen = torch.Generator().manual_seed(args.seed)
         n = len(dataset)
@@ -279,7 +307,13 @@ def main():
                "epochs_max": args.epochs, "best_epoch": best_epoch,
                "patience": args.patience, "best_val_mrr": best_mrr,
                "effective_batch": args.batch_size * args.grad_accum,
-               "scale": args.scale, "history": history},
+               "scale": args.scale,
+               # Which corpus this run saw. run_seed_sweep.sh reads this file to
+               # verify the baseline was trained comparably; without these it
+               # cannot tell a component-split run from a group-split one.
+               "train_file": args.train_file, "val_file": args.val_file,
+               "data": str(paths["data"]), "splits": str(paths["splits"]),
+               "history": history},
               open(ckpt_dir / "run_metadata.json", "w"), indent=2)
     print(f"\ndone: best val MRR {best_mrr:.4f} @ epoch {best_epoch} -> {best_path}")
 

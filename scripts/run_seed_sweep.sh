@@ -115,9 +115,49 @@ if [ "$MIN_FREE_GB" != "0" ]; then
   fi
 fi
 
+# Per-split files (the component protocol, scripts/build_rq1_twoaxis.py). When
+# they exist they are the ONLY correct thing to train on: the integer-index path
+# addresses splits_${KG}.json, whose training anchors sit inside the new test
+# components. Training there while evaluating on $SPLIT would produce a large,
+# entirely spurious result -- so this is detected rather than left to the caller.
+TRAIN_FILE="${TRAIN_FILE:-datasets/${KG}-train-RQ1.json}"
+VAL_FILE="${VAL_FILE:-datasets/${KG}-valid-RQ1.json}"
+COMPONENT_SPLITS="datasets/splits_${KG}_components.json"
+PER_SPLIT=0
+if [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
+  PER_SPLIT=1
+  SPARQLCE_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE" --test-file "$SPLIT")
+  E5_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE")
+  echo "per-split mode: train=$TRAIN_FILE val=$VAL_FILE (both models)"
+elif [ -f "$COMPONENT_SPLITS" ]; then
+  echo "!!! $COMPONENT_SPLITS exists but $TRAIN_FILE / $VAL_FILE do not."
+  echo "    This KG uses the component protocol; training from the integer-index"
+  echo "    split would train on queries that are in $SPLIT. Build them:"
+  echo "      for s in train valid; do"
+  echo "        python scripts/build_rq1_twoaxis.py --kg $KG --from-split \$s --neg-max 0.2 \\"
+  echo "          --splits $COMPONENT_SPLITS \\"
+  echo "          --result-sets datasets/result_sets_${KG}_v2.json \\"
+  echo "          --out datasets/${KG}-\$s-RQ1.json"
+  echo "      done"
+  exit 1
+else
+  SPARQLCE_DATA_ARGS=()
+  E5_DATA_ARGS=()
+  echo "index-split mode: both models read datasets/splits_${KG}.json"
+fi
+
 # Pre-flight: refuse to spend GPU hours producing a number measured on eval
 # pairs the models were trained on. Cheap (seconds) relative to the sweep.
-if [ "${ALLOW_LEAKY_SPLIT:-0}" != "1" ]; then
+#
+# check_leakage.py compares against the GROUP split (splits_${KG}.json), which is
+# not what a component run trains on -- it would report leakage that the run
+# cannot have. build_rq1_twoaxis.py already asserts zero memorized pairs against
+# the component partition at build time, and refuses to write otherwise, so the
+# guarantee is made there instead.
+if [ "$PER_SPLIT" = "1" ]; then
+  echo "component protocol: leak-freeness asserted at build time by"
+  echo "  build_rq1_twoaxis.py (0 memorized pairs); skipping the group-split audit."
+elif [ "${ALLOW_LEAKY_SPLIT:-0}" != "1" ]; then
   python scripts/check_leakage.py --kg "$KG" --split "$SPLIT"; leak_rc=$?
   if [ $leak_rc -eq 1 ]; then
     echo "!!! leakage audit could not run (see error above) -- fix it rather than"
@@ -158,7 +198,8 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
   if [ "$SKIP_SPARQLCE" != "1" ]; then
     echo "--- [$KG seed=$seed] training SparqlCE (batch $BATCH, <=$EPOCHS epochs) ---"
     python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
-      --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp
+      --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp \
+      ${SPARQLCE_DATA_ARGS[@]+"${SPARQLCE_DATA_ARGS[@]}"}
     if [ $? -ne 0 ]; then
       echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
       FAILED_SPARQLCE+=("$seed"); continue
@@ -192,7 +233,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
   rm -f "$E5_META"   # so the LR check below can never pass on a stale file
   python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
-    ${E5_LR:+--lr "$E5_LR"} \
+    ${E5_LR:+--lr "$E5_LR"} ${E5_DATA_ARGS[@]+"${E5_DATA_ARGS[@]}"} \
   && python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sentence-transformer \
     --model-name "checkpoints/e5_ft/$KG/seed${seed}/best_model" \
