@@ -168,11 +168,25 @@ def main():
     args = ap.parse_args()
 
     split = json.load(open(args.split))
-    pool = set()
+    # Jaccard lookups key on the normalized form (the oracle and the split do not
+    # agree on whitespace), but anything WRITTEN BACK must use the query exactly
+    # as it already appears in the split. evaluate_rq1.get_query_text only
+    # .strip()s -- it does not collapse internal whitespace -- so emitting a
+    # normalized variant creates a SECOND corpus entry for the same query, and the
+    # unlabelled original then competes with the labelled copy. That silently cost
+    # ~0.06 MRR@10 the first time this ran.
+    pool, as_written = set(), {}
+    def remember(raw):
+        n = norm(raw)
+        pool.add(n)
+        as_written.setdefault(n, str(raw).strip())
+        return n
     for r in split:
-        pool.add(norm(r["anchor_query"]))
-        pool.update(norm(_q(p)) for p in r.get("positive_queries", []))
-        pool.update(norm(_q(n)) for n in r.get("negative_queries", []))
+        remember(r["anchor_query"])
+        for p in r.get("positive_queries", []):
+            remember(_q(p))
+        for n_ in r.get("negative_queries", []):
+            remember(_q(n_))
     print(f"split: {Path(args.split).name}  anchors={len(split)}  pool={len(pool)}")
 
     ans = load_answer_sets(args.kg, pool, args.results)
@@ -207,10 +221,12 @@ def main():
                         # Mark it unjudged -- evaluate_rq1.build_excluded_maps
                         # drops it from this anchor's ranking.
                         added_leaked += 1
-                        excluded.append({"query": q, "answer_jaccard": round(j, 4),
+                        excluded.append({"query": as_written[q],
+                                         "answer_jaccard": round(j, 4),
                                          "reason": "equivalent_but_trained_on"})
                         continue
-                    added.append({"query": q, "answer_jaccard": round(j, 4),
+                    added.append({"query": as_written[q],
+                                  "answer_jaccard": round(j, 4),
                                   "relabelled": True})
         added_tot += len(added)
         added_per.append(len(added))
@@ -245,6 +261,22 @@ def main():
     if unresolved:
         print(f"  anchors NOT relabellable (no usable answer set): {unresolved} "
               f"-- their labels are unchanged and may still be incomplete")
+
+    # Self-check in the evaluator's own text handling (strip only, no whitespace
+    # collapsing): every emitted query must already be a corpus entry, or the
+    # corpus grows with near-duplicates and the labels attach to the wrong copy.
+    strip_pool = {str(q).strip() for q in as_written.values()}
+    stray_pos = [p["query"] for r in out for p in r["positive_queries"]
+                 if str(p.get("query", "")).strip() not in strip_pool]
+    stray_ex = [e["query"] for r in out for e in r.get("excluded_queries", [])
+                if str(e.get("query", "")).strip() not in strip_pool]
+    if stray_pos or stray_ex:
+        raise SystemExit(
+            f"ABORT: {len(stray_pos)} positives and {len(stray_ex)} exclusions are "
+            f"not verbatim pool entries. Writing them would enlarge the corpus with "
+            f"text variants instead of labelling existing candidates.")
+    print(f"  verified: every emitted query is a verbatim pool entry "
+          f"(corpus stays {len(strip_pool)})")
 
     if args.report_only:
         print("\n--report-only: nothing written")
