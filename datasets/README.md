@@ -9,7 +9,18 @@ test splits for RQ1 (retrieval) and RQ2 (robustness).
 - **`dbpedia-triplets-dataset.json`** — DBpedia SQuARE training triplets.
 - **`splits_dbpedia.json`**, **`splits_wikidata.json`** — fixed
   train/val/test indices (seed 42).
-- **`dbpedia_testset_RQ1.json`**, **`wikidata_testset_RQ1.json`** — RQ1
+- **`{dbpedia,wikidata}-testsplit-RQ1.json`** — the canonical RQ1 evaluation
+  splits (219 / 292 anchors, 588 / 448-query pools, 0 memorized pairs). See
+  [RQ1_testsplits.README.md](RQ1_testsplits.README.md). Use these.
+- **`dbpedia_testset_RQ1_LEAKY.json`**, **`wikidata_testset_RQ1_LEAKY.json`** —
+  the superseded RQ1 sets, kept ONLY to reproduce numbers already published from
+  them (the paper's DBpedia RQ1 table and the Wikidata zero-shot rows). Renamed
+  with the `_LEAKY` tag because 59.9% (DBpedia) and 54.6% (Wikidata) of their
+  anchor--positive pairs also occur as training pairs, affecting 83.8% and 79.9%
+  of anchors: a group-level train/test split does not stop query *text* from
+  recurring across groups. Numbers measured on them partly reflect memorization
+  and must not be used for a new headline result. Delete once the tables that
+  cite them are regenerated (`scripts/rerun_rq1_table.sh`). Old description: RQ1
   retrieval evaluation sets (identical construction across both KGs, see below).
 - **`dbpedia_testset_RQ2.json`**, **`wikidata_testset_RQ2.json`** — RQ2
   perturbation pairs (`original`, `perturbed`, `perturbation_type`).

@@ -30,7 +30,7 @@ R1. NON-SINGLETON RESULTS. Anchor and positive must each return
 R2. NO SCALAR-AGGREGATE COLLISIONS. Drop pairs where both queries return a
     single aggregate row (COUNT/SUM/AVG/MIN/MAX with no GROUP BY). Their
     `answer_jaccard = 1.0` records that two *numbers* coincided, not that the
-    queries are result-equivalent. In `wikidata_testset_RQ1.json` 40.2% of all
+    queries are result-equivalent. In `wikidata_testset_RQ1_LEAKY.json` 40.2% of all
     anchor--positive pairs are of this form. R1 removes most of them via the
     row count; R2 makes the rule explicit and still applies where the execution
     oracle has no entry for a query.

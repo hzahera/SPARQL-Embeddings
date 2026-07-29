@@ -40,11 +40,11 @@ DATASETS_DIR = ROOT_DIR / "datasets"
 KG_FILES = {
     "dbpedia": [
         DATASETS_DIR / "dbpedia-triplets-dataset.json",
-        DATASETS_DIR / "dbpedia_testset_RQ1.json",
+        DATASETS_DIR / "dbpedia_testset_RQ1_LEAKY.json",
     ],
     "wikidata": [
         DATASETS_DIR / "wikidata-triplets-dataset.json",
-        DATASETS_DIR / "wikidata_testset_RQ1.json",
+        DATASETS_DIR / "wikidata_testset_RQ1_LEAKY.json",
     ],
 }
 
