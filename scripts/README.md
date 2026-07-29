@@ -18,6 +18,32 @@ Utility scripts for dataset generation, evaluation, training, and analysis.
 - **`add_missing_perturbations.py`** — backfill missing perturbation types into an existing RQ2 dataset.
 - **`training/generate_training_triplets.py`** — generate training triplets from unique queries via Jaccard similarity.
 
+### RQ1 splits — the component protocol (DBpedia)
+
+Run in order; see [Step 1c of RUN_GUIDE.md](../RUN_GUIDE.md) for the full runbook
+and rationale.
+
+- **`build_result_sets.py`** — the execution oracle. Pass a KG's
+  `*-triplets-dataset.json` as `--split` to execute the **whole** corpus, which
+  is what exhaustive judging and hard negatives need (the shipped DBpedia oracle
+  covers 35.6%). Aborts early if the first `--abort-after` queries all fail,
+  rather than spending hours to write an empty file.
+- **`build_component_splits.py`** — partitions the *connected components* of the
+  result-equivalence graph instead of anchor groups. Since 100% of DBpedia's
+  positives are themselves anchors, a group split cannot avoid restating a
+  training pair at eval time; a component split makes crossing pairs impossible,
+  and the script asserts 0 before writing. Packs on query count **and** on
+  axis-S/axis-C anchor counts, which are too lumpy for a one-pass greedy.
+- **`build_rq1_twoaxis.py`** — the RQ1 split: exhaustive oracle judgments over
+  the pool, same-template hard negatives, and per-axis files (`-axisS`,
+  `-axisC`) alongside the pooled one. Also builds the **training** and
+  validation files via `--from-split {train,valid}`, so all three splits get the
+  same rules and the same hard negatives.
+
+`build_clean_rq1.py` and `relabel_rq1_split.py` remain the path for a
+**group-split** KG (currently Wikidata, whose oracle covers too little of its
+corpus for the above). Do not mix protocols within one comparison.
+
 ## Training
 
 - **`train_sparqlce.py`** — CLI training script (`--kg {dbpedia,wikidata} --seed N [--ablation {full,no_gnn,no_decomposition}]`),

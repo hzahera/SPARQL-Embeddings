@@ -121,7 +121,8 @@ def evaluate_ranking(model, loader, device):
 
 
 def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
-                  hard_negatives=False, max_neg=8, augment_rename_prob=0.0):
+                  hard_negatives=False, max_neg=8, augment_rename_prob=0.0,
+                  split_files=None):
     """Build train/val/test loaders.
 
     Two modes:
@@ -132,6 +133,15 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
 
     Augmentation (random variable renaming) is applied ONLY to the training
     view; val/test use a separate, deterministic dataset so metrics are stable.
+
+    Data can arrive two ways. `split_files` is a {train,valid,test: path} mapping
+    of self-contained per-split files (what build_rq1_twoaxis.py emits) and is
+    preferred. The older path loads ONE file and slices it with integer indices
+    from `splits_path` -- which is only correct while every record in that file
+    survives SemanticSPARQLDataset's filtering, since the indices address the
+    dataset's kept groups rather than the file's records. That holds for the
+    shipped DBpedia triplets (all 4,713 qualify) but silently misaligns the
+    moment a record is dropped, so it is asserted below rather than assumed.
     """
     if hard_negatives:
         collate = semantic_collate_fn
@@ -139,6 +149,24 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
     else:
         collate = semantic_collate_fn_inbatch
         common = dict(in_batch_negatives=True)
+
+    mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
+                                        collate_fn=collate)
+
+    if split_files:
+        # Self-contained files: no index arithmetic, so nothing can misalign.
+        train_ds = SemanticSPARQLDataset(
+            str(split_files["train"]), graph_builder=graph_builder,
+            augment_rename_prob=augment_rename_prob, augment_seed=seed, **common)
+        val_ds = SemanticSPARQLDataset(
+            str(split_files["valid"]), graph_builder=graph_builder,
+            augment_rename_prob=0.0, **common)
+        test_ds = SemanticSPARQLDataset(
+            str(split_files["test"]), graph_builder=graph_builder,
+            augment_rename_prob=0.0, **common)
+        print(f"Using per-split files: "
+              f"train={len(train_ds)} val={len(val_ds)} test={len(test_ds)} groups")
+        return mk(train_ds, True), mk(val_ds, False), mk(test_ds, False)
 
     train_dataset = SemanticSPARQLDataset(
         str(data_path), graph_builder=graph_builder,
@@ -157,6 +185,18 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
         val_idx = splits.get("val_idx", splits.get("valid_idx", splits.get("val")))
         test_idx = splits.get("test_idx", splits.get("test"))
         assert train_idx and val_idx and test_idx, f"could not parse splits from {splits_path}"
+        # The indices address positions in the SOURCE FILE, but Subset addresses
+        # positions in the dataset's kept groups. Those coincide only if nothing
+        # was filtered out; otherwise every split silently points at the wrong
+        # queries, which no metric would reveal.
+        with open(data_path) as f:
+            n_records = len(json.load(f))
+        assert len(train_dataset) == n_records, (
+            f"{Path(data_path).name} has {n_records} records but "
+            f"{len(train_dataset)} survived filtering, so the integer indices in "
+            f"{Path(splits_path).name} no longer address the intended queries. "
+            f"Use per-split files (--train-file/--val-file/--test-file, produced "
+            f"by scripts/build_rq1_twoaxis.py) instead of an index split.")
         train_ds = Subset(train_dataset, train_idx)
         val_ds, test_ds = Subset(eval_dataset, val_idx), Subset(eval_dataset, test_idx)
         print(f"Using fixed split from {splits_path}")
@@ -172,8 +212,6 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
         train_ds = Subset(train_dataset, list(train_split))
         val_ds, test_ds = Subset(eval_dataset, list(val_split)), Subset(eval_dataset, list(test_split))
 
-    mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
-                                         collate_fn=collate)
     return mk(train_ds, True), mk(val_ds, False), mk(test_ds, False)
 
 
@@ -216,6 +254,14 @@ def main():
     ap.add_argument("--augment-rename-prob", type=float, default=0.0,
                      help="probability of randomly renaming a query's variables "
                           "(training view only); teaches variable-name invariance")
+    ap.add_argument("--train-file", default=None,
+                     help="self-contained training split (scripts/build_rq1_twoaxis.py "
+                          "--from-split train). Bypasses the integer-index split "
+                          "entirely; pass all three of --train/--val/--test-file. "
+                          "Required for the component splits, whose files drop "
+                          "unjudgeable anchors and so cannot be index-addressed.")
+    ap.add_argument("--val-file", default=None, help="see --train-file")
+    ap.add_argument("--test-file", default=None, help="see --train-file")
     ap.add_argument("--single-lr", type=float, default=None,
                      help="if set, use one LR for all params instead of differential LRs")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints"))
@@ -249,10 +295,20 @@ def main():
     encoder_mode = "no_gnn" if args.ablation == "no_gnn" else "full"
 
     paths = KG_PATHS[args.kg]
+    split_files = None
+    if args.train_file or args.val_file or args.test_file:
+        missing = [n for n, v in (("--train-file", args.train_file),
+                                  ("--val-file", args.val_file),
+                                  ("--test-file", args.test_file)) if not v]
+        if missing:
+            raise SystemExit(
+                f"per-split mode needs all three files; missing {', '.join(missing)}")
+        split_files = {"train": args.train_file, "valid": args.val_file,
+                       "test": args.test_file}
     train_loader, val_loader, test_loader = build_loaders(
         paths["data"], paths["splits"], args.seed, args.batch_size, graph_builder,
         hard_negatives=args.hard_negatives, max_neg=args.max_neg,
-        augment_rename_prob=args.augment_rename_prob,
+        augment_rename_prob=args.augment_rename_prob, split_files=split_files,
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
@@ -344,6 +400,12 @@ def main():
             "temperature": args.temperature, "lambda_reg": args.lambda_reg,
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
             "augment_rename_prob": args.augment_rename_prob,
+            # Which data a run saw is part of its identity: a component-split run
+            # and an index-split run are not comparable, and nothing else in this
+            # file distinguishes them.
+            "train_file": args.train_file, "val_file": args.val_file,
+            "test_file": args.test_file,
+            "data": str(paths["data"]), "splits": str(paths["splits"]),
             "output_dim": Config.OUTPUT_DIM,
             "val_metrics": best["val_metrics"], "test_metrics": test,
         }, f, indent=2)

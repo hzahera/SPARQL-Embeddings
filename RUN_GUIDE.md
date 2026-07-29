@@ -57,6 +57,85 @@ python scripts/build_clean_rq1.py --kg wikidata --min-result-size 0 --out datase
 python scripts/check_leakage.py --kg wikidata --split datasets/wikidata-testsplit-RQ1.json   # expect CLEAN
 ```
 
+## Step 1c — DBpedia rebuild from scratch (run this before any DBpedia step)
+
+The DBpedia splits were deleted and are rebuilt on a different protocol. Run the
+four commands in order; each writes what the next one reads. Everything except
+the oracle is deterministic and takes seconds.
+
+```bash
+# 1. Execution oracle over the WHOLE corpus (4,727 queries, ~30-60 min).
+#    The shipped result_sets_dbpedia.json covers only 1,677 (35.6%), which is
+#    not enough to judge a pool exhaustively or to verify a hard negative.
+python scripts/build_result_sets.py --kg dbpedia \
+  --split datasets/dbpedia-triplets-dataset.json \
+  --out datasets/result_sets_dbpedia_v2.json --pause 0.1
+
+# 2. Component partition of the result-equivalence graph (replaces splits_dbpedia.json).
+python scripts/build_component_splits.py --kg dbpedia \
+  --result-sets datasets/result_sets_dbpedia_v2.json \
+  --out datasets/splits_dbpedia_components.json
+
+# 3. Held-out RQ1 splits: pooled + one file per axis, exhaustively judged.
+python scripts/build_rq1_twoaxis.py --kg dbpedia \
+  --splits datasets/splits_dbpedia_components.json \
+  --result-sets datasets/result_sets_dbpedia_v2.json \
+  --out datasets/dbpedia-testsplit-RQ1.json
+
+# 4. Training and validation files, same rules, WITH hard negatives.
+for s in train valid; do
+  python scripts/build_rq1_twoaxis.py --kg dbpedia --from-split $s \
+    --splits datasets/splits_dbpedia_components.json \
+    --result-sets datasets/result_sets_dbpedia_v2.json \
+    --out datasets/dbpedia-$s-RQ1.json
+done
+```
+
+Then train against the per-split files (**not** `--kg dbpedia` alone — the
+integer-index path addresses the old group split and now hard-errors if the
+record counts disagree):
+
+```bash
+python scripts/train_sparqlce.py --kg dbpedia --seed 42 \
+  --train-file datasets/dbpedia-train-RQ1.json \
+  --val-file   datasets/dbpedia-valid-RQ1.json \
+  --test-file  datasets/dbpedia-testsplit-RQ1.json \
+  --hard-negatives --max-neg 16
+```
+
+### What changed and why
+
+- **`splits_dbpedia.json` is superseded.** 100% of the 39,520 positives are
+  themselves anchors, so the corpus is one symmetric equivalence relation over
+  4,713 queries, not 4,713 independent items. A group split therefore *cannot*
+  be leak-free — that is the 84.2% pair leakage, not a bug in the old file.
+  Partitioning connected components (1,118 of them, largest 161) makes a
+  crossing pair impossible by definition, so `build_clean_rq1.py`'s R3 repair is
+  no longer needed. The builder asserts 0 crossing pairs and refuses to write
+  otherwise.
+- **Judgments are exhaustive.** Every anchor is scored against every pool query
+  with the oracle. Partial overlap (`0 < J <= 0.8`) becomes *unjudged*, not
+  negative. Because the pool is drawn from the same split, a newly discovered
+  positive cannot be a training pair — the old build had to throw away 547 such
+  discoveries.
+- **Negatives are hard.** The shipped triplets carry **24 distinct negatives for
+  the entire corpus**, all lexically unrelated to their anchors, so nothing in
+  the old benchmark penalised a purely lexical matcher. The new negatives share
+  the anchor's structural template and differ only in constants: near-identical
+  text, provably disjoint answers. 81.5% of same-template DBpedia pairs qualify.
+  **This changes the training data**, so DBpedia checkpoints must be retrained,
+  and it is the change most likely to move the headline number.
+- **Two axes are reported separately.** `-axisS` (different template, same
+  answers — a structural rewrite, a property of the query) and `-axisC` (same
+  template, different constants with the same extension — a property of the
+  graph, learnable only through knowledge about constants). In each file the
+  other axis's positives are *excluded*, not scored as errors. Report both:
+  pooling them hides which phenomenon a score came from, and axis C is where
+  memorization would show up as skill.
+
+Report the **pool size** next to any MRR: the builder prints it, along with how
+many judgeable queries never reached the ranking.
+
 ## Step 2 — Fine-tune the E5 baseline
 
 - `scripts/finetune_e5_baseline.py --kg {dbpedia,wikidata} --seed N` — scriptable,

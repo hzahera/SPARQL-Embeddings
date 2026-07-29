@@ -97,6 +97,56 @@ def canonicalize_variables(query: str) -> str:
     return _VAR_RE.sub(repl, query)
 
 
+# ── Structural templates ──────────────────────────────────────────────────────
+# Two SQuARE queries can be result-equivalent for two very different reasons:
+# because one is a structural REWRITE of the other, or because they share a
+# template and their differing constants happen to have the same extension in
+# the graph. Only the first is a fact about the query; the second is a fact
+# about the data. Collapsing a query to its template is what lets the split
+# builder and the evaluator separate those two axes -- and they must agree
+# exactly on the definition, which is why it lives here rather than in either.
+
+_PREFIX_DECL_RE = re.compile(r'PREFIX\s+\w*:\s*<[^>]*>', re.IGNORECASE)
+_IRI_RE = re.compile(r'<[^>]*>')
+_LITERAL_RE = re.compile(r'"[^"]*"')
+# Qnames in any namespace. The vocabulary terms below are STRUCTURE, not
+# constants: `rdf:type` is part of the query's shape the way `WHERE` is, so
+# abstracting it away would call "what type is X" and "what is the label of X"
+# the same template.
+_QNAME_RE = re.compile(r'\b[A-Za-z_][\w.\-]*\s*:\s*[\w%\-.()]+')
+_STRUCTURAL_QNAMES = frozenset({
+    "rdf:type", "rdfs:label", "rdfs:comment", "rdfs:range", "rdfs:domain",
+    "rdfs:subClassOf", "rdfs:subPropertyOf", "rdfs:seeAlso",
+    "owl:Class", "owl:sameAs", "owl:Thing",
+    "dct:subject", "dcterms:subject", "skos:broader", "foaf:name",
+    "grs:point", "geo:lat", "geo:long",
+})
+
+
+def structural_template(query: str) -> str:
+    """Collapse a query to its shape: constants -> <C>, variables -> ?v.
+
+    Prefix declarations are dropped (they are boilerplate that varies with which
+    vocabulary the constants came from), IRIs and literals become placeholders,
+    and variables are flattened. Vocabulary terms in ``_STRUCTURAL_QNAMES`` are
+    KEPT, because they carry the query's meaning rather than parameterising it.
+
+    Two queries with the same template differ only in which constants they
+    mention; two with different templates are genuinely differently shaped.
+    """
+    t = _PREFIX_DECL_RE.sub(" ", query)
+    t = _LITERAL_RE.sub('"L"', t)
+    t = _IRI_RE.sub("<C>", t)
+
+    def repl(m):
+        token = re.sub(r'\s*:\s*', ":", m.group(0))
+        return token if token in _STRUCTURAL_QNAMES else "<C>"
+
+    t = _QNAME_RE.sub(repl, t)
+    t = _VAR_RE.sub("?v", t)
+    return " ".join(t.split())
+
+
 def is_noop_filter_text(filter_body: str) -> bool:
     """True for FILTER(true) and trivially-true forms.
 

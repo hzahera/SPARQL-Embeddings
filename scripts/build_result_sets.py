@@ -60,6 +60,7 @@ Then rebuild and relabel against the new oracle:
         --split datasets/wikidata-testsplit-RQ1.json --out <...>
 """
 import argparse
+import collections
 import json
 import sys
 import time
@@ -168,7 +169,12 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--kg", required=True, choices=sorted(ENDPOINTS))
     ap.add_argument("--split", required=True,
-                    help="RQ1 split whose pool should be executed")
+                    help="file whose query pool should be executed. Any file of "
+                         "{anchor_query, positive_queries, negative_queries} "
+                         "records works, so pass an RQ1 split to cover just that "
+                         "pool, or the KG's *-triplets-dataset.json to cover the "
+                         "WHOLE corpus (4,727 queries on DBpedia) -- which is "
+                         "what split construction and relabelling need.")
     ap.add_argument("--out", default=None,
                     help="output oracle path (required unless --dry-run)")
     ap.add_argument("--endpoint", default=None, help="override the SPARQL endpoint")
@@ -179,6 +185,10 @@ def main():
     ap.add_argument("--pause", type=float, default=0.2,
                     help="seconds between queries, to be a good citizen")
     ap.add_argument("--checkpoint-every", type=int, default=25)
+    ap.add_argument("--abort-after", type=int, default=25,
+                    help="abort if the first N queries ALL fail (default 25) -- "
+                         "catches a broken endpoint or TLS trust store before it "
+                         "costs hours and yields an empty oracle")
     ap.add_argument("--only-missing", metavar="ORACLE",
                     help="execute only queries absent from this existing oracle and "
                          "merge into it. Faster, but mixes graph snapshots -- see "
@@ -235,14 +245,30 @@ def main():
                    "truncated": truncated}, open(part, "w"))
 
     t0 = time.time()
+    n_new = 0
     for i, q in enumerate(todo, 1):
         rows, err, trunc = execute(endpoint, q, args.timeout, args.max_rows)
         if err is not None:
             failures[q] = err
         else:
             results[q] = rows
+            n_new += 1
             if trunc:
                 truncated.append(q)
+
+        # Fail fast on a broken environment. Every transport error retries with
+        # exponential backoff, so a misconfiguration that fails *all* of them --
+        # no CA bundle, wrong endpoint, no route -- otherwise burns hours and
+        # then writes an oracle with zero answer sets, which downstream reads as
+        # "every query returns nothing" rather than as a failure.
+        if i >= args.abort_after and n_new == 0:
+            reasons = collections.Counter(failures.values()).most_common(3)
+            raise SystemExit(
+                f"aborting: first {i} queries all failed against {endpoint}.\n"
+                f"  most common reasons: {reasons}\n"
+                f"  nothing was written. Check endpoint reachability and TLS "
+                f"trust (a python.org macOS build needs "
+                f"'Install Certificates.command'), then re-run.")
         if i % args.checkpoint_every == 0 or i == len(todo):
             checkpoint()
             rate = i / max(time.time() - t0, 1e-9)

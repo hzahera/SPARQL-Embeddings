@@ -4,11 +4,23 @@ The canonical RQ1 retrieval split, built by
 [`scripts/build_clean_rq1.py`](../scripts/build_clean_rq1.py). Deterministic:
 rebuilding reproduces it byte-for-byte.
 
-> **DBpedia has no split at present.** It was deleted deliberately, to be rebuilt
-> from scratch along with its experiments. The rules below still apply to it (the
-> builder is one command per graph, `--kg dbpedia`), and the DBpedia figures
-> quoted under R4 are retained because they are what motivated the rule — but no
-> `dbpedia-testsplit-RQ1.json` exists until it is rebuilt.
+> **DBpedia no longer uses this builder.** Its splits were deleted and are being
+> rebuilt on a different protocol — a connected-component partition of the
+> result-equivalence graph, exhaustive oracle judgments, and same-template hard
+> negatives — via `build_component_splits.py` + `build_rq1_twoaxis.py`. See
+> **[Step 1c of RUN_GUIDE.md](../RUN_GUIDE.md)** for the runbook and the
+> rationale.
+>
+> The reason is structural, and it applies to Wikidata too: **100% of DBpedia's
+> 39,520 positives are themselves anchors**, so the corpus is one symmetric
+> equivalence relation over 4,713 queries rather than 4,713 independent items. A
+> group-level split cannot avoid restating a training pair at eval time — R3
+> below deletes those pairs after the fact, whereas a component partition makes
+> them impossible. The DBpedia figures quoted under R3/R4 are retained because
+> they are what motivated the rules, but no file below is built from them any
+> more. **Whether Wikidata should move to the same protocol is open** and depends
+> on rebuilding its oracle (`build_result_sets.py`); its 55% coverage is what
+> currently prevents it.
 
 ```bash
 python scripts/build_clean_rq1.py --kg wikidata --min-result-size 0 --out datasets/wikidata-testsplit-RQ1.json
