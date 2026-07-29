@@ -207,10 +207,22 @@ def _emb_scores(emb_map, corpus):
     return lambda a: M @ emb_map[a], r2
 
 
+E5_PREFIX = "query: "
+
+
 def run_st(model_id, corpus, text_corpus, items, item_bins):
     from sentence_transformers import SentenceTransformer
     m = SentenceTransformer(model_id)
-    encoded = m.encode(text_corpus, normalize_embeddings=True, convert_to_numpy=True)
+    # E5 is trained with a "query: " prefix on every input -- both the zero-shot
+    # checkpoint and the SQuARE fine-tune (finetune_e5_baseline.py applies it to
+    # anchors, positives and negatives alike). Encoding without it here is a
+    # train/test mismatch that costs the E5 rows accuracy for no methodological
+    # reason. Matches eval_rq1_export.py's --text-prefix auto.
+    texts = text_corpus
+    if "e5" in str(model_id).lower():
+        texts = [E5_PREFIX + t for t in text_corpus]
+        print(f"  [parity] prepending {E5_PREFIX!r} for {model_id}")
+    encoded = m.encode(texts, normalize_embeddings=True, convert_to_numpy=True)
     emb = {q: e for q, e in zip(corpus, encoded)}
     scores, _ = _emb_scores(emb, corpus)
     per_bin_report(f"SentenceTransformer: {model_id}",

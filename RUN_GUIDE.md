@@ -41,14 +41,20 @@ Qwen3-Embedding is **dense** (not MoE) and has been dropped in favor of Qwen2.5-
 > graph-duplicates in its RQ1 corpus drop 24.9% → 6.9% and the largest collision
 > class 216 → 18.
 
-## Step 1b — Build the clean natural RQ1 splits
+## Step 1b — RQ1 evaluation splits (already committed)
 
-Unfiltered (natural lexical distribution) with the invalid labels removed; one
-identical protocol per KG. See [datasets/RQ1_clean.README.md](datasets/RQ1_clean.README.md).
+`datasets/{dbpedia,wikidata}-testsplit-RQ1.json` are the canonical RQ1 eval
+splits: natural lexical distribution, invalid labels removed, and no
+anchor–positive pair shared with the training groups. One identical protocol per
+KG. See [datasets/RQ1_testsplits.README.md](datasets/RQ1_testsplits.README.md).
+
+They are deterministic, so rebuilding reproduces them byte-for-byte (no oracle
+needed):
 
 ```bash
-python scripts/build_clean_rq1.py --kg dbpedia  --splits test+valid --min-result-size 5
-python scripts/build_clean_rq1.py --kg wikidata --splits test+valid --min-result-size 5   # cluster: needs the ~6GB oracle
+python scripts/build_clean_rq1.py --kg dbpedia  --min-result-size 0 --out datasets/dbpedia-testsplit-RQ1.json
+python scripts/build_clean_rq1.py --kg wikidata --min-result-size 0 --out datasets/wikidata-testsplit-RQ1.json
+python scripts/check_leakage.py --kg wikidata --split datasets/wikidata-testsplit-RQ1.json   # expect CLEAN
 ```
 
 ## Step 2 — Fine-tune the E5 baseline
@@ -137,20 +143,17 @@ One command does everything — trains 5 seeds of **both** SparqlCE and the
 E5-Finetuned baseline, exports per-anchor scores for each, and runs the paired
 test:
 
-```bash
-# build the leak-free splits once (fast, no oracle needed)
-python scripts/build_clean_rq1.py --kg wikidata \
-  --from-split datasets/wikidata_testset_RQ1_clean.json --min-result-size 0
-python scripts/build_clean_rq1.py --kg dbpedia \
-  --from-split datasets/dbpedia_testset_RQ1_clean.json --min-result-size 0
+The eval splits are committed, so this is the whole procedure:
 
-./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean_noleak.json 3
-./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean_noleak.json  3
+```bash
+./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata-testsplit-RQ1.json 3
+./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia-testsplit-RQ1.json  3
 ```
 
 Notes:
 
-- **Use the `_noleak` splits.** The plain `_clean` splits share 84% of their
+- **The committed `{kg}-testsplit-RQ1.json` splits are the canonical ones.**
+  The splits they replaced shared 84% of their
   anchor–positive pairs with the training groups (group-level split, but query
   text recurs across groups). That inflated SparqlCE's Wikidata lead from +0.06
   to +0.29 MRR@10 — see `datasets/RQ1_clean.README.md` → Leakage and

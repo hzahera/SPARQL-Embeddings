@@ -6,8 +6,9 @@ Why this exists
 ---------------
 `splits_{kg}.json` partitions ANCHOR GROUPS, not query text. The same SPARQL
 query recurs across groups, so a held-out group can restate a pair that was
-optimized over during training. On the first `wikidata_testset_RQ1_clean.json`
-build, 74.8% of eval positive pairs were also train positive pairs.
+optimized over during training. The splits this replaced had 84.5% (Wikidata)
+and 84.2% (DBpedia) of their eval positive pairs also present as train pairs.
+The committed {kg}-testsplit-RQ1.json files are filtered and audit at 0%.
 
 Both models train on the same pairs, so this is not an unfairness between them
 -- but it does not affect them equally, and the split-by-leakage breakdown is
@@ -22,13 +23,13 @@ Usage
 -----
     # just measure a split
     python scripts/check_leakage.py --kg wikidata \
-        --split datasets/wikidata_testset_RQ1_clean.json
+        --split datasets/wikidata-testsplit-RQ1.json
 
     # and break exported per-anchor scores down by leaked/non-leaked
     python scripts/check_leakage.py --kg wikidata \
-        --split datasets/wikidata_testset_RQ1_clean.json \
-        --scores "results/significance/wikidata_testset_RQ1_clean_sparqlce_seed*.json" \
-        --scores "results/significance/wikidata_testset_RQ1_clean_e5ft_seed*.json"
+        --split datasets/wikidata-testsplit-RQ1.json \
+        --scores "results/significance/wikidata-testsplit-RQ1_sparqlce_seed*.json" \
+        --scores "results/significance/wikidata-testsplit-RQ1_e5ft_seed*.json"
 
 Each --scores glob is one model (averaged over the seeds it matches).
 

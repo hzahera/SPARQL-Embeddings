@@ -10,14 +10,15 @@
 # Usage:
 #   ./scripts/run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs]
 #
-#   ./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata_testset_RQ1_clean_noleak.json 5 128 60
-#   ./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia_testset_RQ1_clean_noleak.json  5 128 60
+#   ./scripts/run_seed_sweep.sh wikidata 5 datasets/wikidata-testsplit-RQ1.json 5 128 60
+#   ./scripts/run_seed_sweep.sh dbpedia  5 datasets/dbpedia-testsplit-RQ1.json  5 128 60
 #
-# Use the _noleak splits. The plain _clean splits share anchor-positive PAIRS
-# with the training groups (84.5% of Wikidata's pairs), which inflates both
-# models unequally and turns the headline gap into a memorization measurement --
-# see scripts/check_leakage.py. This script refuses a leaky split unless
-# ALLOW_LEAKY_SPLIT=1.
+# The committed {kg}-testsplit-RQ1.json files are the canonical eval splits and
+# are already leak-free. Any split passed here must be: a group-level train/test
+# partition still shares anchor-positive PAIRS with training (84.5% of them, in
+# the build these replaced), which inflates both models unequally and turns the
+# headline gap into a memorization measurement. This script audits the split and
+# refuses a leaky one unless ALLOW_LEAKY_SPLIT=1. See scripts/check_leakage.py.
 #
 # Prerequisite: SparqlCE must be retrained AFTER the graph_builder.py fixes --
 # old checkpoints were trained on the pre-fix representation. This script
@@ -33,7 +34,7 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 
 KG="${1:?usage: run_seed_sweep.sh <kg> [n_seeds] [split_json] [patience] [batch] [epochs] [e5_lr]}"
 N_SEEDS="${2:-5}"
-SPLIT="${3:-datasets/${KG}_testset_RQ1_clean.json}"
+SPLIT="${3:-datasets/${KG}-testsplit-RQ1.json}"
 PATIENCE="${4:-3}"
 # Per-step batch size. BOTH models get the same value: with in-batch-negative
 # InfoNCE the per-forward batch IS the negative-sampling budget, so a mismatch
@@ -126,9 +127,9 @@ if [ "${ALLOW_LEAKY_SPLIT:-0}" != "1" ]; then
     echo ""
     echo "!!! $SPLIT contains anchor-positive pairs from the training groups."
     echo "    Build a leak-free split first:"
-    echo "      python scripts/build_clean_rq1.py --kg $KG --from-split $SPLIT \\"
-    echo "        --min-result-size 0 --leak-filter pair"
-    echo "    then rerun with the _noleak split. Set ALLOW_LEAKY_SPLIT=1 to"
+    echo "      python scripts/build_clean_rq1.py --kg $KG --min-result-size 0 \\"
+    echo "        --out datasets/${KG}-testsplit-RQ1.json"
+    echo "    then rerun against it. Set ALLOW_LEAKY_SPLIT=1 to"
     echo "    override (only to MEASURE the leakage effect, never for a headline"
     echo "    number)."
     exit 1

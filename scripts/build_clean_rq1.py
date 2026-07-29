@@ -38,7 +38,7 @@ R2. NO SCALAR-AGGREGATE COLLISIONS. Drop pairs where both queries return a
 R3. NO MEMORIZED PAIRS (``--leak-filter``, ON by default). The train/valid/test
     split in `splits_{kg}.json` partitions ANCHOR GROUPS, but the same SPARQL
     query text recurs across groups, so a held-out group can restate a pair the
-    model was trained on verbatim. On `wikidata_testset_RQ1_clean.json` as built
+    model was trained on verbatim. On `wikidata-testsplit-RQ1.json` as built
     without this rule, 1448/1935 (74.8%) of the eval positive pairs are also
     train positive pairs and 397/450 anchors have at least one. That is not a
     fairness problem between two models -- both trained on the same pairs -- but
@@ -88,13 +88,13 @@ KG = {
         "triplets": "dbpedia-triplets-dataset.json",
         "splits": "splits_dbpedia.json",
         "results": "result_sets_dbpedia.json",
-        "out": "dbpedia_testset_RQ1_clean.json",
+        "out": "dbpedia-testsplit-RQ1.json",
     },
     "wikidata": {
         "triplets": "wikidata-triplets-dataset.json",
         "splits": "splits_wikidata.json",
         "results": "result_sets_wikidata.json",
-        "out": "wikidata_testset_RQ1_clean.json",
+        "out": "wikidata-testsplit-RQ1.json",
     },
 }
 
