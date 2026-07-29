@@ -183,12 +183,12 @@ def main():
     pool_sorted = sorted(pool)
 
     out, added_tot, unresolved, added_leaked = [], 0, 0, 0
-    added_per = []
+    added_per, excl_per = [], []
     for r in split:
         a = norm(r["anchor_query"])
         existing = {norm(_q(p)): p for p in r.get("positive_queries", [])}
         ra = ans.get(a)
-        added = []
+        added, excluded = [], []
         if ra is None:
             unresolved += 1
         else:
@@ -201,14 +201,24 @@ def main():
                 j = len(ra & rq) / len(ra | rq)
                 if j > args.jac_min:
                     if not args.keep_leaked and frozenset((a, q)) in trained:
+                        # Result-equivalent but a memorized training pair: it can
+                        # be neither labelled (reintroduces leakage) nor left in
+                        # the ranking (scores a correct retrieval as an error).
+                        # Mark it unjudged -- evaluate_rq1.build_excluded_maps
+                        # drops it from this anchor's ranking.
                         added_leaked += 1
+                        excluded.append({"query": q, "answer_jaccard": round(j, 4),
+                                         "reason": "equivalent_but_trained_on"})
                         continue
                     added.append({"query": q, "answer_jaccard": round(j, 4),
                                   "relabelled": True})
         added_tot += len(added)
         added_per.append(len(added))
+        excl_per.append(len(excluded))
         rec = dict(r)
         rec["positive_queries"] = list(r.get("positive_queries", [])) + added
+        if excluded:
+            rec["excluded_queries"] = list(r.get("excluded_queries", [])) + excluded
         out.append(rec)
 
     n_before = sum(len(r.get("positive_queries", [])) for r in split)
@@ -223,8 +233,15 @@ def main():
     if added_tot:
         print(f"  added per affected anchor: mean {ap_arr[ap_arr > 0].mean():.2f} "
               f"max {ap_arr.max()}")
+    ex_arr = np.array(excl_per)
     if not args.keep_leaked:
-        print(f"  candidates rejected as memorized pairs: {added_leaked}")
+        print(f"\n  UNJUDGED (equivalent but a memorized training pair): {added_leaked}")
+        print(f"    anchors affected: {int((ex_arr > 0).sum())}/{len(split)} "
+              f"({(ex_arr > 0).mean():.1%})"
+              + (f", mean {ex_arr[ex_arr > 0].mean():.2f} max {ex_arr.max()} each"
+                 if added_leaked else ""))
+        print(f"    written to each anchor's `excluded_queries`; the evaluator drops")
+        print(f"    them from that anchor's ranking instead of scoring them wrong.")
     if unresolved:
         print(f"  anchors NOT relabellable (no usable answer set): {unresolved} "
               f"-- their labels are unchanged and may still be incomplete")

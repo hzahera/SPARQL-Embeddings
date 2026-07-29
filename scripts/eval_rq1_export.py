@@ -65,7 +65,8 @@ for p in (ROOT_DIR, EVAL_DIR):
 from evaluate_rq1 import (  # noqa: E402
     load_triplets, build_global_corpus, build_eval_items,
     build_binary_relevance_maps, build_emb_map_sparqlce,
-    build_emb_map_sentence_transformer, build_sorted_pools_global, dcg,
+    build_emb_map_sentence_transformer, build_sorted_pools_global,
+    build_excluded_maps, dcg,
 )
 from sparqlce.embedder import SPARQLEmbedder  # noqa: E402
 from sparqlce.sparql_utils import expand_wikidata_labels  # noqa: E402
@@ -259,6 +260,14 @@ def main():
     global_corpus, seen_q = build_global_corpus(raw)
     eval_items = build_eval_items(raw, global_corpus, seen_q)
     rel_maps = build_binary_relevance_maps(eval_items, global_corpus)
+    # Unjudged queries (result-equivalent to the anchor but unlabellable because
+    # labelling them would reintroduce a trained-on pair) are dropped from that
+    # anchor's ranking rather than counted as errors. No-op on splits without the
+    # field. See relabel_rq1_split.py.
+    excluded = build_excluded_maps(raw, eval_items)
+    n_excl = sum(len(e) for e in excluded)
+    print(f"unjudged exclusions: {n_excl} across "
+          f"{sum(1 for e in excluded if e)}/{len(eval_items)} anchors")
 
     if args.model_type == "sparqlce":
         assert args.checkpoint, "--checkpoint required for --model-type sparqlce"
@@ -293,7 +302,8 @@ def main():
         emb_map = build_emb_map_sentence_transformer(model, global_corpus,
                                                      batch_size=args.batch_size,
                                                      transform=text_transform)
-    sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus)
+    sorted_pools = build_sorted_pools_global(emb_map, eval_items, global_corpus,
+                                             excluded=excluded)
 
     anchors = [a for a, _, _ in eval_items]
     per_anchor = {}
@@ -321,6 +331,7 @@ def main():
             "input_transform": transform_desc,
             "expand_labels": args.expand_labels,
             "text_prefix": args.text_prefix,
+            "n_unjudged_excluded": n_excl,
             "sparqlce_labels_disabled": bool(
                 os.environ.get("SPARQLCE_NO_WIKIDATA_LABELS", "").strip().lower()
                 in ("1", "true", "yes", "on")),

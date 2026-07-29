@@ -18,8 +18,9 @@ python scripts/check_leakage.py  --kg wikidata --split datasets/wikidata-testspl
 |---|---|---|
 | anchors | 292 | 219 |
 | candidate pool (unique queries) | 448 | 588 |
-| positives (total) | 629 | 1,515 |
-| positives/anchor | mean 2.15, median 1, max 20 | mean 6.92, max 20 |
+| positives (total) | 629 | **2,071** (1,515 + 556 relabelled) |
+| positives/anchor | mean 2.15, median 1, max 20 | mean 9.46, max 20 |
+| unjudged exclusions | 0 (not measurable) | 547 across 50 anchors |
 | negatives/anchor | 20 | 20 |
 | source | `test_idx` of `splits_{kg}.json` (train never used) | same |
 | memorized pairs | **0 / 629** | **0 / 1,515** |
@@ -81,6 +82,35 @@ the training groups, and the builder asserts that zero survive.
 `--leak-splits` decides whether the validation groups also count as seen. The
 default is `train+valid`, because both trainers select their checkpoint on
 validation MRR, so a validation pair leaks through model selection.
+
+## R4 — complete judgments over the pool (DBpedia only, so far)
+
+Positives originally came from the triplet file's precomputed lists, never from
+the split's actual candidate pool. But the pool is built from *every* anchor's
+queries, so anchor A's pool contains anchor B's positives — and some of those are
+result-equivalent to A too. Measured with the execution oracle on DBpedia: 1,103
+pool queries across 48% of anchors had answer-set Jaccard > 0.8 to their anchor
+while not being labelled positive for it. By the benchmark's own criterion those
+were correct answers scored as errors.
+
+Incomplete judgments do not penalise systems equally: the model that is *better*
+at surfacing genuine result-equivalence is the one ranking unlabelled-but-correct
+queries into its top-k, so it is penalised most — precisely the axis RQ1 exists
+to measure. [`scripts/relabel_rq1_split.py`](../scripts/relabel_rq1_split.py)
+fixes it by evaluating the Jaccard criterion exhaustively over the pool. Of the
+1,103:
+
+- **556 became positives** (40% of anchors; positives/anchor 6.92 → 9.46).
+- **547 became `excluded_queries`** — result-equivalent *and* memorized training
+  pairs. Labelling them reintroduces leakage; leaving them in the ranking scores
+  a correct retrieval as an error. They are marked unjudged and dropped from that
+  anchor's ranking, the standard treatment of unjudged documents in a pooled IR
+  evaluation (`evaluate_rq1.build_excluded_maps`). Effective candidates per
+  anchor: 569–587 of 588.
+
+Wikidata is **not** relabelled: its oracle covers only 55% of the pool (2,229
+queries total), so 41% of anchors cannot be verified. Fixing that needs a rebuilt
+oracle — [`scripts/build_result_sets.py`](../scripts/build_result_sets.py).
 
 ## Known properties worth disclosing
 

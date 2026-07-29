@@ -4,7 +4,7 @@
 import json
 import os
 import sys
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from pathlib import Path
 
 import numpy as np
@@ -161,23 +161,69 @@ def build_emb_map_sparqlce(
 # Sorting / retrieval
 # ----------------------------
 
+def build_excluded_maps(
+    raw_data: List[Dict[str, Any]],
+    eval_items: List[EvalItem]
+) -> List[Set[str]]:
+    """Per-anchor UNJUDGED queries, read from each item's ``excluded_queries``.
+
+    A query can be result-equivalent to the anchor (Jaccard > 0.8, the benchmark's
+    own criterion) and yet be unlabellable, because labelling it would reintroduce
+    a pair the model was trained on. Leaving such a query in the ranking scores a
+    correct retrieval as an error; labelling it reintroduces leakage. Neither is
+    acceptable, so it is marked unjudged and dropped from that anchor's ranking --
+    the standard treatment of unjudged documents in a pooled IR evaluation.
+
+    Returns a list aligned with ``eval_items``. Splits without the field yield
+    empty sets, so this is a no-op on them.
+    """
+    by_anchor: Dict[str, Set[str]] = {}
+    for item in raw_data:
+        anchor_q = get_anchor_query(item)
+        if not anchor_q:
+            continue
+        ex = set()
+        for e in item.get("excluded_queries") or []:
+            q = get_query_text(e) if not isinstance(e, str) else e.strip()
+            if q:
+                ex.add(q)
+        by_anchor[anchor_q] = ex
+    return [by_anchor.get(a, set()) for a, _, _ in eval_items]
+
+
 def build_sorted_pools_global(
     emb_map: Dict[str, np.ndarray],
     items: List[EvalItem],
-    corpus_queries: List[str]
+    corpus_queries: List[str],
+    excluded: Optional[List[Set[str]]] = None,
 ) -> List[List[str]]:
+    """Rank the global corpus per anchor.
+
+    ``excluded`` (aligned with ``items``) drops that anchor's unjudged queries
+    from its ranking entirely -- see build_excluded_maps. Omitting it reproduces
+    the previous behaviour exactly.
+    """
     corpus_embs = np.vstack([emb_map[q] for q in corpus_queries])
     anchor_to_idx = {q: i for i, q in enumerate(corpus_queries)}
     sorted_pools: List[List[str]] = []
 
-    for anchor_q, _, _ in items:
+    for pos, (anchor_q, _, _) in enumerate(items):
         a_emb = emb_map[anchor_q]
         scores = corpus_embs @ a_emb
-        if anchor_q in anchor_to_idx:
+        drop = {anchor_q} | (set(excluded[pos]) if excluded else set())
+        idxs = [anchor_to_idx[q] for q in drop if q in anchor_to_idx]
+        if idxs:
             scores = scores.copy()
-            scores[anchor_to_idx[anchor_q]] = np.finfo(scores.dtype).min
+            for i in idxs:
+                scores[i] = np.finfo(scores.dtype).min
         order = np.argsort(-scores, kind="stable")
-        sorted_pools.append([corpus_queries[i] for i in order])
+        ranked = [corpus_queries[i] for i in order]
+        # Physically remove rather than only down-rank: a masked entry still
+        # occupies a rank slot, which would shift every genuine hit below it and
+        # silently depress MRR/nDCG for the anchors that have the most exclusions.
+        if drop:
+            ranked = [q for q in ranked if q not in drop]
+        sorted_pools.append(ranked)
     return sorted_pools
 
 def build_sorted_pools_bm25(
