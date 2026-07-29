@@ -256,6 +256,11 @@ def main():
                     help="which groups count as 'seen' for R3 (default "
                          "train+valid: both trainers select on val MRR, so a val "
                          "pair leaks through checkpoint selection)")
+    ap.add_argument("--results", default=None, metavar="FILENAME",
+                    help="execution-oracle filename under datasets/ (default: the "
+                         "KG's result_sets_*.json). Point this at a freshly built "
+                         "oracle from scripts/build_result_sets.py -- answer sets "
+                         "are only comparable within one graph snapshot.")
     ap.add_argument("--keep-scalar-aggregates", action="store_true",
                     help="disable R2 (kept only for ablating the rule's effect)")
     ap.add_argument("--target-n", type=int, default=None,
@@ -301,7 +306,8 @@ def main():
             wanted.add(norm(e["anchor_query"]))
             wanted.update(norm(_q(p)) for p in e["positive_queries"])
         print(f"[{args.kg}] resolving result-set sizes for {len(wanted)} queries ...")
-        sizes = load_result_sizes(ROOT / "datasets" / cfg["results"], wanted)
+        sizes = load_result_sizes(
+            ROOT / "datasets" / (args.results or cfg["results"]), wanted)
         cov = len(sizes) / max(len(wanted), 1)
         print(f"[{args.kg}]   oracle coverage: {len(sizes)}/{len(wanted)} "
               f"({cov * 100:.1f}%); uncovered queries are treated "
