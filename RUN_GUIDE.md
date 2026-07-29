@@ -128,6 +128,26 @@ components.
 > A first single-seed run made this mistake: E5-FT reached MRR@10 0.965 against
 > SparqlCE's 0.889. Do not compare against those numbers.
 
+Turning the flag on changes the memory profile, so the batch size has to change
+with it:
+
+> **Batch size with `--hard-negatives`.** The flag sends `BATCH x MAX_NEG`
+> negative *graphs* through the encoder per step, on top of `BATCH` anchors and
+> `BATCH` positives, each graph costing a BERT pass per node. At the sweep's
+> default `128 x 16 = 2048` an 80GB A100 OOMs on step 1; in-batch mode encodes
+> 256 graphs total. Their **product** is the budget. `run_seed_sweep.sh` refuses
+> to start above `MAX_NEG_GRAPHS` (default 512).
+>
+> Use `BATCH=32`, `MAX_NEG=8`. Candidates per anchor then work out to 40 for
+> SparqlCE (32 in-batch + 8 hard) against 64 for E5-FT (`2 x BATCH`, since
+> `info_nce_loss` ranks against every positive *and* every negative in the
+> batch). The baseline keeps slightly more, which is the safe direction: a
+> SparqlCE win under it is conservative.
+>
+> ```bash
+> MAX_NEG=8 ./scripts/run_seed_sweep.sh dbpedia 5 datasets/dbpedia-testsplit-RQ1.json 3 32 60
+> ```
+
 ### Choosing `--neg-max`
 
 `--neg-max` is where a candidate stops being "unjudged" and becomes a negative.

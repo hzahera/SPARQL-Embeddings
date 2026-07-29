@@ -143,6 +143,24 @@ if [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   if [ "$HARD_NEGS" != "0" ]; then
     SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
     echo "  negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
+    # Memory, not correctness. --hard-negatives puts BATCH*MAX_NEG negative
+    # GRAPHS through the encoder in one forward, on top of BATCH anchors and
+    # BATCH positives, and each graph costs a BERT pass per node. At batch 128
+    # x 16 negatives that is 2048 graphs against 256 for in-batch mode -- an
+    # 80GB A100 OOMs on the first step. The product is the thing to control.
+    NEG_GRAPHS=$((BATCH * MAX_NEG))
+    MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-512}"
+    echo "  negative graphs/step: $BATCH x $MAX_NEG = $NEG_GRAPHS"
+    if [ "$NEG_GRAPHS" -gt "$MAX_NEG_GRAPHS" ]; then
+      echo "!!! $NEG_GRAPHS negative graphs per step will very likely OOM"
+      echo "    (in-batch mode encodes $((BATCH * 2)) graphs total; >512 negative"
+      echo "    graphs has been observed to exhaust an 80GB A100 on step 1)."
+      echo "    Lower the batch, the negatives, or both -- their PRODUCT is what"
+      echo "    matters. Suggested, keeping the baseline slightly favoured:"
+      echo "      ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE 32 $EPOCHS   # with MAX_NEG=8"
+      echo "    Set MAX_NEG_GRAPHS=$NEG_GRAPHS to override and try anyway."
+      exit 1
+    fi
   else
     echo "  HARD_NEGS=0: SparqlCE trains on in-batch negatives only, while the"
     echo "  baseline still uses one curated negative per anchor. NOT a like-for-like"
