@@ -112,9 +112,18 @@ class UnionFind:
 
 
 def load_oracle(path):
-    """{normalized_query: n_rows}. Streams the file if it is large."""
+    """{normalized_query: n_rows}, excluding truncated sets. Streams if large.
+
+    A query whose answer set hit `build_result_sets.py --max-rows` is stored as a
+    prefix and listed in the `<stem>_meta.json` sidecar. Its row count is a
+    floor, not a size, so counting it toward an axis would classify an anchor on
+    evidence that does not exist.
+    """
     if not path.exists():
         return None
+    meta = path.with_name(path.stem + "_meta.json")
+    bad = ({normalize_query(q) for q in json.load(open(meta)).get("truncated", [])}
+           if meta.exists() else set())
     sizes = {}
     if path.stat().st_size > 512 * 1024 * 1024:
         try:
@@ -123,10 +132,16 @@ def load_oracle(path):
             raise SystemExit("pip install ijson -- needed to stream the large oracle.")
         with open(path, "rb") as f:
             for k, v in ijson.kvitems(f, ""):
-                sizes[normalize_query(k)] = len(v)
+                nk = normalize_query(k)
+                if nk not in bad:
+                    sizes[nk] = len(v)
     else:
         for k, v in json.load(open(path)).items():
-            sizes[normalize_query(k)] = len(v)
+            nk = normalize_query(k)
+            if nk not in bad:
+                sizes[nk] = len(v)
+    if bad:
+        print(f"  dropped {len(bad)} truncated answer sets (per {meta.name})")
     return sizes
 
 

@@ -302,11 +302,24 @@ def main():
         print(f"  failures: {len(failures)} -> {dict(Counter(failures.values()))}")
         print("  Anchors whose query failed must be DROPPED from the split, not "
               "treated as empty-result.")
-    print(f"\nNext: rebuild with R1 enabled, then relabel exhaustively:")
-    print(f"  python scripts/build_clean_rq1.py --kg {args.kg} --min-result-size 5 \\")
-    print(f"    --results {out_path.name} --out datasets/{args.kg}-testsplit-RQ1.json")
-    print(f"  python scripts/relabel_rq1_split.py --kg {args.kg} "
-          f"--split datasets/{args.kg}-testsplit-RQ1.json --out <...>")
+    if truncated:
+        print(f"  The {len(truncated)} truncated sets are PREFIXES, not sets; the "
+              f"builders read {side.name} and drop them rather than compare them.")
+    if args.kg == "dbpedia":
+        print(f"\nNext -- component protocol (see RUN_GUIDE.md Step 1c):")
+        print(f"  python scripts/build_component_splits.py --kg {args.kg} \\")
+        print(f"    --result-sets datasets/{out_path.name} \\")
+        print(f"    --out datasets/splits_{args.kg}_components.json")
+        print(f"  python scripts/build_rq1_twoaxis.py --kg {args.kg} \\")
+        print(f"    --splits datasets/splits_{args.kg}_components.json \\")
+        print(f"    --result-sets datasets/{out_path.name} \\")
+        print(f"    --out datasets/{args.kg}-testsplit-RQ1.json")
+    else:
+        print(f"\nNext -- group protocol (this KG has no component split yet):")
+        print(f"  python scripts/build_clean_rq1.py --kg {args.kg} --min-result-size 5 \\")
+        print(f"    --results {out_path.name} --out datasets/{args.kg}-testsplit-RQ1.json")
+        print(f"  python scripts/relabel_rq1_split.py --kg {args.kg} "
+              f"--split datasets/{args.kg}-testsplit-RQ1.json --out <...>")
 
 
 if __name__ == "__main__":

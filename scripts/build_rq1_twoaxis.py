@@ -122,13 +122,31 @@ def _pick(candidates, anchor, exclude, n):
     return out
 
 
+def truncated_queries(oracle_path):
+    """Normalized queries whose stored answer set is a PREFIX, not a set.
+
+    `build_result_sets.py --max-rows` caps what it stores and records the
+    offenders in a `<stem>_meta.json` sidecar. The oracle itself is a plain
+    {query: rows} map, so a truncated entry is indistinguishable from a complete
+    one -- and comparing a prefix against a full set understates Jaccard by an
+    unknown amount, which silently turns real positives into negatives. Such
+    queries must be dropped, not judged.
+    """
+    meta = oracle_path.with_name(oracle_path.stem + "_meta.json")
+    if not meta.exists():
+        return set(), meta
+    payload = json.load(open(meta))
+    return {normalize_query(q) for q in payload.get("truncated", [])}, meta
+
+
 def load_oracle(path):
-    """{normalized_query: frozenset(rows)}."""
+    """{normalized_query: frozenset(rows)}, excluding truncated answer sets."""
     if not path.exists():
         raise SystemExit(
             f"{path} not found. Build it first:\n"
             f"  python scripts/build_result_sets.py --kg <kg> "
             f"--split datasets/<kg>-triplets-dataset.json --out {path}")
+    bad, meta = truncated_queries(path)
     out = {}
     if path.stat().st_size > 512 * 1024 * 1024:
         try:
@@ -137,10 +155,20 @@ def load_oracle(path):
             raise SystemExit("pip install ijson -- needed to stream the large oracle.")
         with open(path, "rb") as f:
             for k, v in ijson.kvitems(f, ""):
-                out[normalize_query(k)] = frozenset(v)
+                nk = normalize_query(k)
+                if nk not in bad:
+                    out[nk] = frozenset(v)
     else:
         for k, v in json.load(open(path)).items():
-            out[normalize_query(k)] = frozenset(v)
+            nk = normalize_query(k)
+            if nk not in bad:
+                out[nk] = frozenset(v)
+    if bad:
+        print(f"  dropped {len(bad)} truncated answer sets (per {meta.name}); "
+              f"a capped result is a prefix, not a set, so its Jaccard is wrong")
+    elif not meta.exists():
+        print(f"  NOTE: no {meta.name} sidecar; assuming no answer set was "
+              f"truncated. If this oracle came from --max-rows, verify that.")
     return out
 
 
