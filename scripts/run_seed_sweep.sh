@@ -129,6 +129,25 @@ if [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   SPARQLCE_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE" --test-file "$SPLIT")
   E5_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE")
   echo "per-split mode: train=$TRAIN_FILE val=$VAL_FILE (both models)"
+  # NEGATIVE PARITY. finetune_e5_baseline.py always puts one curated negative per
+  # anchor in its InfoNCE candidate set (SquareTextDataset.__getitem__ ->
+  # info_nce_loss), but train_sparqlce.py ignores negative_queries unless
+  # --hard-negatives is passed. With the old corpus that gap did not matter: the
+  # 24 shared negatives were lexically unrelated to every anchor. The component
+  # files carry ~16 same-template, result-disjoint negatives per anchor, so
+  # leaving it off trains the BASELINE against precisely the signal SparqlCE
+  # exists to capture, and SparqlCE without it. Default it on here; set
+  # HARD_NEGS=0 to measure the in-batch-only variant deliberately.
+  HARD_NEGS="${HARD_NEGS:-1}"
+  MAX_NEG="${MAX_NEG:-16}"
+  if [ "$HARD_NEGS" != "0" ]; then
+    SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
+    echo "  negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
+  else
+    echo "  HARD_NEGS=0: SparqlCE trains on in-batch negatives only, while the"
+    echo "  baseline still uses one curated negative per anchor. NOT a like-for-like"
+    echo "  comparison -- use only to isolate the hard-negative contribution."
+  fi
 elif [ -f "$COMPONENT_SPLITS" ]; then
   echo "!!! $COMPONENT_SPLITS exists but $TRAIN_FILE / $VAL_FILE do not."
   echo "    This KG uses the component protocol; training from the integer-index"

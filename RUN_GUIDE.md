@@ -114,6 +114,20 @@ split while the baseline keeps the old group split would compare two models over
 different corpora, and the old split's training anchors sit inside the new test
 components.
 
+> **Negative parity — do not omit `--hard-negatives`.**
+> `finetune_e5_baseline.py` *always* places one curated negative per anchor in
+> its InfoNCE candidate set. `train_sparqlce.py` ignores `negative_queries`
+> unless `--hard-negatives` is passed. With the old corpus this was harmless (24
+> lexically-unrelated negatives shared across 4,713 groups); with the component
+> files it is not, because they carry ~16 same-template, result-disjoint
+> negatives per anchor. Omitting the flag trains the **baseline** against exactly
+> the lexical-vs-result distinction SparqlCE is meant to capture, and SparqlCE
+> without it. `run_seed_sweep.sh` now defaults it on in per-split mode
+> (`HARD_NEGS=0` to disable deliberately).
+>
+> A first single-seed run made this mistake: E5-FT reached MRR@10 0.965 against
+> SparqlCE's 0.889. Do not compare against those numbers.
+
 ### Choosing `--neg-max`
 
 `--neg-max` is where a candidate stops being "unjudged" and becomes a negative.
