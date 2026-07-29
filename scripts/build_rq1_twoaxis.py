@@ -189,6 +189,17 @@ def main():
     ap.add_argument("--easy-negs", type=int, default=10,
                     help="max different-template result-disjoint negatives, kept "
                          "so the pool is not exclusively adversarial")
+    ap.add_argument("--neg-max", type=float, default=0.0,
+                    help="Jaccard at or below which a candidate is a NEGATIVE "
+                         "rather than unjudged (default 0.0: only fully disjoint "
+                         "queries are negatives). Anything strictly between this "
+                         "and --jac-min is set aside as ambiguous. On DBpedia the "
+                         "default is far too strict -- answer sets are small and "
+                         "drawn from a shared vocabulary, so most pairs share a "
+                         "row by coincidence and 94%% of the test pool ends up "
+                         "unjudged, leaving ~15 rankable candidates per anchor. "
+                         "Pick this from the histogram this script prints, and "
+                         "say in the paper which value was used and why.")
     ap.add_argument("--min-pos", type=int, default=1)
     ap.add_argument("--from-split", default="test", choices=["test", "valid", "train"],
                     help="which component split supplies anchors AND the pool "
@@ -268,6 +279,8 @@ def main():
     records = []
     axis_tot = collections.Counter()
     drop = collections.Counter()
+    jac_hist = []           # every NONZERO anchor-candidate Jaccard, for the report
+    n_disjoint = 0
     for a in anchors:
         ans = oracle[a]
         ta = tmpl[a]
@@ -276,7 +289,7 @@ def main():
             for qi in postings.get(row, ()):
                 overlap[qi] += 1
 
-        pos, exc = [], []
+        pos, exc, neg_overlap = [], [], []
         touched = set()
         for qi, inter in overlap.items():
             cand = judged[qi]
@@ -289,8 +302,11 @@ def main():
                 pos.append({"query": cand, "answer_jaccard": round(j, 4),
                             "axis": axis, "result_size": len(oracle[cand])})
                 axis_tot[axis] += 1
+            elif j <= args.neg_max:
+                neg_overlap.append(cand)      # overlap too small to mean anything
             else:
-                exc.append(cand)              # partial overlap -> unjudged
+                exc.append(cand)              # genuinely ambiguous -> unjudged
+            jac_hist.append(j)
         # Queries the oracle cannot resolve are deliberately NOT listed here.
         # `excluded_queries` removes a query from the anchor's ranking, and a
         # ranking only contains queries that reached the pool -- which is built
@@ -302,9 +318,10 @@ def main():
             drop["no_positives"] += 1
             continue
 
-        # Negatives are the provably disjoint remainder: judgeable, non-anchor,
-        # and never touched by the postings sweep (untouched == shares no answer
-        # row == Jaccard 0). Same-template candidates are the hard ones.
+        # Anything not judged positive and not set aside as ambiguous is a
+        # negative: the fully disjoint queries (never touched by the postings
+        # sweep) plus those whose overlap fell at or below --neg-max.
+        blocked = {p["query"] for p in pos} | set(exc)
         #
         # Taken in list order these would be nearly the SAME queries for every
         # anchor -- which is exactly the shipped corpus's defect, 24 negatives
@@ -312,8 +329,9 @@ def main():
         # per-anchor offset spreads the choice over the whole pool instead, so
         # different anchors contribute different queries to the ranking, while
         # staying deterministic.
-        hard = _pick(by_tmpl.get(ta, ()), a, touched, args.hard_negs)
-        easy = _pick([q for q in judged if tmpl[q] != ta], a, touched, args.easy_negs)
+        hard = _pick(by_tmpl.get(ta, ()), a, blocked, args.hard_negs)
+        easy = _pick([q for q in judged if tmpl[q] != ta], a, blocked, args.easy_negs)
+        n_disjoint += len(judged) - len(touched)
         records.append({
             "anchor_query": a,
             "anchor_result_size": len(ans),
@@ -397,6 +415,33 @@ def main():
               f"smaller pool and report it")
     print(f"positives by axis: S={axis_tot['S']}  C={axis_tot['C']}")
     print(f"dropped anchors: {dict(drop)}")
+
+    # The distribution of anchor-candidate overlap decides whether --neg-max is
+    # set sensibly. A mass of tiny nonzero Jaccards means the pool's answer sets
+    # come from a shared vocabulary and coincide by accident, not by partial
+    # relevance -- calling those "unjudged" removes them from the ranking and can
+    # leave almost nothing to rank.
+    total_pairs = n_disjoint + len(jac_hist)
+    print(f"\nanchor-candidate overlap ({total_pairs} judged pairs):")
+    print(f"  {'J == 0 (disjoint)':>22}: {n_disjoint:8d} ({n_disjoint/max(total_pairs,1):6.1%})")
+    edges = [(0.0, 0.05), (0.05, 0.1), (0.1, 0.2), (0.2, 0.3),
+             (0.3, 0.5), (0.5, 0.8), (0.8, 1.0001)]
+    for lo, hi in edges:
+        n = sum(1 for j in jac_hist if lo < j <= hi)
+        label = f"{lo:g} < J <= {min(hi,1.0):g}"
+        verdict = ("positive" if lo >= args.jac_min
+                   else "negative" if hi <= args.neg_max
+                   else "UNJUDGED")
+        print(f"  {label:>22}: {n:8d} ({n/max(total_pairs,1):6.1%})  -> {verdict}")
+    eff = [len(judged) - len(r["excluded_queries"]) - 1 for r in records]
+    npos_ = [len(r["positive_queries"]) for r in records]
+    print(f"  rankable candidates/anchor: min {min(eff)} mean "
+          f"{sum(eff)/len(eff):.1f} max {max(eff)}  "
+          f"(of which positives: mean {sum(npos_)/len(npos_):.1f})")
+    if sum(eff) / len(eff) < 3 * (sum(npos_) / len(npos_)):
+        print(f"  WARNING: positives are a large share of what is ranked, so MRR "
+              f"here is close to trivial. Raise --neg-max so coincidental overlap "
+              f"counts as negative instead of unjudged.")
     print(f"\n{'file':<44}{'axis':>7}{'anchors':>9}{'pos':>7}{'pos/anc':>9}"
           f"{'excl/anc':>10}")
     for name, axis, out in written:
