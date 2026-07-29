@@ -442,6 +442,23 @@ def main():
         print(f"  WARNING: positives are a large share of what is ranked, so MRR "
               f"here is close to trivial. Raise --neg-max so coincidental overlap "
               f"counts as negative instead of unjudged.")
+
+    # Sensitivity of --neg-max. A threshold chosen inside a gap in the
+    # distribution changes nothing across that gap, which is the difference
+    # between a principled cut and a tuned one -- and it is checkable, so it is
+    # printed rather than asserted in prose.
+    n_anch = len(records)
+    n_pos_pairs = sum(1 for j in jac_hist if j > args.jac_min)
+    print(f"\n--neg-max sensitivity (rankable = disjoint + negatives + positives):")
+    print(f"  {'value':>7}{'negatives':>12}{'unjudged':>11}{'rankable/anchor':>18}")
+    for t in (0.0, 0.05, 0.1, 0.2, 0.3, 0.5):
+        neg = n_disjoint + sum(1 for j in jac_hist if j <= t)
+        unj = sum(1 for j in jac_hist if t < j <= args.jac_min)
+        mark = "  <- current" if abs(t - args.neg_max) < 1e-9 else ""
+        print(f"  {t:>7g}{neg:>12}{unj:>11}"
+              f"{(neg + n_pos_pairs) / max(n_anch, 1):>18.1f}{mark}")
+    print(f"  Identical rows mean the distribution has no mass between those "
+          f"thresholds, so the choice between them does not affect the split.")
     print(f"\n{'file':<44}{'axis':>7}{'anchors':>9}{'pos':>7}{'pos/anc':>9}"
           f"{'excl/anc':>10}")
     for name, axis, out in written:
