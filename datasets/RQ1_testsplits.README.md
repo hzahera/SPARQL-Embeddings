@@ -23,7 +23,7 @@ python scripts/check_leakage.py  --kg wikidata --split datasets/wikidata-testspl
 | unjudged exclusions | 0 (not measurable) | 547 across 50 anchors |
 | negatives/anchor | 20 | 20 |
 | source | `test_idx` of `splits_{kg}.json` (train never used) | same |
-| memorized pairs | **0 / 629** | **0 / 1,515** |
+| memorized pairs | **0 / 629** | **0 / 2,071** |
 
 **Report the pool size next to any MRR from these files.** Retrieval scores
 depend strongly on how many candidates were ranked; a number from the 448-query
