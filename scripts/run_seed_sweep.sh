@@ -336,6 +336,27 @@ echo "=== aggregating + paired significance test ==="
 # override (resuming failed seeds) this run only covers part of the intended
 # set, so pass the full one: EXPECT_SEEDS="42,43,44,45,46".
 ALL_SEEDS="${EXPECT_SEEDS:-$(IFS=,; echo "${SEEDS[*]:0:$N_SEEDS}")}"
+
+# The globs below pick up EVERY score file matching this split's tag, including
+# ones left by an earlier run with different hyperparameters. That already
+# happened once: a single-seed rerun at batch 32 was silently averaged with a
+# stale seed from a batch-128 run, and the summary reported a cross-seed mean
+# over two incompatible configurations. Score files carry no config, so this
+# cannot be detected downstream -- flag it here.
+STALE=()
+for f in results/significance/${TAG}_sparqlce_seed*.json; do
+  [ -e "$f" ] || continue
+  s="$(basename "$f" .json)"; s="${s##*_seed}"
+  case ",$ALL_SEEDS," in *",$s,"*) ;; *) STALE+=("$s");; esac
+done
+if [ "${#STALE[@]}" -gt 0 ]; then
+  echo "!!! score files exist for seed(s) ${STALE[*]}, which this run did not train."
+  echo "    They will be averaged in, and they may come from a different batch"
+  echo "    size, --max-neg, or split. If they are not from the current setup:"
+  echo "      rm results/significance/${TAG}_{sparqlce,e5ft}_seed{${STALE[0]},...}.json"
+  echo "    Set ALLOW_STALE_SEEDS=1 to aggregate them anyway."
+  [ "${ALLOW_STALE_SEEDS:-0}" = "1" ] || exit 1
+fi
 python scripts/compute_significance.py \
   --sparqlce-glob "results/significance/${TAG}_sparqlce_seed*.json" \
   --baseline-glob "results/significance/${TAG}_e5ft_seed*.json" \

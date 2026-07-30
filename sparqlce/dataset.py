@@ -88,6 +88,7 @@ class SemanticSPARQLDataset(Dataset):
 		in_batch_negatives=False,
 		augment_rename_prob=0.0,
 		augment_seed=None,
+		deterministic=False,
 	):
 		"""
 		Args (additions):
@@ -98,12 +99,19 @@ class SemanticSPARQLDataset(Dataset):
 				to disable (default). 0.3 is a reasonable starting point.
 			augment_seed (int|None): optional RNG seed for reproducible
 				augmentation. If None, uses Python's global RNG state.
+			deterministic (bool): take the FIRST positive/negatives instead of
+				sampling. Set for validation and test views: with random
+				sampling the same checkpoint scores differently on each pass,
+				so early stopping reacts to sampling noise rather than to the
+				model. Never set it for training, where the resampling is the
+				point.
 		"""
 		self.builder = graph_builder
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 		self.max_pos = max_pos_per_anchor
 		self.max_neg = max_neg_per_anchor
 		self.in_batch_negatives = in_batch_negatives
+		self.deterministic = bool(deterministic)
 		self.augment_rename_prob = float(augment_rename_prob)
 		self._aug_rng = random.Random(augment_seed) if augment_seed is not None else random
 		self.groups = []
@@ -175,15 +183,21 @@ class SemanticSPARQLDataset(Dataset):
 	def __getitem__(self, idx):
 		g = self.groups[idx]
 		if self.in_batch_negatives:
-			pos_q, pos_j = random.choice(g["positives"])
+			pos_q, pos_j = (g["positives"][0] if self.deterministic
+			                else random.choice(g["positives"]))
 			return (
 				self._to_data(self._build(g["anchor"])),
 				self._to_data(self._build(pos_q)),
 				float(pos_j),
 			)
 
-		pos_list = random.sample(g["positives"], min(self.max_pos or len(g["positives"]), len(g["positives"])))
-		neg_list = random.sample(g["negatives"], min(self.max_neg or len(g["negatives"]), len(g["negatives"])))
+		n_pos = min(self.max_pos or len(g["positives"]), len(g["positives"]))
+		n_neg = min(self.max_neg or len(g["negatives"]), len(g["negatives"]))
+		if self.deterministic:
+			pos_list, neg_list = g["positives"][:n_pos], g["negatives"][:n_neg]
+		else:
+			pos_list = random.sample(g["positives"], n_pos)
+			neg_list = random.sample(g["negatives"], n_neg)
 
 		pos_qs, pos_js = zip(*pos_list)
 		neg_qs, neg_js = zip(*neg_list)

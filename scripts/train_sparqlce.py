@@ -97,22 +97,58 @@ def infonce_hard(a_emb, p_emb, n_emb, neg_slices, temperature):
     return F.cross_entropy(logits, labels)
 
 
+def _groups_of(ds):
+    """The dataset records behind a loader, through a Subset if there is one."""
+    if isinstance(ds, Subset):
+        return [ds.dataset.groups[i] for i in ds.indices]
+    return ds.groups
+
+
 @torch.no_grad()
 def evaluate_ranking(model, loader, device):
+    """MRR of the BEST correct answer for each anchor.
+
+    Column j of the similarity matrix holds anchor j's positive, and the naive
+    version of this treated the diagonal as the only correct cell. That is only
+    valid when no two anchors share a positive. On the component splits they
+    share them constantly -- the DBpedia validation file has 38 positives per
+    anchor drawn from a 240-query pool, so roughly one column in six is a
+    genuinely correct answer for any given anchor and was being scored as an
+    error. Val MRR was pinned near 0.09 no matter how good the model was, and
+    early stopping fired at epoch 1 on what was effectively its ceiling.
+
+    An anchor is now credited for whichever of ITS positives ranks highest, the
+    same "find a result-equivalent query" task the RQ1 evaluation scores. This
+    requires the eval dataset to be deterministic (`deterministic=True`), so
+    that column j really is groups[j]'s first positive.
+    """
     model.eval()
     anchors, positives = [], []
     for batch in loader:
         a_emb, _ = model(batch[0].to(device))
         p_emb, _ = model(batch[1].to(device))
-        a_emb = F.normalize(a_emb, dim=1)
-        p_emb = F.normalize(p_emb, dim=1)
-        anchors.append(a_emb.cpu())
-        positives.append(p_emb.cpu())
-    A = torch.cat(anchors)
-    P = torch.cat(positives)
+        anchors.append(F.normalize(a_emb, dim=1).cpu())
+        positives.append(F.normalize(p_emb, dim=1).cpu())
+    A, P = torch.cat(anchors), torch.cat(positives)
     sims = A @ P.T
-    diag = sims.diag().unsqueeze(1)
-    ranks = (sims >= diag).sum(dim=1).float()
+    n = sims.size(0)
+
+    groups = _groups_of(loader.dataset)
+    assert len(groups) == n, (
+        f"{len(groups)} groups but {n} embedded columns -- the loader must not "
+        f"shuffle or drop for evaluation")
+    col_text = [g["positives"][0][0] for g in groups]
+    rel = torch.zeros(n, n, dtype=torch.bool)
+    for i, g in enumerate(groups):
+        pos_set = {q for q, _ in g["positives"]}
+        for j, t in enumerate(col_text):
+            if t in pos_set:
+                rel[i, j] = True
+    rel.fill_diagonal_(True)          # the sampled positive is correct by construction
+
+    # Rank of the best-scoring relevant column: how many columns beat it, +1.
+    best_rel = sims.masked_fill(~rel, float("-inf")).max(dim=1).values
+    ranks = (sims > best_rel.unsqueeze(1)).sum(dim=1).float() + 1.0
     return {
         "mrr": (1.0 / ranks).mean().item(),
         "hits@1": (ranks == 1).float().mean().item(),
@@ -160,10 +196,10 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
             augment_rename_prob=augment_rename_prob, augment_seed=seed, **common)
         val_ds = SemanticSPARQLDataset(
             str(split_files["valid"]), graph_builder=graph_builder,
-            augment_rename_prob=0.0, **common)
+            augment_rename_prob=0.0, deterministic=True, **common)
         test_ds = SemanticSPARQLDataset(
             str(split_files["test"]), graph_builder=graph_builder,
-            augment_rename_prob=0.0, **common)
+            augment_rename_prob=0.0, deterministic=True, **common)
         print(f"Using per-split files: "
               f"train={len(train_ds)} val={len(val_ds)} test={len(test_ds)} groups")
         return mk(train_ds, True), mk(val_ds, False), mk(test_ds, False)
@@ -175,7 +211,7 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
     # Deterministic view for evaluation (no augmentation).
     eval_dataset = SemanticSPARQLDataset(
         str(data_path), graph_builder=graph_builder,
-        augment_rename_prob=0.0, **common,
+        augment_rename_prob=0.0, deterministic=True, **common,
     )
 
     if splits_path.exists():
