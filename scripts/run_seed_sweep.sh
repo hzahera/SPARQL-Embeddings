@@ -115,16 +115,44 @@ if [ "$MIN_FREE_GB" != "0" ]; then
   fi
 fi
 
-# Per-split files (the component protocol, scripts/build_rq1_twoaxis.py). When
-# they exist they are the ONLY correct thing to train on: the integer-index path
-# addresses splits_${KG}.json, whose training anchors sit inside the new test
-# components. Training there while evaluating on $SPLIT would produce a large,
-# entirely spurious result -- so this is detected rather than left to the caller.
+# Which protocol applies is a property of THE EVAL SPLIT, not of which files
+# happen to exist in datasets/. Both are legitimate and each has its own
+# leak-freeness argument:
+#
+#   component (build_rq1_twoaxis.py) -- anchors and positives share a connected
+#     component, so training must use the matching per-split files. Training from
+#     the integer-index split here WOULD train on queries in the eval pool.
+#   group (build_clean_rq1.py)       -- the split is drawn from splits_${KG}.json
+#     test_idx and rule R3 has already deleted every memorized pair, so the
+#     integer-index training path is the correct and verified-clean pairing.
+#     check_leakage.py audits exactly this combination.
+#
+# Keying off the presence of splits_${KG}_components.json instead would refuse a
+# perfectly valid group-protocol run whenever a component split exists on disk.
+SPLIT_PROTOCOL="$(python - "$SPLIT" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print("group"); raise SystemExit
+# build_rq1_twoaxis.py stamps every record with the axis it was built for.
+print("component" if isinstance(d, list) and d and "axis" in d[0] else "group")
+PY
+)"
+echo "split protocol: $SPLIT_PROTOCOL ($(basename "$SPLIT"))"
+
 TRAIN_FILE="${TRAIN_FILE:-datasets/${KG}-train-RQ1.json}"
 VAL_FILE="${VAL_FILE:-datasets/${KG}-valid-RQ1.json}"
 COMPONENT_SPLITS="datasets/splits_${KG}_components.json"
 PER_SPLIT=0
-if [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
+if [ "$SPLIT_PROTOCOL" = "group" ]; then
+  # Group protocol: index-split training, and the leakage audit below is the
+  # check that makes it sound. Per-split files are ignored even if present.
+  SPARQLCE_DATA_ARGS=()
+  E5_DATA_ARGS=()
+  echo "group protocol: both models read datasets/splits_${KG}.json;"
+  echo "  the R3 leakage audit below is what makes that pairing sound."
+elif [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   PER_SPLIT=1
   SPARQLCE_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE" --test-file "$SPLIT")
   E5_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE")
