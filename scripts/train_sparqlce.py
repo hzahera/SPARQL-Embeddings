@@ -158,7 +158,8 @@ def evaluate_ranking(model, loader, device):
 
 def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
                   hard_negatives=False, max_neg=8, augment_rename_prob=0.0,
-                  split_files=None, query_stream=False):
+                  split_files=None, query_stream=False,
+                  query_max_length=256):
     """Build train/val/test loaders.
 
     Two modes:
@@ -188,6 +189,7 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
     # Every view -- train, val, test -- must agree, or the model is selected on
     # a different input representation than it was trained on.
     common["query_stream"] = query_stream
+    common["query_max_length"] = query_max_length
 
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
                                         collate_fn=collate)
@@ -325,6 +327,11 @@ def main():
                           "against a 6x wider one -- which is a capacity "
                           "difference, not an architectural one. Pass 768 to "
                           "remove that confound.")
+    ap.add_argument("--query-max-length", type=int, default=256,
+                     help="token budget for --query-stream (default 256). Lower "
+                          "it to fit memory, but it changes the input the "
+                          "weights see, so it is recorded in the checkpoint and "
+                          "two runs are only comparable at the same value.")
     ap.add_argument("--single-lr", type=float, default=None,
                      help="if set, use one LR for all params instead of differential LRs")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints"))
@@ -382,6 +389,7 @@ def main():
         hard_negatives=args.hard_negatives, max_neg=args.max_neg,
         augment_rename_prob=args.augment_rename_prob, split_files=split_files,
         query_stream=args.query_stream,
+        query_max_length=args.query_max_length,
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
@@ -463,7 +471,7 @@ def main():
                         # a different model. SPARQLEmbedder reads them back.
                         "graph_config": {"query_stream": args.query_stream,
                                          "join_hubs": args.join_hubs,
-                                         "query_max_length": 256}},
+                                         "query_max_length": args.query_max_length}},
                        ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
         else:
