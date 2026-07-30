@@ -363,6 +363,7 @@ def main():
 
     best_mrr = -1.0
     best_epoch = 0
+    history = []
     epochs_no_improve = 0
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     print(f"Training {args.kg}/{args.ablation} seed={args.seed} on {device} for up to "
@@ -401,6 +402,12 @@ def main():
 
         nb = max(1, len(train_loader))
         val = evaluate_ranking(model, val_loader, device)
+        # Per-epoch history, in the same shape finetune_e5_baseline.py records.
+        # Without it a run leaves no trace of whether val MRR was still climbing
+        # when training stopped, or had turned over into overfitting -- which is
+        # exactly what has to be checked when val and test disagree.
+        history.append({"epoch": epoch, "loss": sum_loss / nb,
+                        "ce": sum_ce / nb, "reg": sum_reg / nb, **val})
         print(f"Epoch {epoch:02d} | train_loss={sum_loss/nb:.4f} (ce={sum_ce/nb:.4f} reg={sum_reg/nb:.4f}) "
               f"| val MRR={val['mrr']:.4f} Hits@1={val['hits@1']:.4f} Hits@5={val['hits@5']:.4f}")
 
@@ -443,6 +450,7 @@ def main():
             "test_file": args.test_file,
             "data": str(paths["data"]), "splits": str(paths["splits"]),
             "output_dim": Config.OUTPUT_DIM,
+            "best_val_mrr": best_mrr, "history": history,
             "val_metrics": best["val_metrics"], "test_metrics": test,
         }, f, indent=2)
     print(f"Saved checkpoint + metadata to {ckpt_dir}")
