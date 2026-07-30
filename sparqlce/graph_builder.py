@@ -41,7 +41,19 @@ _WD_ID_RE = re.compile(r"^(?:[A-Za-z]+:)?([PQ]\d+)$")
 
 
 class SPARQLGraphBuilder:
-    def __init__(self):
+    def __init__(self, join_hubs: bool = False):
+        """
+        Parameters
+        ----------
+        join_hubs : bool
+            How a variable shared by several triple patterns is wired. False
+            (default, unchanged) links every pair of participants directly.
+            True routes them through one hub node per variable, which keeps the
+            graph's diameter above 1 -- see the comment in build_graph. Changes
+            the graph, so a model must be trained and evaluated with the same
+            setting; checkpoints record it.
+        """
+        self.join_hubs = join_hubs
         local_name = r'(?:[\w(),\-]|\.(?!\s))+'
         qname = r'[a-zA-Z0-9_]*:' + local_name
         path_token = r'(?:<[^>]+>|' + qname + r'|[/|*+?^()])+'
@@ -223,10 +235,29 @@ class SPARQLGraphBuilder:
 
         for var_id, neighbors in var_occurs.items():
             neighbors = list(neighbors)
-            for i in range(len(neighbors)):
-                for j in range(i + 1, len(neighbors)):
-                    G.add_edge(neighbors[i], neighbors[j], label="join")
-                    G.add_edge(neighbors[j], neighbors[i], label="join")
+            if self.join_hubs:
+                # Star, not clique: one hub node per joining variable, linked to
+                # each participant. Same join semantics, O(k) edges instead of
+                # O(k^2), and -- the reason this exists -- it does not collapse
+                # the graph diameter. All-pairs join edges make every joined
+                # node mutually adjacent, so a query's diameter falls to 1 and
+                # message passing has nothing left to propagate: measured over
+                # 4k queries, 81.6% of DBpedia graphs were diameter <=1 (median
+                # 1) under the clique form, against 6.0% for Wikidata. A second
+                # GATv2 layer cannot contribute on a diameter-1 graph. Routing
+                # joins through a hub keeps participants 2 hops apart, which is
+                # what gives depth something to do.
+                if len(neighbors) < 2:
+                    continue
+                hub = self._ensure_node(G, node_map, f"JOINVAR:{var_id}")
+                for n in neighbors:
+                    G.add_edge(n, hub, label="join_in")
+                    G.add_edge(hub, n, label="join_out")
+            else:
+                for i in range(len(neighbors)):
+                    for j in range(i + 1, len(neighbors)):
+                        G.add_edge(neighbors[i], neighbors[j], label="join")
+                        G.add_edge(neighbors[j], neighbors[i], label="join")
 
         for f_match in self.filter_pattern.finditer(content):
             f_text = f_match.group(1).strip()

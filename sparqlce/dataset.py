@@ -89,6 +89,8 @@ class SemanticSPARQLDataset(Dataset):
 		augment_rename_prob=0.0,
 		augment_seed=None,
 		deterministic=False,
+		query_stream=False,
+		query_max_length=256,
 	):
 		"""
 		Args (additions):
@@ -105,8 +107,18 @@ class SemanticSPARQLDataset(Dataset):
 				so early stopping reacts to sampling noise rather than to the
 				model. Never set it for training, where the resampling is the
 				point.
+			query_stream (bool): emit the whole query string (q_ids/q_mask) so the
+				encoder's text branch reads the query itself rather than a mean
+				over node labels. Off by default: it changes what the model is
+				given, so old runs stay reproducible.
+			query_max_length (int): token budget for the whole-query text stream.
+				Truncation here silently drops the tail of long queries from the
+				text side while the graph still sees them, so raise it rather
+				than let the two streams read different queries.
 		"""
 		self.builder = graph_builder
+		self.query_stream = bool(query_stream)
+		self.query_max_length = int(query_max_length)
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 		self.max_pos = max_pos_per_anchor
 		self.max_neg = max_neg_per_anchor
@@ -147,11 +159,19 @@ class SemanticSPARQLDataset(Dataset):
 		return query
 
 	def _build(self, query):
-		"""Shorthand: optionally augment, then build the graph."""
-		return self.builder.build_graph(self._maybe_augment(query))
+		"""Optionally augment, then build the graph. Returns (graph, text).
 
-	def _to_data(self, G):
-		"""Convert a NetworkX graph to a PyG Data object."""
+		The text is returned alongside because the encoder's text stream reads
+		the whole query string, not just the node labels -- and it must be the
+		*augmented* string, so the two streams never disagree about which query
+		this is.
+		"""
+		q = self._maybe_augment(query)
+		return self.builder.build_graph(q), q
+
+	def _to_data(self, built):
+		"""Convert a (graph, query_text) pair to a PyG Data object."""
+		G, query_text = built
 		labels = [G.nodes[n]["label"] for n in G.nodes] or ["<empty>"]
 		num_nodes = len(labels)
 
@@ -168,7 +188,7 @@ class SemanticSPARQLDataset(Dataset):
 		n_tok = self.tokenizer(labels, padding="max_length", max_length=32, truncation=True, return_tensors="pt")
 		e_tok = self.tokenizer(edge_labels, padding="max_length", max_length=16, truncation=True, return_tensors="pt")
 
-		return Data(
+		data = Data(
 			x_ids=n_tok["input_ids"],
 			x_mask=n_tok["attention_mask"],
 			edge_index=edge_index,
@@ -176,6 +196,19 @@ class SemanticSPARQLDataset(Dataset):
 			edge_attr_mask=e_tok["attention_mask"],
 			num_nodes=num_nodes,
 		)
+
+		if self.query_stream:
+			# One row per graph, so PyG's default concatenation yields [B, L]
+			# after batching, aligned with the graph-level outputs. The
+			# "query: " prefix is what E5 expects and what the E5 baselines
+			# receive, so both sides of the comparison get it.
+			q_tok = self.tokenizer(
+				"query: " + query_text, padding="max_length",
+				max_length=self.query_max_length, truncation=True, return_tensors="pt",
+			)
+			data.q_ids = q_tok["input_ids"]
+			data.q_mask = q_tok["attention_mask"]
+		return data
 
 	def __len__(self):
 		return len(self.groups)

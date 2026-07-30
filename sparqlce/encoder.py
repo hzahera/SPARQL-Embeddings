@@ -154,8 +154,11 @@ class HybridSPARQLEncoder(nn.Module):
         z_text_nodes = self._mean_pool(data.x_ids, data.x_mask)  # [N, d]
 
         if self.ablation == "no_gnn":
-            # Text-only path: mean-pool nodes → project → normalise
-            z_pooled = global_mean_pool(z_text_nodes, data.batch)  # [B, d]
+            # Text-only path. With q_ids this is a flat encoder over the query
+            # string -- the graph-free control, trained by our own recipe.
+            q_ids = getattr(data, "q_ids", None)
+            z_pooled = (self._mean_pool(q_ids, data.q_mask) if q_ids is not None
+                        else global_mean_pool(z_text_nodes, data.batch))  # [B, d]
             emb = self.ln(self.text_proj(z_pooled))
             return F.normalize(emb, p=2, dim=1), 0.5  # gate_mean = 0.5 sentinel
 
@@ -176,8 +179,23 @@ class HybridSPARQLEncoder(nn.Module):
         # Graph embedding: global mean pool over nodes
         z_graph = global_mean_pool(x2, data.batch)                 # [B, gnn_dim]
 
-        # Text embedding at query level (mean-pool over query nodes)
-        z_text = global_mean_pool(z_text_nodes, data.batch)       # [B, d]
+        # Text embedding at query level.
+        #
+        # Preferred: encode the whole query STRING (data.q_ids), the way a flat
+        # text baseline does. Falling back to a mean over node-label embeddings
+        # -- the original behaviour, kept so pre-existing checkpoints still load
+        # and score identically -- makes the text stream a bag of node labels
+        # with no token order, no syntax and no query-level context, i.e.
+        # strictly less informed than the E5-FT control it is measured against.
+        # That also made the two fusion inputs near-duplicates on graphs whose
+        # diameter is 1, since z_graph then pools the same node embeddings.
+        # With q_ids present the gate saturating at 1 reproduces the flat text
+        # encoder exactly, so the graph branch can only add to it.
+        q_ids = getattr(data, "q_ids", None)
+        if q_ids is not None:
+            z_text = self._mean_pool(q_ids, data.q_mask)           # [B, d]
+        else:
+            z_text = global_mean_pool(z_text_nodes, data.batch)    # [B, d]
 
         # ── Gated fusion ─────────────────────────────────────────────────────
         gate = torch.sigmoid(self.gate_fc(

@@ -57,10 +57,25 @@ class SPARQLEmbedder:
 		self.model.load_state_dict(state_dict)
 		self.model.eval()
         
-		self.builder = _ABLATION_TO_BUILDER[ablation]()
-		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
+		# Graph/text construction must match what this checkpoint was TRAINED
+		# with, not what the current default is. Both settings change the input
+		# the weights see, and neither changes any tensor shape -- so a mismatch
+		# does not raise, it just quietly scores a different model. Checkpoints
+		# written before these options existed carry neither key and correctly
+		# fall back to the original behaviour.
+		cfg = checkpoint.get("graph_config", {}) if isinstance(checkpoint, dict) else {}
+		self.query_stream = bool(cfg.get("query_stream", False))
+		self.query_max_length = int(cfg.get("query_max_length", 256))
+		join_hubs = bool(cfg.get("join_hubs", False))
 
-	def _graph_to_data(self, G):
+		builder_cls = _ABLATION_TO_BUILDER[ablation]
+		self.builder = (builder_cls(join_hubs=join_hubs)
+		                if builder_cls is SPARQLGraphBuilder else builder_cls())
+		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
+		print(f"  graph_config: query_stream={self.query_stream} "
+		      f"join_hubs={join_hubs} (from checkpoint)")
+
+	def _graph_to_data(self, G, query_text):
 		nodes = sorted(G.nodes())
 		node_labels = [G.nodes[n]['label'] for n in nodes]
 		if not node_labels:
@@ -80,10 +95,12 @@ class SPARQLEmbedder:
 			edge_index = torch.tensor([[0], [0]], dtype=torch.long)
 			edge_labels = ["self"]
 
-		n_tok = self.tokenizer(node_labels, padding='max_length', max_length=16, truncation=True, return_tensors='pt')
+		# max_length must match sparqlce/dataset.py (nodes 32, edges 16). It read
+		# 16 for nodes here, so any node label longer than 16 tokens was encoded
+		# differently at inference than in training.
+		n_tok = self.tokenizer(node_labels, padding='max_length', max_length=32, truncation=True, return_tensors='pt')
 		e_tok = self.tokenizer(edge_labels, padding='max_length', max_length=16, truncation=True, return_tensors='pt')
-
-		return Data(
+		data = Data(
 			x_ids=n_tok['input_ids'],
 			x_mask=n_tok['attention_mask'],
 			edge_index=edge_index,
@@ -91,6 +108,13 @@ class SPARQLEmbedder:
 			edge_attr_mask=e_tok['attention_mask'],
 			num_nodes=num_nodes,
 		)
+		if self.query_stream:
+			q_tok = self.tokenizer("query: " + " ".join(query_text.split()),
+			                       padding='max_length', max_length=self.query_max_length,
+			                       truncation=True, return_tensors='pt')
+			data.q_ids = q_tok['input_ids']
+			data.q_mask = q_tok['attention_mask']
+		return data
 
 	def encode(self, queries):
 		if isinstance(queries, str):
@@ -99,7 +123,7 @@ class SPARQLEmbedder:
 		data_list = []
 		for q in queries:
 			g = self.builder.build_graph(q)
-			data_list.append(self._graph_to_data(g))
+			data_list.append(self._graph_to_data(g, q))
 
 		try:
 			batch = Batch.from_data_list(data_list).to(self.device)
@@ -107,9 +131,11 @@ class SPARQLEmbedder:
 				            embeddings, _ = self.model(batch)
 			out = embeddings.cpu().numpy()
 		except RuntimeError:
+			# forward() returns (embedding, gate_mean); indexing [0] was missing,
+			# so this out-of-memory fallback raised instead of recovering.
 			with torch.no_grad():
 				out = np.vstack([
-					self.model(Batch.from_data_list([d]).to(self.device)).cpu().numpy()
+					self.model(Batch.from_data_list([d]).to(self.device))[0].cpu().numpy()
 					for d in data_list
 				])
 

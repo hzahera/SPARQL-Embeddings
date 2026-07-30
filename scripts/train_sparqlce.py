@@ -158,7 +158,7 @@ def evaluate_ranking(model, loader, device):
 
 def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
                   hard_negatives=False, max_neg=8, augment_rename_prob=0.0,
-                  split_files=None):
+                  split_files=None, query_stream=False):
     """Build train/val/test loaders.
 
     Two modes:
@@ -185,6 +185,9 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
     else:
         collate = semantic_collate_fn_inbatch
         common = dict(in_batch_negatives=True)
+    # Every view -- train, val, test -- must agree, or the model is selected on
+    # a different input representation than it was trained on.
+    common["query_stream"] = query_stream
 
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
                                         collate_fn=collate)
@@ -260,6 +263,23 @@ def main():
                      help="full: paper model. no_gnn: skip GATv2 message passing "
                           "(bag of node embeddings). no_decomposition: whole query "
                           "as one node, no graph structure at all.")
+    ap.add_argument("--query-stream", action="store_true",
+                     help="Text branch reads the whole query STRING instead of a "
+                          "mean over node-label embeddings. Without it the text "
+                          "side is a bag of node labels -- no token order, no "
+                          "syntax -- i.e. strictly less informed than the flat E5 "
+                          "control it is compared against, so the gate cannot "
+                          "recover that control by saturating. With it, gate->1 "
+                          "reproduces a flat E5 encoder and the graph can only add.")
+    ap.add_argument("--join-hubs", action="store_true",
+                     help="Wire a shared variable through one hub node per "
+                          "variable instead of linking all participants pairwise. "
+                          "The pairwise form makes joined nodes mutually adjacent, "
+                          "collapsing graph diameter to 1 on 88%% of DBpedia "
+                          "queries (6.9%% on Wikidata) -- a second GATv2 layer has "
+                          "nothing to propagate there. Hubs keep participants 2 "
+                          "hops apart: DBpedia diameter<=1 drops to 0%%, Wikidata "
+                          "is unchanged.")
     ap.add_argument("--epochs", type=int, default=20,
                      help="max epochs (a cap); with --patience, training stops "
                           "early when val MRR plateaus, so this need not match "
@@ -334,8 +354,10 @@ def main():
 
     # no_decomposition swaps the graph builder (whole-query single node);
     # no_gnn keeps the real graph but the encoder skips message passing.
-    graph_builder = WholeQueryGraphBuilder() if args.ablation == "no_decomposition" else SPARQLGraphBuilder()
+    graph_builder = (WholeQueryGraphBuilder() if args.ablation == "no_decomposition"
+                     else SPARQLGraphBuilder(join_hubs=args.join_hubs))
     encoder_mode = "no_gnn" if args.ablation == "no_gnn" else "full"
+    print(f"graph_config: query_stream={args.query_stream} join_hubs={args.join_hubs}")
 
     paths = KG_PATHS[args.kg]
     split_files = None
@@ -352,6 +374,7 @@ def main():
         paths["data"], paths["splits"], args.seed, args.batch_size, graph_builder,
         hard_negatives=args.hard_negatives, max_neg=args.max_neg,
         augment_rename_prob=args.augment_rename_prob, split_files=split_files,
+        query_stream=args.query_stream,
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
@@ -427,7 +450,14 @@ def main():
                         "val_metrics": val, "ablation": args.ablation,
                         # Record the embedding width: the eval-time encoder must
                         # be built at the same width or load_state_dict fails.
-                        "output_dim": model.output_dim}, ckpt_dir / "best_model.pt")
+                        "output_dim": model.output_dim,
+                        # These two change the INPUT, not any tensor shape, so a
+                        # mismatch at inference loads cleanly and silently scores
+                        # a different model. SPARQLEmbedder reads them back.
+                        "graph_config": {"query_stream": args.query_stream,
+                                         "join_hubs": args.join_hubs,
+                                         "query_max_length": 256}},
+                       ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
         else:
             epochs_no_improve += 1
@@ -451,6 +481,7 @@ def main():
             "temperature": args.temperature, "lambda_reg": args.lambda_reg,
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
             "augment_rename_prob": args.augment_rename_prob,
+            "query_stream": args.query_stream, "join_hubs": args.join_hubs,
             # Which data a run saw is part of its identity: a component-split run
             # and an index-split run are not comparable, and nothing else in this
             # file distinguishes them.
