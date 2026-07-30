@@ -349,7 +349,14 @@ def main():
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    ckpt_dir = Path(args.ckpt_root) / args.kg / f"seed{args.seed}_{args.ablation}"
+    # The variant belongs in the path. --query-stream/--join-hubs change the
+    # model without changing the ablation tag, so every variant of one seed
+    # otherwise writes to the same directory and the last run silently replaces
+    # a checkpoint an earlier result was computed from. Legacy runs (neither
+    # flag) keep their original path, so nothing already on disk moves.
+    variant = "".join(s for s, on in (("_qs", args.query_stream),
+                                      ("_jh", args.join_hubs)) if on)
+    ckpt_dir = Path(args.ckpt_root) / args.kg / f"seed{args.seed}_{args.ablation}{variant}"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     # no_decomposition swaps the graph builder (whole-query single node);
