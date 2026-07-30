@@ -298,6 +298,13 @@ def main():
                           "unjudgeable anchors and so cannot be index-addressed.")
     ap.add_argument("--val-file", default=None, help="see --train-file")
     ap.add_argument("--test-file", default=None, help="see --train-file")
+    ap.add_argument("--output-dim", type=int, default=None,
+                     help="final embedding width (default: Config.OUTPUT_DIM, "
+                          "currently 128). The E5-Finetuned baseline embeds at "
+                          "768, so the default compares a 128-d representation "
+                          "against a 6x wider one -- which is a capacity "
+                          "difference, not an architectural one. Pass 768 to "
+                          "remove that confound.")
     ap.add_argument("--single-lr", type=float, default=None,
                      help="if set, use one LR for all params instead of differential LRs")
     ap.add_argument("--ckpt-root", default=str(ROOT_DIR / "checkpoints"))
@@ -348,7 +355,8 @@ def main():
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
-    model = HybridSPARQLEncoder(ablation=encoder_mode).to(device)
+    model = HybridSPARQLEncoder(ablation=encoder_mode,
+                                output_dim=args.output_dim).to(device)
 
     if args.single_lr is not None:
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.single_lr, weight_decay=args.weight_decay)
@@ -419,7 +427,7 @@ def main():
                         "val_metrics": val, "ablation": args.ablation,
                         # Record the embedding width: the eval-time encoder must
                         # be built at the same width or load_state_dict fails.
-                        "output_dim": Config.OUTPUT_DIM}, ckpt_dir / "best_model.pt")
+                        "output_dim": model.output_dim}, ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
         else:
             epochs_no_improve += 1
@@ -449,7 +457,7 @@ def main():
             "train_file": args.train_file, "val_file": args.val_file,
             "test_file": args.test_file,
             "data": str(paths["data"]), "splits": str(paths["splits"]),
-            "output_dim": Config.OUTPUT_DIM,
+            "output_dim": model.output_dim,
             "best_val_mrr": best_mrr, "history": history,
             "val_metrics": best["val_metrics"], "test_metrics": test,
         }, f, indent=2)
