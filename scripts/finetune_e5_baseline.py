@@ -79,9 +79,16 @@ def set_seed(seed):
 
 
 class SquareTextDataset(Dataset):
-    """Anchor-level SQuARE dataset over raw SPARQL text (no graphs, no Jaccard)."""
+    """Anchor-level SQuARE dataset over raw SPARQL text (no graphs, no Jaccard).
 
-    def __init__(self, datapath):
+    `deterministic` takes the first positive/negative instead of sampling. Set it
+    for the validation view: otherwise the same checkpoint scores differently on
+    every pass and early stopping reacts to sampling noise, and
+    evaluate_ranking cannot know which positive a column holds.
+    """
+
+    def __init__(self, datapath, deterministic=False):
+        self.deterministic = bool(deterministic)
         self.groups = []
         with open(datapath, "r", encoding="utf-8") as f:
             raw = json.load(f)
@@ -103,6 +110,8 @@ class SquareTextDataset(Dataset):
 
     def __getitem__(self, idx):
         g = self.groups[idx]
+        if self.deterministic:
+            return g["anchor"], g["positives"][0], g["negatives"][0]
         return g["anchor"], random.choice(g["positives"]), random.choice(g["negatives"])
 
 
@@ -130,9 +139,28 @@ def info_nce_loss(a_emb, p_emb, n_emb, scale):
     return F.cross_entropy(logits, labels)
 
 
+def _groups_of(ds):
+    """The dataset records behind a loader, through a Subset if there is one."""
+    if isinstance(ds, Subset):
+        return [ds.dataset.groups[i] for i in ds.indices]
+    return ds.groups
+
+
 @torch.no_grad()
 def evaluate_ranking(model, loader, device):
-    """Rank each anchor's true positive against every positive in the split."""
+    """MRR of the BEST correct answer for each anchor.
+
+    Mirrors train_sparqlce.evaluate_ranking exactly -- the two must agree, or
+    the models are early-stopped against different objectives and the
+    comparison is not like-for-like.
+
+    Scoring only the diagonal as correct assumes no two anchors share a
+    positive. On the component splits they share them constantly (38 positives
+    per anchor over a 240-query pool on DBpedia validation), so roughly one
+    column in six is a genuinely correct answer being counted as an error. That
+    pinned val MRR near 0.09 regardless of model quality and early-stopped this
+    baseline at epoch 2.
+    """
     model.eval()
     anchors, positives = [], []
     for a_tok, p_tok, _ in loader:
@@ -142,7 +170,23 @@ def evaluate_ranking(model, loader, device):
         positives.append(model(p_tok).cpu())
     A, P = torch.cat(anchors), torch.cat(positives)
     sims = A @ P.T
-    ranks = (sims >= sims.diag().unsqueeze(1)).sum(dim=1).float()
+    n = sims.size(0)
+
+    groups = _groups_of(loader.dataset)
+    assert len(groups) == n, (
+        f"{len(groups)} groups but {n} embedded columns -- the eval loader must "
+        f"not shuffle or drop")
+    col_text = [g["positives"][0] for g in groups]
+    rel = torch.zeros(n, n, dtype=torch.bool)
+    for i, g in enumerate(groups):
+        pos_set = set(g["positives"])
+        for j, t in enumerate(col_text):
+            if t in pos_set:
+                rel[i, j] = True
+    rel.fill_diagonal_(True)
+
+    best_rel = sims.masked_fill(~rel, float("-inf")).max(dim=1).values
+    ranks = (sims > best_rel.unsqueeze(1)).sum(dim=1).float() + 1.0
     return {"mrr": (1.0 / ranks).mean().item(),
             "hits@1": (ranks == 1).float().mean().item(),
             "hits@5": (ranks <= 5).float().mean().item()}
@@ -215,7 +259,7 @@ def main():
         if not (args.train_file and args.val_file):
             raise SystemExit("per-split mode needs both --train-file and --val-file")
         train_ds = SquareTextDataset(args.train_file)
-        val_ds = SquareTextDataset(args.val_file)
+        val_ds = SquareTextDataset(args.val_file, deterministic=True)
         dataset = train_ds
         print(f"per-split files: train={len(train_ds)} val={len(val_ds)}")
     elif paths["splits"].exists():
@@ -233,7 +277,10 @@ def main():
                 f"survived filtering, so the indices in {paths['splits'].name} no "
                 f"longer address the intended queries. Use --train-file/--val-file.")
         train_ds = Subset(dataset, spl["train_idx"])
-        val_ds = Subset(dataset, val_idx)
+        # A separate deterministic view for validation: train and val cannot
+        # share one dataset object, since sampling must stay random for training
+        # and fixed for scoring.
+        val_ds = Subset(SquareTextDataset(paths["data"], deterministic=True), val_idx)
         print(f"fixed split: train={len(train_ds)} val={len(val_ds)}")
     else:
         dataset = SquareTextDataset(paths["data"])
