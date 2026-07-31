@@ -371,8 +371,12 @@ def main():
     # any score already exported from it became attributable to weights no
     # longer on disk. Index-split runs keep the bare path, so nothing moves.
     data_tag = f"_{Path(args.train_file).stem}" if args.train_file else ""
+    # Width changes the model too, and load_state_dict fails on a mismatch, so a
+    # 768-d run must not land on a 128-d run's path. Only tagged when set
+    # explicitly, so existing default-width checkpoints keep their paths.
+    dim_tag = f"_d{args.output_dim}" if args.output_dim else ""
     ckpt_dir = (Path(args.ckpt_root) / args.kg
-                / f"seed{args.seed}_{args.ablation}{variant}{data_tag}")
+                / f"seed{args.seed}_{args.ablation}{variant}{dim_tag}{data_tag}")
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     # no_decomposition swaps the graph builder (whole-query single node);

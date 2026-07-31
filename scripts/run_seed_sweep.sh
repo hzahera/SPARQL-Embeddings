@@ -156,6 +156,16 @@ PER_SPLIT=0
 # Mirrors the data tag train_sparqlce.py puts in the checkpoint path.
 DATA_SUFFIX=""
 VARIANT_ARGS=()
+# OUTPUT_DIM=768 matches the E5-Finetuned baseline's embedding width. The 128-d
+# default is a 6x narrower representation than the control, which measurably
+# costs SparqlCE both mean and stability -- on DBpedia seed 44, nDCG@10 went
+# 0.4949 -> 0.6003 from width alone.
+DIM_SUFFIX=""
+if [ -n "${OUTPUT_DIM:-}" ]; then
+  VARIANT_ARGS+=(--output-dim "$OUTPUT_DIM")
+  DIM_SUFFIX="_d${OUTPUT_DIM}"
+  echo "SparqlCE output_dim: $OUTPUT_DIM"
+fi
 [ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_ARGS+=(--query-stream) || true
 [ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_ARGS+=(--join-hubs) || true
 VARIANT_SUFFIX=""
@@ -294,7 +304,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
     python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
       --model-type sparqlce \
-      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}${DATA_SUFFIX}/best_model.pt" \
+      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}${DIM_SUFFIX}${DATA_SUFFIX}/best_model.pt" \
       --seed "$seed" --ablation full \
       --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
     [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
