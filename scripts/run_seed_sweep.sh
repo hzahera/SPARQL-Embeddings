@@ -145,6 +145,21 @@ TRAIN_FILE="${TRAIN_FILE:-datasets/${KG}-train-RQ1.json}"
 VAL_FILE="${VAL_FILE:-datasets/${KG}-valid-RQ1.json}"
 COMPONENT_SPLITS="datasets/splits_${KG}_components.json"
 PER_SPLIT=0
+
+# Architecture variant, applied to SparqlCE under EITHER protocol. These change
+# the model, not the data, so they are independent of the split question -- but
+# they must be constant across the seeds of one sweep, and across the two arms
+# of any comparison. train_sparqlce.py puts them in the checkpoint path, so a
+# variant sweep cannot silently overwrite a baseline sweep's checkpoints.
+#   QUERY_STREAM=1  text branch reads the whole query, not a bag of node labels
+#   JOIN_HUBS=1     joins routed through hub nodes, keeping graph diameter > 1
+VARIANT_ARGS=()
+[ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_ARGS+=(--query-stream) || true
+[ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_ARGS+=(--join-hubs) || true
+VARIANT_SUFFIX=""
+[ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_SUFFIX="${VARIANT_SUFFIX}_qs" || true
+[ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_SUFFIX="${VARIANT_SUFFIX}_jh" || true
+[ "${#VARIANT_ARGS[@]}" -gt 0 ] && echo "SparqlCE variant: ${VARIANT_ARGS[*]} (checkpoints -> seedN_full${VARIANT_SUFFIX})" || true
 if [ "$SPLIT_PROTOCOL" = "group" ]; then
   # Group protocol: index-split training, and the leakage audit below is the
   # check that makes it sound. Per-split files are ignored even if present.
@@ -264,7 +279,8 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     echo "--- [$KG seed=$seed] training SparqlCE (batch $BATCH, <=$EPOCHS epochs) ---"
     python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
       --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp \
-      ${SPARQLCE_DATA_ARGS[@]+"${SPARQLCE_DATA_ARGS[@]}"}
+      ${SPARQLCE_DATA_ARGS[@]+"${SPARQLCE_DATA_ARGS[@]}"} \
+      ${VARIANT_ARGS[@]+"${VARIANT_ARGS[@]}"}
     if [ $? -ne 0 ]; then
       echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
       FAILED_SPARQLCE+=("$seed"); continue
@@ -275,7 +291,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
     python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
       --model-type sparqlce \
-      --checkpoint "checkpoints/$KG/seed${seed}_full/best_model.pt" \
+      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}/best_model.pt" \
       --seed "$seed" --ablation full \
       --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
     [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
