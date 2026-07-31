@@ -364,7 +364,15 @@ def main():
     # flag) keep their original path, so nothing already on disk moves.
     variant = "".join(s for s, on in (("_qs", args.query_stream),
                                       ("_jh", args.join_hubs)) if on)
-    ckpt_dir = Path(args.ckpt_root) / args.kg / f"seed{args.seed}_{args.ablation}{variant}"
+    # The TRAINING DATA belongs in the path too, not just the architecture
+    # variant. A component-split run and an index-split run of the same variant
+    # are different models on different corpora, and both were writing to
+    # seed{N}_{ablation}_qs_jh -- so the second silently replaced the first, and
+    # any score already exported from it became attributable to weights no
+    # longer on disk. Index-split runs keep the bare path, so nothing moves.
+    data_tag = f"_{Path(args.train_file).stem}" if args.train_file else ""
+    ckpt_dir = (Path(args.ckpt_root) / args.kg
+                / f"seed{args.seed}_{args.ablation}{variant}{data_tag}")
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     # no_decomposition swaps the graph builder (whole-query single node);

@@ -153,6 +153,8 @@ PER_SPLIT=0
 # variant sweep cannot silently overwrite a baseline sweep's checkpoints.
 #   QUERY_STREAM=1  text branch reads the whole query, not a bag of node labels
 #   JOIN_HUBS=1     joins routed through hub nodes, keeping graph diameter > 1
+# Mirrors the data tag train_sparqlce.py puts in the checkpoint path.
+DATA_SUFFIX=""
 VARIANT_ARGS=()
 [ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_ARGS+=(--query-stream) || true
 [ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_ARGS+=(--join-hubs) || true
@@ -171,6 +173,7 @@ elif [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   PER_SPLIT=1
   SPARQLCE_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE" --test-file "$SPLIT")
   E5_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE")
+  DATA_SUFFIX="_$(basename "$TRAIN_FILE" .json)"
   echo "per-split mode: train=$TRAIN_FILE val=$VAL_FILE (both models)"
   # NEGATIVE PARITY. finetune_e5_baseline.py always puts one curated negative per
   # anchor in its InfoNCE candidate set (SquareTextDataset.__getitem__ ->
@@ -291,7 +294,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
     python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
       --model-type sparqlce \
-      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}/best_model.pt" \
+      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}${DATA_SUFFIX}/best_model.pt" \
       --seed "$seed" --ablation full \
       --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
     [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
