@@ -107,7 +107,7 @@ class SemanticSPARQLDataset(Dataset):
 				so early stopping reacts to sampling noise rather than to the
 				model. Never set it for training, where the resampling is the
 				point.
-			query_stream (bool): emit the whole query string (q_ids/q_mask) so the
+			query_stream (bool): emit the whole query string (q_ids/q_len) so the
 				encoder's text branch reads the query itself rather than a mean
 				over node labels. Off by default: it changes what the model is
 				given, so old runs stay reproducible.
