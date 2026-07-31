@@ -65,7 +65,7 @@ class SPARQLEmbedder:
 		# fall back to the original behaviour.
 		cfg = checkpoint.get("graph_config", {}) if isinstance(checkpoint, dict) else {}
 		self.query_stream = bool(cfg.get("query_stream", False))
-		self.query_max_length = int(cfg.get("query_max_length", 256))
+		self.query_max_length = int(cfg.get("query_max_length", 384))
 		join_hubs = bool(cfg.get("join_hubs", False))
 
 		builder_cls = _ABLATION_TO_BUILDER[ablation]
@@ -109,11 +109,16 @@ class SPARQLEmbedder:
 			num_nodes=num_nodes,
 		)
 		if self.query_stream:
-			q_tok = self.tokenizer("query: " + " ".join(query_text.split()),
-			                       padding='max_length', max_length=self.query_max_length,
-			                       truncation=True, return_tensors='pt')
-			data.q_ids = q_tok['input_ids']
-			data.q_mask = q_tok['attention_mask']
+			# Must mirror sparqlce/dataset.py exactly: unpadded 1-D ids plus a
+			# length, with the encoder padding per batch. The query text is NOT
+			# whitespace-normalised here -- training tokenizes the raw string,
+			# and although BERT WordPiece collapses whitespace anyway, relying
+			# on that is the kind of implicit coupling graph_config exists to
+			# prevent.
+			q_ids = self.tokenizer("query: " + query_text, truncation=True,
+			                       max_length=self.query_max_length)['input_ids']
+			data.q_ids = torch.tensor(q_ids, dtype=torch.long)
+			data.q_len = torch.tensor([len(q_ids)], dtype=torch.long)
 		return data
 
 	def encode(self, queries):

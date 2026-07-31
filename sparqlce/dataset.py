@@ -90,7 +90,7 @@ class SemanticSPARQLDataset(Dataset):
 		augment_seed=None,
 		deterministic=False,
 		query_stream=False,
-		query_max_length=256,
+		query_max_length=384,
 	):
 		"""
 		Args (additions):
@@ -198,16 +198,28 @@ class SemanticSPARQLDataset(Dataset):
 		)
 
 		if self.query_stream:
-			# One row per graph, so PyG's default concatenation yields [B, L]
-			# after batching, aligned with the graph-level outputs. The
-			# "query: " prefix is what E5 expects and what the E5 baselines
-			# receive, so both sides of the comparison get it.
-			q_tok = self.tokenizer(
-				"query: " + query_text, padding="max_length",
-				max_length=self.query_max_length, truncation=True, return_tensors="pt",
-			)
-			data.q_ids = q_tok["input_ids"]
-			data.q_mask = q_tok["attention_mask"]
+			# Stored UNPADDED, as a flat 1-D tensor plus its length; the encoder
+			# pads each batch to its own longest query.
+			#
+			# Padding every query to a fixed width instead is what forced the
+			# budget down to 256 tokens, and at 256 more than 5% of queries were
+			# truncated -- the LONGEST ones, i.e. exactly the structurally
+			# complex queries the graph branch exists for. Meanwhile the median
+			# query is 73 tokens, so fixed-width padding spent ~3.5x the memory
+			# it needed on a typical batch. Per-batch padding removes the
+			# truncation and the waste together.
+			#
+			# 1-D means PyG concatenates along dim 0 (its default for any key
+			# without "index" in the name), so a batch carries q_ids of total
+			# length sum(q_len) and q_len of shape [B] -- no equal-width
+			# requirement, and no reliance on how a PyG version collates
+			# non-tensor attributes.
+			q_ids = self.tokenizer(
+				"query: " + query_text, truncation=True,
+				max_length=self.query_max_length,
+			)["input_ids"]
+			data.q_ids = torch.tensor(q_ids, dtype=torch.long)
+			data.q_len = torch.tensor([len(q_ids)], dtype=torch.long)
 		return data
 
 	def __len__(self):

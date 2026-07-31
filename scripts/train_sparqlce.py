@@ -327,8 +327,9 @@ def main():
                           "against a 6x wider one -- which is a capacity "
                           "difference, not an architectural one. Pass 768 to "
                           "remove that confound.")
-    ap.add_argument("--query-max-length", type=int, default=256,
-                     help="token budget for --query-stream (default 256). Lower "
+    ap.add_argument("--query-max-length", type=int, default=384,
+                     help="token budget for --query-stream (default 384, above the "
+                          "corpus maximum of 364, so nothing truncates). Lower "
                           "it to fit memory, but it changes the input the "
                           "weights see, so it is recorded in the checkpoint and "
                           "two runs are only comparable at the same value.")

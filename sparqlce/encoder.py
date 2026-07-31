@@ -117,6 +117,30 @@ class HybridSPARQLEncoder(nn.Module):
         m = mask.unsqueeze(-1).float()                # [B, L, 1]
         return (h * m).sum(1) / m.sum(1).clamp(min=1e-9)   # [B, d]
 
+    def _query_stream_pool(self, data) -> torch.Tensor | None:
+        """Mean-pool the whole-query token stream, padded per batch.
+
+        Returns None when the batch carries no query stream, so callers fall
+        back to the node-label mean and pre-existing checkpoints keep scoring
+        exactly as they did.
+
+        q_ids arrives flat (sum of all lengths) with q_len giving the split, so
+        each batch is padded only to ITS longest query rather than to a fixed
+        budget. The padding VALUE is irrelevant because attention_mask is zero
+        there and mean pooling divides by the mask sum -- which is why 0 is safe
+        without consulting the tokenizer for its pad id.
+        """
+        q_ids = getattr(data, "q_ids", None)
+        if q_ids is None:
+            return None
+        lengths = data.q_len.view(-1)
+        chunks = torch.split(q_ids, lengths.tolist())
+        padded = torch.nn.utils.rnn.pad_sequence(
+            chunks, batch_first=True, padding_value=0)          # [B, Lmax]
+        mask = (torch.arange(padded.size(1), device=padded.device)[None, :]
+                < lengths.view(-1, 1)).long()                   # [B, Lmax]
+        return self._mean_pool(padded, mask)
+
     def _encode_edges(
         self,
         ids: torch.Tensor,
@@ -156,8 +180,8 @@ class HybridSPARQLEncoder(nn.Module):
         if self.ablation == "no_gnn":
             # Text-only path. With q_ids this is a flat encoder over the query
             # string -- the graph-free control, trained by our own recipe.
-            q_ids = getattr(data, "q_ids", None)
-            z_pooled = (self._mean_pool(q_ids, data.q_mask) if q_ids is not None
+            z_q = self._query_stream_pool(data)
+            z_pooled = (z_q if z_q is not None
                         else global_mean_pool(z_text_nodes, data.batch))  # [B, d]
             emb = self.ln(self.text_proj(z_pooled))
             return F.normalize(emb, p=2, dim=1), 0.5  # gate_mean = 0.5 sentinel
@@ -191,11 +215,9 @@ class HybridSPARQLEncoder(nn.Module):
         # diameter is 1, since z_graph then pools the same node embeddings.
         # With q_ids present the gate saturating at 1 reproduces the flat text
         # encoder exactly, so the graph branch can only add to it.
-        q_ids = getattr(data, "q_ids", None)
-        if q_ids is not None:
-            z_text = self._mean_pool(q_ids, data.q_mask)           # [B, d]
-        else:
-            z_text = global_mean_pool(z_text_nodes, data.batch)    # [B, d]
+        z_q = self._query_stream_pool(data)
+        z_text = (z_q if z_q is not None
+                  else global_mean_pool(z_text_nodes, data.batch))  # [B, d]
 
         # ── Gated fusion ─────────────────────────────────────────────────────
         gate = torch.sigmoid(self.gate_fc(
