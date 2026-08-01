@@ -79,7 +79,12 @@ fi
 cd "$(dirname "$0")/.."
 mkdir -p results/significance
 
-TAG="$(basename "$SPLIT" .json)"
+# TAG names the per-anchor score files and the summary. It must identify the
+# CONFIGURATION, not just the split: a 768-d sweep and a 128-d sweep of the same
+# split otherwise write the same filenames, and the second silently destroys the
+# first's exports -- which is exactly what happened to the 128-d DBpedia run.
+# Set below, once the variant/width suffixes are known.
+TAG_BASE="$(basename "$SPLIT" .json)"
 echo "=== KG=$KG  seeds=$N_SEEDS  split=$SPLIT  patience=$PATIENCE  batch=$BATCH  epochs<=$EPOCHS ==="
 [ -f "$SPLIT" ] || { echo "split $SPLIT not found -- build it with scripts/build_clean_rq1.py --kg $KG"; exit 1; }
 
@@ -172,6 +177,8 @@ VARIANT_SUFFIX=""
 [ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_SUFFIX="${VARIANT_SUFFIX}_qs" || true
 [ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_SUFFIX="${VARIANT_SUFFIX}_jh" || true
 [ "${#VARIANT_ARGS[@]}" -gt 0 ] && echo "SparqlCE variant: ${VARIANT_ARGS[*]} (checkpoints -> seedN_full${VARIANT_SUFFIX})" || true
+TAG="${TAG_BASE}${VARIANT_SUFFIX}${DIM_SUFFIX}"
+echo "results tag: $TAG"
 if [ "$SPLIT_PROTOCOL" = "group" ]; then
   # Group protocol: index-split training, and the leakage audit below is the
   # check that makes it sound. Per-split files are ignored even if present.
