@@ -151,6 +151,27 @@ class DBpediaSPARQLEncoder(nn.Module):
 
         self.ln = nn.LayerNorm(out)
 
+    def enable_gradient_checkpointing(self) -> None:
+        """Trade ~30% step time for a large cut in backbone activation memory.
+
+        Effectively mandatory when training with hard negatives. This encoder
+        pushes the WHOLE QUERY through the backbone for every graph in the
+        batch, so a step with B anchors, B positives and B*max_neg negatives
+        encodes B*(2 + max_neg) query streams at up to `query_max_length`
+        tokens each, on top of their node and edge labels. At B=32,
+        max_neg=16 that is 576 query streams -- ~196k tokens of retained
+        activations through a 12-layer backbone, which exhausts an 80GB A100
+        on the first step. Checkpointing keeps only layer boundaries.
+
+        `use_reentrant=False` is required: the reentrant implementation drops
+        gradients for inputs that do not require grad, which is exactly the
+        case here (token ids).
+        """
+        self.text_enc.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False})
+        if hasattr(self.text_enc, "config"):
+            self.text_enc.config.use_cache = False
+
     # ── helpers ─────────────────────────────────────────────────────────────
 
     def _mean_pool(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
@@ -193,8 +214,11 @@ class DBpediaSPARQLEncoder(nn.Module):
         z_q = self._query_pool(data)                              # [B, d]
         num_graphs = z_q.size(0)
         emb = self.text_proj(z_q)
-        text_norm = emb.norm(dim=1).mean().clamp(min=1e-9)
-        extra_norm = emb.new_zeros(())
+        # Diagnostics only -- detached, so they neither retain activations nor
+        # force a device sync inside the autograd graph.
+        with torch.no_grad():
+            text_norm = emb.detach().norm(dim=1).mean().clamp(min=1e-9)
+            extra_norm = emb.new_zeros(())
 
         need_nodes = self.use_const or self.use_graph
         z_nodes = self._mean_pool(data.x_ids, data.x_mask) if need_nodes else None
@@ -209,7 +233,7 @@ class DBpediaSPARQLEncoder(nn.Module):
             z_c = self.const_pool(z_nodes[sel], data.batch[sel], z_q, num_graphs)
             contrib = self.gamma_c * self.const_proj(z_c)
             emb = emb + contrib
-            extra_norm = extra_norm + contrib.norm(dim=1).mean()
+            extra_norm = extra_norm + contrib.detach().norm(dim=1).mean()
 
         if self.use_graph:
             edge_type = getattr(data, "edge_type", None)
@@ -223,10 +247,10 @@ class DBpediaSPARQLEncoder(nn.Module):
             z_g = self.graph_pool(x2, data.batch, z_q, num_graphs)
             contrib = self.gamma_g * self.graph_proj(z_g)
             emb = emb + contrib
-            extra_norm = extra_norm + contrib.norm(dim=1).mean()
+            extra_norm = extra_norm + contrib.detach().norm(dim=1).mean()
 
         emb = self.ln(emb)
-        share = float(extra_norm / (text_norm + extra_norm)) if need_nodes else 0.0
+        share = (float(extra_norm / (text_norm + extra_norm)) if need_nodes else 0.0)
         return F.normalize(emb, p=2, dim=1), share
 
 

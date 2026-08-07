@@ -311,6 +311,13 @@ def main():
                           "which otherwise turns hubs on. Measured on the 4,713 "
                           "DBpedia anchors: pairwise leaves 38.3%% of graphs at "
                           "diameter <=1, hubs 3.4%%.")
+    ap.add_argument("--no-grad-checkpointing", action="store_true",
+                     help="disable gradient checkpointing on the text backbone "
+                          "(--arch dbpedia turns it on). It costs ~30%% step "
+                          "time and is what makes --hard-negatives fit: the "
+                          "DBpedia encoder runs the whole query through the "
+                          "backbone for every graph, so B*(2+max_neg) query "
+                          "streams are encoded per step.")
     ap.add_argument("--calibrate-inbatch", action="store_true",
                      help="regress every off-diagonal in-batch pair's cosine to "
                           "0 in the calibration term (--arch dbpedia only). Sound "
@@ -494,6 +501,10 @@ def main():
         from sparqlce.dbpedia_encoder import DBpediaSPARQLEncoder, calibrated_infonce
         model = DBpediaSPARQLEncoder(ablation=args.ablation,
                                      output_dim=args.output_dim).to(device)
+        if not args.no_grad_checkpointing:
+            model.enable_gradient_checkpointing()
+            print("gradient checkpointing: ON (backbone activations recomputed "
+                  "in backward; ~30% slower, and what makes --hard-negatives fit)")
     else:
         model = HybridSPARQLEncoder(ablation=encoder_mode,
                                     output_dim=args.output_dim).to(device)

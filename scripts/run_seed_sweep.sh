@@ -254,15 +254,27 @@ elif [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
     # x 16 negatives that is 2048 graphs against 256 for in-batch mode -- an
     # 80GB A100 OOMs on the first step. The product is the thing to control.
     NEG_GRAPHS=$((BATCH * MAX_NEG))
-    MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-512}"
+    # The 512 ceiling was measured for the HYBRID encoder without the query
+    # stream, where a negative graph costs only its node and edge labels
+    # (~5 nodes x 32 tokens). --arch dbpedia runs the whole query through the
+    # backbone for every graph as well, at up to --query-max-length tokens, so
+    # a negative graph is several times more expensive and 32x16 OOMs an 80GB
+    # A100 on step 1 even with gradient checkpointing on. Halve the ceiling.
+    if [ "$ARCH" = "dbpedia" ]; then
+      MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-256}"
+    else
+      MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-512}"
+    fi
     echo "  negative graphs/step: $BATCH x $MAX_NEG = $NEG_GRAPHS"
     if [ "$NEG_GRAPHS" -gt "$MAX_NEG_GRAPHS" ]; then
-      echo "!!! $NEG_GRAPHS negative graphs per step will very likely OOM"
-      echo "    (in-batch mode encodes $((BATCH * 2)) graphs total; >512 negative"
-      echo "    graphs has been observed to exhaust an 80GB A100 on step 1)."
-      echo "    Lower the batch, the negatives, or both -- their PRODUCT is what"
-      echo "    matters. Suggested, keeping the baseline slightly favoured:"
-      echo "      ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE 32 $EPOCHS   # with MAX_NEG=8"
+      echo "!!! $NEG_GRAPHS negative graphs per step exceeds the $MAX_NEG_GRAPHS ceiling"
+      echo "    and will very likely OOM (in-batch mode encodes $((BATCH * 2)) graphs"
+      echo "    total). Lower the batch, the negatives, or both -- their PRODUCT"
+      echo "    is what matters. Suggested, keeping the baseline slightly favoured:"
+      echo "      MAX_NEG=8 ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE 32 $EPOCHS"
+      [ "$ARCH" = "dbpedia" ] && \
+      echo "    (ARCH=dbpedia also encodes the whole query per graph, so its"
+      echo "     ceiling is 256 rather than 512 even with gradient checkpointing.)"
       echo "    Set MAX_NEG_GRAPHS=$NEG_GRAPHS to override and try anyway."
       exit 1
     fi
