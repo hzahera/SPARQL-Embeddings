@@ -539,7 +539,7 @@ def main():
           f"{args.epochs} epochs (patience={args.patience or 'off'}, amp={args.amp})")
     for epoch in range(1, args.epochs + 1):
         model.train()
-        sum_loss = sum_ce = sum_reg = 0.0
+        sum_loss = sum_ce = sum_reg = sum_share = 0.0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:02d}/{args.epochs}")
         for batch in pbar:
             optimizer.zero_grad()
@@ -550,7 +550,8 @@ def main():
                     # 78.9% of DBpedia's positives -- a pull-together with no
                     # push-apart, which is how the embedding space ends up at
                     # mean cosine 0.99 everywhere.
-                    a_emb, _ = model(batch[0].to(device))
+                    a_emb, share = model(batch[0].to(device))
+                    sum_share += share
                     p_emb, _ = model(batch[1].to(device))
                     if args.hard_negatives:
                         n_emb, _ = model(batch[2].to(device))
@@ -594,9 +595,15 @@ def main():
         # Without it a run leaves no trace of whether val MRR was still climbing
         # when training stopped, or had turned over into overfitting -- which is
         # exactly what has to be checked when val and test disagree.
+        # share = fraction of the embedding's norm contributed by the constant
+        # and graph streams (--arch dbpedia only; 0 elsewhere). If it stays near
+        # 0 the extra streams are not being used and the honest report is that
+        # the flat trunk does the job -- which is not visible from MRR alone.
         history.append({"epoch": epoch, "loss": sum_loss / nb,
-                        "ce": sum_ce / nb, "reg": sum_reg / nb, **val})
-        print(f"Epoch {epoch:02d} | train_loss={sum_loss/nb:.4f} (ce={sum_ce/nb:.4f} reg={sum_reg/nb:.4f}) "
+                        "ce": sum_ce / nb, "reg": sum_reg / nb,
+                        "non_text_share": sum_share / nb, **val})
+        share_str = (f" share={sum_share/nb:.3f}" if args.arch == "dbpedia" else "")
+        print(f"Epoch {epoch:02d} | train_loss={sum_loss/nb:.4f} (ce={sum_ce/nb:.4f} reg={sum_reg/nb:.4f}){share_str} "
               f"| val MRR={val['mrr']:.4f} Hits@1={val['hits@1']:.4f} Hits@5={val['hits@5']:.4f}")
 
         if val["mrr"] > best_mrr + args.min_delta:
