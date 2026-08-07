@@ -161,6 +161,40 @@ PER_SPLIT=0
 # Mirrors the data tag train_sparqlce.py puts in the checkpoint path.
 DATA_SUFFIX=""
 VARIANT_ARGS=()
+E5_EXTRA_ARGS=()
+# ARCH=dbpedia swaps SparqlCE's encoder for DBpediaSPARQLEncoder. It is a
+# package of input choices as well as an architecture (--query-stream,
+# --join-hubs, 768-d, humanized IRIs, populated edge types), so the suffixes
+# below are forced to match what train_sparqlce.py will put in the checkpoint
+# path -- otherwise the export step looks for a directory that does not exist.
+ARCH="${ARCH:-hybrid}"
+ARCH_TAG=""
+E5_CKPT_ROOT="checkpoints/e5_ft"
+if [ "$ARCH" = "dbpedia" ]; then
+  [ "$KG" = "dbpedia" ] || { echo "ARCH=dbpedia is for --kg dbpedia (got $KG)"; exit 1; }
+  VARIANT_ARGS+=(--arch dbpedia)
+  ARCH_TAG="_dbpedia"
+  QUERY_STREAM=1
+  JOIN_HUBS=1
+  OUTPUT_DIM="${OUTPUT_DIM:-768}"
+  # FAIRNESS: humanization is preprocessing, not architecture. The baseline
+  # must read the same vocabulary or the gap measures a string transform. The
+  # kill-switch disables it for BOTH models, which is the only fair way to run
+  # the no-humanization ablation.
+  if [ "${SPARQLCE_NO_DBPEDIA_HUMANIZE:-0}" = "1" ]; then
+    echo "ARCH=dbpedia: humanization DISABLED for every model (kill-switch set)"
+  else
+    E5_EXTRA_ARGS+=(--humanize)
+    echo "ARCH=dbpedia: humanization ON for SparqlCE AND the E5 baseline"
+    # A humanized baseline is a different model from a raw one and must not
+    # land on its path -- finetune_e5_baseline.py keys the directory on
+    # kg/seed alone, so the second run would silently replace the first and any
+    # score already exported from it would point at weights no longer on disk.
+    E5_CKPT_ROOT="checkpoints/e5_ft_humanized"
+  fi
+elif [ "$ARCH" != "hybrid" ]; then
+  echo "unknown ARCH=$ARCH (expected hybrid or dbpedia)"; exit 1
+fi
 # OUTPUT_DIM=768 matches the E5-Finetuned baseline's embedding width. The 128-d
 # default is a 6x narrower representation than the control, which measurably
 # costs SparqlCE both mean and stability -- on DBpedia seed 44, nDCG@10 went
@@ -176,8 +210,8 @@ fi
 VARIANT_SUFFIX=""
 [ "${QUERY_STREAM:-0}" = "1" ] && VARIANT_SUFFIX="${VARIANT_SUFFIX}_qs" || true
 [ "${JOIN_HUBS:-0}" = "1" ]    && VARIANT_SUFFIX="${VARIANT_SUFFIX}_jh" || true
-[ "${#VARIANT_ARGS[@]}" -gt 0 ] && echo "SparqlCE variant: ${VARIANT_ARGS[*]} (checkpoints -> seedN_full${VARIANT_SUFFIX})" || true
-TAG="${TAG_BASE}${VARIANT_SUFFIX}${DIM_SUFFIX}"
+[ "${#VARIANT_ARGS[@]}" -gt 0 ] && echo "SparqlCE variant: ${VARIANT_ARGS[*]} (checkpoints -> seedN${ARCH_TAG}_full${VARIANT_SUFFIX}${DIM_SUFFIX})" || true
+TAG="${TAG_BASE}${ARCH_TAG}${VARIANT_SUFFIX}${DIM_SUFFIX}"
 echo "results tag: $TAG"
 if [ "$SPLIT_PROTOCOL" = "group" ]; then
   # Group protocol: index-split training, and the leakage audit below is the
@@ -206,6 +240,14 @@ elif [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   if [ "$HARD_NEGS" != "0" ]; then
     SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
     echo "  negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
+    # Only sound under the component protocol, which is the branch we are in:
+    # two anchors from different components provably have disjoint answers, so
+    # regressing their cosine to 0 uses a correct target. On a group split two
+    # in-batch anchors can be result-equivalent. CALIBRATE_INBATCH=0 opts out.
+    if [ "$ARCH" = "dbpedia" ] && [ "${CALIBRATE_INBATCH:-1}" != "0" ]; then
+      SPARQLCE_DATA_ARGS+=(--calibrate-inbatch)
+      echo "  calibration: two-sided + in-batch zero targets (component protocol)"
+    fi
     # Memory, not correctness. --hard-negatives puts BATCH*MAX_NEG negative
     # GRAPHS through the encoder in one forward, on top of BATCH anchors and
     # BATCH positives, and each graph costs a BERT pass per node. At batch 128
@@ -311,7 +353,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     echo "--- [$KG seed=$seed] exporting SparqlCE scores ---"
     python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
       --model-type sparqlce \
-      --checkpoint "checkpoints/$KG/seed${seed}_full${VARIANT_SUFFIX}${DIM_SUFFIX}${DATA_SUFFIX}/best_model.pt" \
+      --checkpoint "checkpoints/$KG/seed${seed}${ARCH_TAG}_full${VARIANT_SUFFIX}${DIM_SUFFIX}${DATA_SUFFIX}/best_model.pt" \
       --seed "$seed" --ablation full \
       --out "results/significance/${TAG}_sparqlce_seed${seed}.json"
     [ $? -ne 0 ] && echo "!!! [$KG seed=$seed] SparqlCE export failed (checkpoint still saved)"
@@ -330,14 +372,16 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
   # E5-FT is a full fine-tune saved as a standalone HF/sentence-transformers dir,
   # so --model-type sentence-transformer is correct here.
   echo "--- [$KG seed=$seed] training + exporting E5-Finetuned (batch $BATCH) ---"
-  E5_META="checkpoints/e5_ft/$KG/seed${seed}/run_metadata.json"
+  E5_META="$E5_CKPT_ROOT/$KG/seed${seed}/run_metadata.json"
   rm -f "$E5_META"   # so the LR check below can never pass on a stale file
   python scripts/finetune_e5_baseline.py --kg "$KG" --seed "$seed" \
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
+    --ckpt-root "$E5_CKPT_ROOT" \
     ${E5_LR:+--lr "$E5_LR"} ${E5_DATA_ARGS[@]+"${E5_DATA_ARGS[@]}"} \
+    ${E5_EXTRA_ARGS[@]+"${E5_EXTRA_ARGS[@]}"} \
   && python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sentence-transformer \
-    --model-name "checkpoints/e5_ft/$KG/seed${seed}/best_model" \
+    --model-name "$E5_CKPT_ROOT/$KG/seed${seed}/best_model" \
     --seed "$seed" --ablation baseline-e5ft \
     --out "results/significance/${TAG}_e5ft_seed${seed}.json"
   [ $? -ne 0 ] && { echo "!!! [$KG seed=$seed] E5-FT FAILED -- SparqlCE safe; rerun E5-FT later"; FAILED_E5FT+=("$seed"); }

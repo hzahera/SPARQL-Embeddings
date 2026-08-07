@@ -91,6 +91,8 @@ class SemanticSPARQLDataset(Dataset):
 		deterministic=False,
 		query_stream=False,
 		query_max_length=384,
+		constant_stream=False,
+		edge_type_fn=None,
 	):
 		"""
 		Args (additions):
@@ -115,10 +117,27 @@ class SemanticSPARQLDataset(Dataset):
 				Truncation here silently drops the tail of long queries from the
 				text side while the graph still sees them, so raise it rather
 				than let the two streams read different queries.
+			constant_stream (bool): emit `x_is_const`, a per-node flag marking
+				the ENT/LIT nodes -- the constants. `DBpediaSPARQLEncoder` pools
+				exactly those into a dedicated stream, because on DBpedia the
+				constant is the discriminating variable (71.9% of
+				anchor-positive graph pairs are identical once constants are
+				masked) and a mean over a 4-node graph dilutes it. Off by
+				default: it adds a tensor old checkpoints never saw.
+			edge_type_fn (callable|None): maps an edge label to an integer type
+				id, emitted as `edge_type`. `HybridSPARQLEncoder` has consumed
+				this field since it was written but nothing ever produced it,
+				so its typed-edge embeddings never trained. Passing
+				`sparqlce.dbpedia.edge_type_id` turns them on. Safe for
+				existing checkpoints either way -- their `edge_type_emb` weights
+				were saved as the zeros they were initialised to, so the offset
+				they add is zero.
 		"""
 		self.builder = graph_builder
 		self.query_stream = bool(query_stream)
 		self.query_max_length = int(query_max_length)
+		self.constant_stream = bool(constant_stream)
+		self.edge_type_fn = edge_type_fn
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
 		self.max_pos = max_pos_per_anchor
 		self.max_neg = max_neg_per_anchor
@@ -196,6 +215,17 @@ class SemanticSPARQLDataset(Dataset):
 			edge_attr_mask=e_tok["attention_mask"],
 			num_nodes=num_nodes,
 		)
+
+		if self.constant_stream:
+			# 1-D per-node flag: PyG concatenates it along dim 0 exactly like
+			# any other node attribute, so `data.batch[data.x_is_const]` gives
+			# the graph id of every constant in the batch.
+			from .dbpedia import is_constant_label
+			data.x_is_const = torch.tensor(
+				[is_constant_label(l) for l in labels], dtype=torch.bool)
+		if self.edge_type_fn is not None:
+			data.edge_type = torch.tensor(
+				[self.edge_type_fn(l) for l in edge_labels], dtype=torch.long)
 
 		if self.query_stream:
 			# Stored UNPADDED, as a flat 1-D tensor plus its length; the encoder

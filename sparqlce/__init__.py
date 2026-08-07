@@ -14,6 +14,13 @@ _EXPORTS = {
     "Config": ".config",
     "SPARQLGraphBuilder": ".graph_builder",
     "HybridSPARQLEncoder": ".encoder",
+    # DBpedia-specific path. `dbpedia` is pure-stdlib (safe for the split
+    # scripts); `dbpedia_encoder` pulls in torch, hence the lazy resolution.
+    "DBpediaGraphBuilder": ".dbpedia",
+    "humanize_dbpedia_query": ".dbpedia",
+    "edge_type_id": ".dbpedia",
+    "DBpediaSPARQLEncoder": ".dbpedia_encoder",
+    "calibrated_infonce": ".dbpedia_encoder",
     "SemanticSPARQLDataset": ".dataset",
     "semantic_collate_fn": ".dataset",
     "semantic_collate_fn_inbatch": ".dataset",

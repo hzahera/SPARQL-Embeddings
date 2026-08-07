@@ -31,10 +31,15 @@ class SPARQLEmbedder:
 		# and the wrapped {"model_state_dict": ..., "ablation": ...} dict that
 		# training checkpoints (best_model.pt) save.
 		output_dim = None
+		arch = "hybrid"
 		if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
 			state_dict = checkpoint["model_state_dict"]
 			ablation = ablation or checkpoint.get("ablation", "full")
 			output_dim = checkpoint.get("output_dim")
+			# Which encoder CLASS produced these weights. Absent on every
+			# checkpoint written before --arch existed, and those are all
+			# hybrid, so the default reproduces them exactly.
+			arch = checkpoint.get("arch", "hybrid")
 		else:
 			state_dict = checkpoint
 			ablation = ablation or "full"
@@ -51,29 +56,46 @@ class SPARQLEmbedder:
 			print(f"  note: checkpoint output_dim={output_dim} differs from "
 			      f"Config.OUTPUT_DIM={Config.OUTPUT_DIM}; using the checkpoint's.")
 
-		self.model = HybridSPARQLEncoder(
-			ablation=_ABLATION_TO_ENCODER_MODE[ablation], output_dim=output_dim
-		).to(self.device)
-		self.model.load_state_dict(state_dict)
-		self.model.eval()
-        
 		# Graph/text construction must match what this checkpoint was TRAINED
-		# with, not what the current default is. Both settings change the input
-		# the weights see, and neither changes any tensor shape -- so a mismatch
+		# with, not what the current default is. These settings change the input
+		# the weights see without changing any tensor shape -- so a mismatch
 		# does not raise, it just quietly scores a different model. Checkpoints
-		# written before these options existed carry neither key and correctly
-		# fall back to the original behaviour.
+		# written before these options existed carry none of the keys and
+		# correctly fall back to the original behaviour.
 		cfg = checkpoint.get("graph_config", {}) if isinstance(checkpoint, dict) else {}
 		self.query_stream = bool(cfg.get("query_stream", False))
 		self.query_max_length = int(cfg.get("query_max_length", 384))
 		join_hubs = bool(cfg.get("join_hubs", False))
+		self.constant_stream = bool(cfg.get("constant_stream", False))
+		self.edge_type_fn = None
 
-		builder_cls = _ABLATION_TO_BUILDER[ablation]
-		self.builder = (builder_cls(join_hubs=join_hubs)
-		                if builder_cls is SPARQLGraphBuilder else builder_cls())
+		if arch == "dbpedia":
+			from .dbpedia import DBpediaGraphBuilder, edge_type_id
+			from .dbpedia_encoder import DBpediaSPARQLEncoder
+			self.model = DBpediaSPARQLEncoder(
+				ablation=ablation, output_dim=output_dim).to(self.device)
+			self.builder = DBpediaGraphBuilder(join_hubs=join_hubs)
+			if cfg.get("edge_types", True):
+				self.edge_type_fn = edge_type_id
+		else:
+			self.model = HybridSPARQLEncoder(
+				ablation=_ABLATION_TO_ENCODER_MODE[ablation], output_dim=output_dim
+			).to(self.device)
+			builder_cls = _ABLATION_TO_BUILDER[ablation]
+			self.builder = (builder_cls(join_hubs=join_hubs)
+			                if builder_cls is SPARQLGraphBuilder else builder_cls())
+			if cfg.get("edge_types", False):
+				from .dbpedia import edge_type_id
+				self.edge_type_fn = edge_type_id
+
+		self.model.load_state_dict(state_dict)
+		self.model.eval()
+
 		self.tokenizer = AutoTokenizer.from_pretrained(Config.MODEL_NAME)
-		print(f"  graph_config: query_stream={self.query_stream} "
-		      f"join_hubs={join_hubs} (from checkpoint)")
+		print(f"  arch={arch} ablation={ablation} graph_config: "
+		      f"query_stream={self.query_stream} join_hubs={join_hubs} "
+		      f"constant_stream={self.constant_stream} "
+		      f"edge_types={self.edge_type_fn is not None} (from checkpoint)")
 
 	def _graph_to_data(self, G, query_text):
 		nodes = sorted(G.nodes())
@@ -108,6 +130,16 @@ class SPARQLEmbedder:
 			edge_attr_mask=e_tok['attention_mask'],
 			num_nodes=num_nodes,
 		)
+		# Must mirror sparqlce/dataset.py::_to_data exactly -- these tensors are
+		# part of the model's input, not of its shape, so an omission here
+		# scores a different model than the one that was trained.
+		if self.constant_stream:
+			from .dbpedia import is_constant_label
+			data.x_is_const = torch.tensor(
+				[is_constant_label(l) for l in node_labels], dtype=torch.bool)
+		if self.edge_type_fn is not None:
+			data.edge_type = torch.tensor(
+				[self.edge_type_fn(l) for l in edge_labels], dtype=torch.long)
 		if self.query_stream:
 			# Must mirror sparqlce/dataset.py exactly: unpadded 1-D ids plus a
 			# length, with the encoder padding per batch. The query text is NOT

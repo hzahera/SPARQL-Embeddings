@@ -114,6 +114,65 @@ split while the baseline keeps the old group split would compare two models over
 different corpora, and the old split's training anchors sit inside the new test
 components.
 
+### `--arch dbpedia` — the DBpedia-specific encoder
+
+`--arch dbpedia` swaps `HybridSPARQLEncoder` for `DBpediaSPARQLEncoder`
+(`sparqlce/dbpedia_encoder.py`). It exists because DBpedia's task is axis C, not
+axis S: **74.3%** of the corpus's positives share their anchor's structural
+template, **71.9%** of anchor-positive graph pairs are identical once `ENT`/`LIT`
+constants are masked, and graphs average 4.4 nodes across only **84** distinct
+label-free shapes. Structure-first machinery is invariant on most of the
+supervision. The DBpedia encoder makes the query text the trunk, gives constants
+their own query-conditioned attention stream, pools the graph by attention
+rather than by mean, fuses everything residually (LayerScale) instead of through
+a convex gate, and embeds at 768 to match the baseline.
+
+The flag is a package: it implies `--query-stream`, `--join-hubs`,
+`--output-dim 768`, humanized IRIs, and populated `edge_type` ids. Override
+hubs with `--no-join-hubs`.
+
+```bash
+# verify the wiring first (CPU, <1 min)
+python scripts/smoke_test_dbpedia_arch.py
+
+python scripts/train_sparqlce.py --kg dbpedia --seed 42 --arch dbpedia \
+  --train-file datasets/dbpedia-train-RQ1.json \
+  --val-file   datasets/dbpedia-valid-RQ1.json \
+  --test-file  datasets/dbpedia-testsplit-RQ1.json \
+  --hard-negatives --max-neg 16 --calibrate-inbatch
+
+# the baseline MUST read the same vocabulary -- see the fairness note below
+python scripts/finetune_e5_baseline.py --kg dbpedia --seed 42 --humanize \
+  --train-file datasets/dbpedia-train-RQ1.json \
+  --val-file   datasets/dbpedia-valid-RQ1.json
+```
+
+Ablations that isolate each part against the same trunk:
+`--ablation text_only` (trunk alone: a flat E5 encoder trained by *our* recipe —
+this is the architecture-controlled baseline, and the number to beat before
+claiming the extra streams do anything), `--ablation no_const` (drop the
+constant stream), `--ablation no_gnn` (drop message passing).
+
+> **Fairness — `--humanize` is not optional.** `--arch dbpedia` rewrites IRI
+> local names into words (`dbpr:United_States` → `United States
+> (dbpr:United_States)`) so the encoder can reach its pretraining knowledge
+> about the entity. That is *preprocessing*, not architecture. Give the text
+> baselines the identical transform with `--humanize`, or disable it for every
+> model at once with `SPARQLCE_NO_DBPEDIA_HUMANIZE=1` — the same rule the
+> Wikidata label expansion already follows. A humanized SparqlCE against a raw
+> baseline measures the string transform, not the model. Each run records
+> `humanize` in `run_metadata.json`; check that the two agree before reporting
+> a gap.
+
+> **`--calibrate-inbatch` is only sound on the component splits**, where two
+> anchors from different components provably have disjoint answers. On a group
+> split, two in-batch anchors can be result-equivalent and the target would be
+> wrong. Drop it if you are not on `splits_dbpedia_components.json`.
+
+Log the `non-text share` the encoder returns each epoch. If it stays near 0 the
+constant and graph streams are not being used, and the honest report is that a
+flat text encoder does the same job on this corpus.
+
 > **Negative parity — do not omit `--hard-negatives`.**
 > `finetune_e5_baseline.py` *always* places one curated negative per anchor in
 > its InfoNCE candidate set. `train_sparqlce.py` ignores `negative_queries`

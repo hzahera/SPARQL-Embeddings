@@ -57,6 +57,12 @@ KG_PATHS = {
 }
 
 
+def _humanize_off():
+    """Whether DBpedia IRI humanization is disabled, without importing torch."""
+    from sparqlce.dbpedia import humanization_disabled
+    return humanization_disabled()
+
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -159,7 +165,8 @@ def evaluate_ranking(model, loader, device):
 def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
                   hard_negatives=False, max_neg=8, augment_rename_prob=0.0,
                   split_files=None, query_stream=False,
-                  query_max_length=256):
+                  query_max_length=256, constant_stream=False,
+                  edge_type_fn=None):
     """Build train/val/test loaders.
 
     Two modes:
@@ -190,6 +197,8 @@ def build_loaders(data_path, splits_path, seed, batch_size, graph_builder,
     # a different input representation than it was trained on.
     common["query_stream"] = query_stream
     common["query_max_length"] = query_max_length
+    common["constant_stream"] = constant_stream
+    common["edge_type_fn"] = edge_type_fn
 
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
                                         collate_fn=collate)
@@ -260,11 +269,26 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kg", required=True, choices=["dbpedia", "wikidata"])
     ap.add_argument("--seed", type=int, required=True)
+    ap.add_argument("--arch", default="hybrid", choices=["hybrid", "dbpedia"],
+                     help="hybrid: HybridSPARQLEncoder, the paper model. "
+                          "dbpedia: DBpediaSPARQLEncoder -- E5 query trunk with "
+                          "a conditioned CONSTANT stream and typed GATv2 fused "
+                          "residually, built for DBpedia's axis-C task (74.3%% "
+                          "of its positives share the anchor's template, so the "
+                          "constant, not the shape, is what separates them). "
+                          "Implies --query-stream, --join-hubs, humanized IRIs, "
+                          "populated edge types, and output_dim 768.")
     ap.add_argument("--ablation", default="full",
-                     choices=["full", "no_gnn", "no_decomposition"],
-                     help="full: paper model. no_gnn: skip GATv2 message passing "
-                          "(bag of node embeddings). no_decomposition: whole query "
-                          "as one node, no graph structure at all.")
+                     choices=["full", "no_gnn", "no_decomposition",
+                              "no_const", "text_only"],
+                     help="hybrid arch -- full: paper model. no_gnn: skip GATv2 "
+                          "message passing (bag of node embeddings). "
+                          "no_decomposition: whole query as one node. "
+                          "dbpedia arch -- full / no_const (drop the constant "
+                          "stream) / no_gnn (drop message passing) / text_only "
+                          "(the trunk alone: a flat E5 encoder trained by OUR "
+                          "recipe, which is the architecture-controlled "
+                          "baseline).")
     ap.add_argument("--query-stream", action="store_true",
                      help="Text branch reads the whole query STRING instead of a "
                           "mean over node-label embeddings. Without it the text "
@@ -282,6 +306,16 @@ def main():
                           "nothing to propagate there. Hubs keep participants 2 "
                           "hops apart: DBpedia diameter<=1 drops to 0%%, Wikidata "
                           "is unchanged.")
+    ap.add_argument("--no-join-hubs", action="store_true",
+                     help="force pairwise join wiring even under --arch dbpedia, "
+                          "which otherwise turns hubs on. Measured on the 4,713 "
+                          "DBpedia anchors: pairwise leaves 38.3%% of graphs at "
+                          "diameter <=1, hubs 3.4%%.")
+    ap.add_argument("--calibrate-inbatch", action="store_true",
+                     help="regress every off-diagonal in-batch pair's cosine to "
+                          "0 in the calibration term (--arch dbpedia only). Sound "
+                          "ONLY on the component splits, where two anchors from "
+                          "different components provably have disjoint answers.")
     ap.add_argument("--epochs", type=int, default=20,
                      help="max epochs (a cap); with --patience, training stops "
                           "early when val MRR plateaus, so this need not match "
@@ -357,6 +391,34 @@ def main():
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # --arch dbpedia is a package of input choices as much as an architecture,
+    # and every one of them is load-bearing (see sparqlce/dbpedia.py). Resolving
+    # them here rather than expecting the caller to pass five flags is what
+    # stops a run from being silently handicapped: without --query-stream the
+    # encoder's trunk would be a bag of node labels, which is the single
+    # biggest reason the hybrid model reads as weaker than the flat E5 baseline.
+    if args.arch == "dbpedia":
+        if args.ablation not in ("full", "no_const", "no_gnn", "text_only"):
+            raise SystemExit(
+                f"--ablation {args.ablation} is a hybrid-arch ablation; "
+                f"--arch dbpedia takes full/no_const/no_gnn/text_only")
+        if not args.query_stream:
+            print("[arch=dbpedia] enabling --query-stream (required by the encoder)")
+            args.query_stream = True
+        if not args.join_hubs and not args.no_join_hubs:
+            print("[arch=dbpedia] enabling --join-hubs (38.3% -> 3.4% of DBpedia "
+                  "graphs at diameter <=1)")
+            args.join_hubs = True
+        if args.output_dim is None:
+            args.output_dim = 768
+            print("[arch=dbpedia] output_dim=768 to match the E5-Finetuned baseline")
+    elif args.ablation in ("no_const", "text_only"):
+        raise SystemExit(f"--ablation {args.ablation} requires --arch dbpedia")
+    if args.no_join_hubs:
+        args.join_hubs = False
+    if args.calibrate_inbatch and args.arch != "dbpedia":
+        raise SystemExit("--calibrate-inbatch is implemented for --arch dbpedia only")
+
     # The variant belongs in the path. --query-stream/--join-hubs change the
     # model without changing the ablation tag, so every variant of one seed
     # otherwise writes to the same directory and the last run silently replaces
@@ -375,16 +437,36 @@ def main():
     # 768-d run must not land on a 128-d run's path. Only tagged when set
     # explicitly, so existing default-width checkpoints keep their paths.
     dim_tag = f"_d{args.output_dim}" if args.output_dim else ""
+    # Two encoder classes writing to one path would make a checkpoint's identity
+    # depend on which run happened last, and load_state_dict would fail late
+    # with a key mismatch rather than early with a name clash.
+    arch_tag = "" if args.arch == "hybrid" else f"_{args.arch}"
     ckpt_dir = (Path(args.ckpt_root) / args.kg
-                / f"seed{args.seed}_{args.ablation}{variant}{dim_tag}{data_tag}")
+                / f"seed{args.seed}{arch_tag}_{args.ablation}{variant}{dim_tag}{data_tag}")
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    # no_decomposition swaps the graph builder (whole-query single node);
-    # no_gnn keeps the real graph but the encoder skips message passing.
-    graph_builder = (WholeQueryGraphBuilder() if args.ablation == "no_decomposition"
-                     else SPARQLGraphBuilder(join_hubs=args.join_hubs))
+    edge_type_fn = None
+    if args.arch == "dbpedia":
+        from sparqlce.dbpedia import DBpediaGraphBuilder, edge_type_id
+        from sparqlce.dbpedia import humanization_disabled
+        graph_builder = DBpediaGraphBuilder(join_hubs=args.join_hubs)
+        edge_type_fn = edge_type_id
+        print(f"graph_config: arch=dbpedia query_stream={args.query_stream} "
+              f"join_hubs={args.join_hubs} constant_stream=True edge_types=True "
+              f"humanize={'OFF' if humanization_disabled() else 'ON'}")
+        if not humanization_disabled():
+            print("[fairness] IRI humanization is ON. The text baselines must read "
+                  "the same vocabulary -- run finetune_e5_baseline.py with "
+                  "--humanize, or set SPARQLCE_NO_DBPEDIA_HUMANIZE=1 for every "
+                  "model. Crediting this preprocessing to the architecture is the "
+                  "same trap the Wikidata label expansion documents.")
+    else:
+        # no_decomposition swaps the graph builder (whole-query single node);
+        # no_gnn keeps the real graph but the encoder skips message passing.
+        graph_builder = (WholeQueryGraphBuilder() if args.ablation == "no_decomposition"
+                         else SPARQLGraphBuilder(join_hubs=args.join_hubs))
+        print(f"graph_config: query_stream={args.query_stream} join_hubs={args.join_hubs}")
     encoder_mode = "no_gnn" if args.ablation == "no_gnn" else "full"
-    print(f"graph_config: query_stream={args.query_stream} join_hubs={args.join_hubs}")
 
     paths = KG_PATHS[args.kg]
     split_files = None
@@ -403,18 +485,35 @@ def main():
         augment_rename_prob=args.augment_rename_prob, split_files=split_files,
         query_stream=args.query_stream,
         query_max_length=args.query_max_length,
+        constant_stream=(args.arch == "dbpedia"),
+        edge_type_fn=edge_type_fn,
     )
     print(f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} test={len(test_loader.dataset)}")
 
-    model = HybridSPARQLEncoder(ablation=encoder_mode,
-                                output_dim=args.output_dim).to(device)
+    if args.arch == "dbpedia":
+        from sparqlce.dbpedia_encoder import DBpediaSPARQLEncoder, calibrated_infonce
+        model = DBpediaSPARQLEncoder(ablation=args.ablation,
+                                     output_dim=args.output_dim).to(device)
+    else:
+        model = HybridSPARQLEncoder(ablation=encoder_mode,
+                                    output_dim=args.output_dim).to(device)
 
     if args.single_lr is not None:
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.single_lr, weight_decay=args.weight_decay)
     else:
-        text_kw = ("text", "txt", "codebert", "bert")
-        text_params = [p for n, p in model.named_parameters() if any(k in n.lower() for k in text_kw) and p.requires_grad]
-        rest_params = [p for n, p in model.named_parameters() if not any(k in n.lower() for k in text_kw) and p.requires_grad]
+        # Select the backbone by IDENTITY, not by a substring of the parameter
+        # name. The old test matched any name containing "text", which caught
+        # `text_proj` as well as `text_enc` -- so the text projection head
+        # trained at the backbone's 1e-5 while graph_proj and gate_fc trained at
+        # 1e-4, biasing the fusion toward the graph stream before either had
+        # learned anything. This changes the optimizer for hybrid runs too, and
+        # is the intended fix.
+        text_ids = {id(p) for p in model.text_enc.parameters()}
+        text_params = [p for p in model.parameters() if id(p) in text_ids and p.requires_grad]
+        rest_params = [p for p in model.parameters() if id(p) not in text_ids and p.requires_grad]
+        print(f"param groups: backbone={sum(p.numel() for p in text_params):,} @ "
+              f"{args.lr_text:g}, rest={sum(p.numel() for p in rest_params):,} @ "
+              f"{args.lr_rest:g}")
         optimizer = torch.optim.AdamW([
             {"params": text_params, "lr": args.lr_text},
             {"params": rest_params, "lr": args.lr_rest},
@@ -434,7 +533,25 @@ def main():
         for batch in pbar:
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(enabled=args.amp):
-                if args.hard_negatives:
+                if args.arch == "dbpedia":
+                    # Two-sided calibration: the negatives carry their true
+                    # Jaccard too. The positives-only form is MSE(cos, 1) on
+                    # 78.9% of DBpedia's positives -- a pull-together with no
+                    # push-apart, which is how the embedding space ends up at
+                    # mean cosine 0.99 everywhere.
+                    a_emb, _ = model(batch[0].to(device))
+                    p_emb, _ = model(batch[1].to(device))
+                    if args.hard_negatives:
+                        n_emb, _ = model(batch[2].to(device))
+                        neg_slices, pos_js, neg_js = batch[4], batch[5].to(device), batch[6]
+                    else:
+                        n_emb, neg_slices, neg_js = None, None, None
+                        pos_js = batch[2].to(device)
+                    loss, loss_ce, loss_reg = calibrated_infonce(
+                        a_emb, p_emb, pos_js, args.temperature, args.lambda_reg,
+                        n_emb=n_emb, neg_slices=neg_slices, neg_j=neg_js,
+                        calibrate_inbatch=args.calibrate_inbatch)
+                elif args.hard_negatives:
                     # semantic_collate_fn: (anchor, pos, neg, pos_slices, neg_slices,
                     #                       pos_js, neg_js); one positive per anchor.
                     a_emb, _ = model(batch[0].to(device))
@@ -447,10 +564,11 @@ def main():
                     a_emb, _ = model(a_graphs)
                     p_emb, _ = model(p_graphs)
                     loss_ce = infonce_inbatch(a_emb, p_emb, args.temperature)
-                a_n, p_n = F.normalize(a_emb, dim=1), F.normalize(p_emb, dim=1)
-                cos = (a_n * p_n).sum(dim=1)
-                loss_reg = (cos - pos_js).pow(2).mean()
-                loss = loss_ce + args.lambda_reg * loss_reg
+                if args.arch != "dbpedia":
+                    a_n, p_n = F.normalize(a_emb, dim=1), F.normalize(p_emb, dim=1)
+                    cos = (a_n * p_n).sum(dim=1)
+                    loss_reg = (cos - pos_js).pow(2).mean()
+                    loss = loss_ce + args.lambda_reg * loss_reg
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)                        # unscale before clip
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.grad_clip)
@@ -476,6 +594,11 @@ def main():
             epochs_no_improve = 0
             torch.save({"epoch": epoch, "model_state_dict": model.state_dict(),
                         "val_metrics": val, "ablation": args.ablation,
+                        # Which encoder CLASS these weights belong to.
+                        # SPARQLEmbedder dispatches on it; without it a dbpedia
+                        # checkpoint would be rebuilt as a HybridSPARQLEncoder
+                        # and fail on a key mismatch.
+                        "arch": args.arch,
                         # Record the embedding width: the eval-time encoder must
                         # be built at the same width or load_state_dict fails.
                         "output_dim": model.output_dim,
@@ -484,7 +607,11 @@ def main():
                         # a different model. SPARQLEmbedder reads them back.
                         "graph_config": {"query_stream": args.query_stream,
                                          "join_hubs": args.join_hubs,
-                                         "query_max_length": args.query_max_length}},
+                                         "query_max_length": args.query_max_length,
+                                         "constant_stream": args.arch == "dbpedia",
+                                         "edge_types": edge_type_fn is not None,
+                                         "humanize": args.arch == "dbpedia"
+                                         and not _humanize_off()}},
                        ckpt_dir / "best_model.pt")
             print(f"  best saved (val MRR={best_mrr:.4f})")
         else:
@@ -501,7 +628,10 @@ def main():
 
     with open(ckpt_dir / "run_metadata.json", "w") as f:
         json.dump({
-            "kg": args.kg, "seed": args.seed, "ablation": args.ablation,
+            "kg": args.kg, "seed": args.seed, "arch": args.arch,
+            "ablation": args.ablation,
+            "calibrate_inbatch": args.calibrate_inbatch,
+            "humanize": args.arch == "dbpedia" and not _humanize_off(),
             "epochs": args.epochs, "epochs_ran": epoch, "batch_size": args.batch_size,
             "lr_text": args.lr_text, "lr_rest": args.lr_rest,
             "single_lr": args.single_lr, "min_delta": args.min_delta,

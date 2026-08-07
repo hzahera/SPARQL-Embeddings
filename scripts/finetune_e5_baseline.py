@@ -214,6 +214,12 @@ def main():
     ap.add_argument("--grad-accum", type=int, default=2, help="effective batch 32")
     ap.add_argument("--scale", type=float, default=20.0, help="1 / tau, tau=0.05")
     ap.add_argument("--max-len", type=int, default=512)
+    ap.add_argument("--humanize", action="store_true",
+                    help="apply the same DBpedia IRI humanization SparqlCE's "
+                         "--arch dbpedia applies (dbpr:United_States -> "
+                         "'United States (dbpr:United_States)'). Required for a "
+                         "fair comparison against a humanized SparqlCE run: it "
+                         "is preprocessing, not architecture.")
     ap.add_argument("--warmup-frac", type=float, default=0.05)
     ap.add_argument("--weight-decay", type=float, default=1e-2)
     ap.add_argument("--train-file", default=None,
@@ -243,9 +249,27 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
+    # FAIRNESS: --arch dbpedia rewrites IRI local names into words before the
+    # encoder ever sees them (dbpr:United_States -> "United States (...)"). That
+    # is preprocessing, not architecture, so the baseline has to read the same
+    # vocabulary -- otherwise the gap credits SparqlCE for a text transform the
+    # baseline never received, exactly the trap graph_builder.py documents for
+    # the Wikidata label expansion. Pass --humanize whenever SparqlCE was
+    # trained with humanization on (its run_metadata.json records "humanize").
+    prep = (lambda q: q)
+    if args.humanize:
+        from sparqlce.dbpedia import humanize_dbpedia_query, humanization_disabled
+        if humanization_disabled():
+            raise SystemExit(
+                "--humanize was passed but SPARQLCE_NO_DBPEDIA_HUMANIZE is set; "
+                "the kill-switch disables it for every model, so unset one or "
+                "the other rather than running an ambiguous configuration.")
+        prep = humanize_dbpedia_query
+        print("[e5-ft] IRI humanization ON (matching --arch dbpedia)")
+
     def collate(batch):
         a, p, n = zip(*batch)
-        tk = lambda xs: tokenizer([E5_PREFIX + x for x in xs], padding=True,
+        tk = lambda xs: tokenizer([E5_PREFIX + prep(x) for x in xs], padding=True,
                                   truncation=True, max_length=args.max_len,
                                   return_tensors="pt")
         return tk(list(a)), tk(list(p)), tk(list(n))
