@@ -237,63 +237,6 @@ elif [ -f "$TRAIN_FILE" ] && [ -f "$VAL_FILE" ]; then
   E5_DATA_ARGS=(--train-file "$TRAIN_FILE" --val-file "$VAL_FILE")
   DATA_SUFFIX="_$(basename "$TRAIN_FILE" .json)"
   echo "per-split mode: train=$TRAIN_FILE val=$VAL_FILE (both models)"
-  # NEGATIVE PARITY. finetune_e5_baseline.py always puts one curated negative per
-  # anchor in its InfoNCE candidate set (SquareTextDataset.__getitem__ ->
-  # info_nce_loss), but train_sparqlce.py ignores negative_queries unless
-  # --hard-negatives is passed. With the old corpus that gap did not matter: the
-  # 24 shared negatives were lexically unrelated to every anchor. The component
-  # files carry ~16 same-template, result-disjoint negatives per anchor, so
-  # leaving it off trains the BASELINE against precisely the signal SparqlCE
-  # exists to capture, and SparqlCE without it. Default it on here; set
-  # HARD_NEGS=0 to measure the in-batch-only variant deliberately.
-  HARD_NEGS="${HARD_NEGS:-1}"
-  MAX_NEG="${MAX_NEG:-16}"
-  if [ "$HARD_NEGS" != "0" ]; then
-    SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
-    echo "  negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
-    # Only sound under the component protocol, which is the branch we are in:
-    # two anchors from different components provably have disjoint answers, so
-    # regressing their cosine to 0 uses a correct target. On a group split two
-    # in-batch anchors can be result-equivalent. CALIBRATE_INBATCH=0 opts out.
-    if [ "$ARCH" = "dbpedia" ] && [ "${CALIBRATE_INBATCH:-1}" != "0" ]; then
-      SPARQLCE_DATA_ARGS+=(--calibrate-inbatch)
-      echo "  calibration: two-sided + in-batch zero targets (component protocol)"
-    fi
-    # Memory, not correctness. --hard-negatives puts BATCH*MAX_NEG negative
-    # GRAPHS through the encoder in one forward, on top of BATCH anchors and
-    # BATCH positives, and each graph costs a BERT pass per node. At batch 128
-    # x 16 negatives that is 2048 graphs against 256 for in-batch mode -- an
-    # 80GB A100 OOMs on the first step. The product is the thing to control.
-    NEG_GRAPHS=$((BATCH * MAX_NEG))
-    # The 512 ceiling was measured for the HYBRID encoder without the query
-    # stream, where a negative graph costs only its node and edge labels
-    # (~5 nodes x 32 tokens). --arch dbpedia runs the whole query through the
-    # backbone for every graph as well, at up to --query-max-length tokens, so
-    # a negative graph is several times more expensive and 32x16 OOMs an 80GB
-    # A100 on step 1 even with gradient checkpointing on. Halve the ceiling.
-    if [ "$ARCH" = "dbpedia" ]; then
-      MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-256}"
-    else
-      MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-512}"
-    fi
-    echo "  negative graphs/step: $BATCH x $MAX_NEG = $NEG_GRAPHS"
-    if [ "$NEG_GRAPHS" -gt "$MAX_NEG_GRAPHS" ]; then
-      echo "!!! $NEG_GRAPHS negative graphs per step exceeds the $MAX_NEG_GRAPHS ceiling"
-      echo "    and will very likely OOM (in-batch mode encodes $((BATCH * 2)) graphs"
-      echo "    total). Lower the batch, the negatives, or both -- their PRODUCT"
-      echo "    is what matters. Suggested, keeping the baseline slightly favoured:"
-      echo "      MAX_NEG=8 ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE 32 $EPOCHS"
-      [ "$ARCH" = "dbpedia" ] && \
-      echo "    (ARCH=dbpedia also encodes the whole query per graph, so its"
-      echo "     ceiling is 256 rather than 512 even with gradient checkpointing.)"
-      echo "    Set MAX_NEG_GRAPHS=$NEG_GRAPHS to override and try anyway."
-      exit 1
-    fi
-  else
-    echo "  HARD_NEGS=0: SparqlCE trains on in-batch negatives only, while the"
-    echo "  baseline still uses one curated negative per anchor. NOT a like-for-like"
-    echo "  comparison -- use only to isolate the hard-negative contribution."
-  fi
 elif [ -f "$COMPONENT_SPLITS" ]; then
   echo "!!! $COMPONENT_SPLITS exists but $TRAIN_FILE / $VAL_FILE do not."
   echo "    This KG uses the component protocol; training from the integer-index"
@@ -309,6 +252,64 @@ else
   SPARQLCE_DATA_ARGS=()
   E5_DATA_ARGS=()
   echo "index-split mode: both models read datasets/splits_${KG}.json"
+fi
+
+# NEGATIVE PARITY -- applies under BOTH protocols.
+# finetune_e5_baseline.py always puts one curated negative per anchor in its
+# InfoNCE candidate set (SquareTextDataset.__getitem__ -> info_nce_loss), but
+# train_sparqlce.py ignores negative_queries unless --hard-negatives is passed.
+# Whether that asymmetry matters depends on whether the corpus HAS usable
+# negatives:
+#
+#   component files      ~16 same-template result-disjoint negatives per anchor
+#   DATA=...hardneg      likewise, mined by mine_train_hard_negatives.py
+#   shipped triplets     24 distinct negatives across 4,713 groups, all
+#                        lexically unrelated -- nothing to be gained either way
+#
+# It was previously enabled only in the per-split branch, so a group-protocol
+# run with DATA=<hardneg corpus> trained the BASELINE against the mined
+# negatives and SparqlCE without them. That measured the negatives, not the
+# methods: E5-FT gained +0.043 nDCG@10 while SparqlCE stayed put.
+if [ "$PER_SPLIT" = "1" ] || [ -n "${DATA:-}" ]; then
+  HARD_NEGS="${HARD_NEGS:-1}"
+else
+  HARD_NEGS="${HARD_NEGS:-0}"
+fi
+MAX_NEG="${MAX_NEG:-16}"
+if [ "$HARD_NEGS" != "0" ]; then
+  SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
+  echo "negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
+  # Sound ONLY under the component protocol: two anchors from different
+  # components provably have disjoint answers, so regressing their cosine to 0
+  # uses a correct target. On a GROUP split two in-batch anchors can be
+  # result-equivalent, and the zero target would be wrong.
+  if [ "$PER_SPLIT" = "1" ] && [ "$ARCH" = "dbpedia" ] && [ "${CALIBRATE_INBATCH:-1}" != "0" ]; then
+    SPARQLCE_DATA_ARGS+=(--calibrate-inbatch)
+    echo "  calibration: two-sided + in-batch zero targets (component protocol)"
+  fi
+  # Memory. --hard-negatives puts BATCH*MAX_NEG negative GRAPHS through the
+  # encoder in one forward, on top of BATCH anchors and BATCH positives, each
+  # costing a BERT pass per node. The product is the thing to control.
+  NEG_GRAPHS=$((BATCH * MAX_NEG))
+  if [ "$ARCH" = "dbpedia" ]; then
+    MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-256}"
+  else
+    MAX_NEG_GRAPHS="${MAX_NEG_GRAPHS:-512}"
+  fi
+  echo "  negative graphs/step: $BATCH x $MAX_NEG = $NEG_GRAPHS"
+  if [ "$NEG_GRAPHS" -gt "$MAX_NEG_GRAPHS" ]; then
+    echo "!!! $NEG_GRAPHS negative graphs per step exceeds the $MAX_NEG_GRAPHS ceiling"
+    echo "    and will very likely OOM (in-batch mode encodes $((BATCH * 2)) graphs)."
+    echo "    Lower the batch, the negatives, or both -- their PRODUCT matters."
+    echo "    Note BATCH is also the in-batch negative budget for BOTH models, so"
+    echo "    changing it changes the baseline too; prefer lowering MAX_NEG."
+    echo "      MAX_NEG=2 ./scripts/run_seed_sweep.sh $KG $N_SEEDS $SPLIT $PATIENCE $BATCH $EPOCHS"
+    echo "    Set MAX_NEG_GRAPHS=$NEG_GRAPHS to override and try anyway."
+    exit 1
+  fi
+elif [ -n "${DATA:-}" ]; then
+  echo "HARD_NEGS=0 with DATA set: the baseline will use the mined negatives and"
+  echo "  SparqlCE will not. NOT like-for-like -- only for isolating their effect."
 fi
 
 # Pre-flight: refuse to spend GPU hours producing a number measured on eval
