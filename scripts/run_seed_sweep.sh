@@ -160,6 +160,17 @@ PER_SPLIT=0
 #   JOIN_HUBS=1     joins routed through hub nodes, keeping graph diameter > 1
 # Mirrors the data tag train_sparqlce.py puts in the checkpoint path.
 DATA_SUFFIX=""
+# DATA=<file> swaps the triplets corpus for BOTH models, keeping splits_${KG}.json.
+# Its purpose is scripts/mine_train_hard_negatives.py's output, which differs from
+# the shipped corpus only in negative_queries. Both trainers must read it or the
+# comparison measures the negatives rather than the methods.
+DATA_ARGS=()
+if [ -n "${DATA:-}" ]; then
+  [ -f "$DATA" ] || { echo "DATA=$DATA not found"; exit 1; }
+  DATA_ARGS+=(--data "$DATA")
+  DATA_SUFFIX="_$(basename "$DATA" .json)"
+  echo "corpus override: $DATA (both models)"
+fi
 VARIANT_ARGS=()
 E5_EXTRA_ARGS=()
 # ARCH=dbpedia swaps SparqlCE's encoder for DBpediaSPARQLEncoder. It is a
@@ -354,7 +365,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     python scripts/train_sparqlce.py --kg "$KG" --seed "$seed" --ablation full \
       --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --amp \
       ${SPARQLCE_DATA_ARGS[@]+"${SPARQLCE_DATA_ARGS[@]}"} \
-      ${VARIANT_ARGS[@]+"${VARIANT_ARGS[@]}"}
+      ${VARIANT_ARGS[@]+"${VARIANT_ARGS[@]}"} ${DATA_ARGS[@]+"${DATA_ARGS[@]}"}
     if [ $? -ne 0 ]; then
       echo "!!! [$KG seed=$seed] SparqlCE training FAILED -- skipping this seed"
       FAILED_SPARQLCE+=("$seed"); continue
@@ -390,7 +401,7 @@ for i in $(seq 0 $((N_SEEDS - 1))); do
     --patience "$PATIENCE" --epochs "$EPOCHS" --batch-size "$BATCH" --grad-accum 1 --amp \
     --ckpt-root "$E5_CKPT_ROOT" \
     ${E5_LR:+--lr "$E5_LR"} ${E5_DATA_ARGS[@]+"${E5_DATA_ARGS[@]}"} \
-    ${E5_EXTRA_ARGS[@]+"${E5_EXTRA_ARGS[@]}"} \
+    ${E5_EXTRA_ARGS[@]+"${E5_EXTRA_ARGS[@]}"} ${DATA_ARGS[@]+"${DATA_ARGS[@]}"} \
   && python scripts/eval_rq1_export.py --kg "$KG" --split "$SPLIT" \
     --model-type sentence-transformer \
     --model-name "$E5_CKPT_ROOT/$KG/seed${seed}/best_model" \

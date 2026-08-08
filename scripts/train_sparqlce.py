@@ -353,6 +353,12 @@ def main():
     ap.add_argument("--augment-rename-prob", type=float, default=0.0,
                      help="probability of randomly renaming a query's variables "
                           "(training view only); teaches variable-name invariance")
+    ap.add_argument("--data", default=None,
+                     help="override the KG's triplets file, keeping --splits. Use "
+                          "for a corpus that differs only in its NEGATIVES (see "
+                          "scripts/mine_train_hard_negatives.py): the record order "
+                          "and positives must match, or the integer split indices "
+                          "no longer address the intended queries.")
     ap.add_argument("--train-file", default=None,
                      help="self-contained training split (scripts/build_rq1_twoaxis.py "
                           "--from-split train). Bypasses the integer-index split "
@@ -440,6 +446,9 @@ def main():
     # any score already exported from it became attributable to weights no
     # longer on disk. Index-split runs keep the bare path, so nothing moves.
     data_tag = f"_{Path(args.train_file).stem}" if args.train_file else ""
+    # A different corpus is a different run, even at the same split.
+    if args.data and Path(args.data).stem != KG_PATHS[args.kg]["data"].stem:
+        data_tag += f"_{Path(args.data).stem}"
     # Width changes the model too, and load_state_dict fails on a mismatch, so a
     # 768-d run must not land on a 128-d run's path. Only tagged when set
     # explicitly, so existing default-width checkpoints keep their paths.
@@ -475,7 +484,9 @@ def main():
         print(f"graph_config: query_stream={args.query_stream} join_hubs={args.join_hubs}")
     encoder_mode = "no_gnn" if args.ablation == "no_gnn" else "full"
 
-    paths = KG_PATHS[args.kg]
+    paths = dict(KG_PATHS[args.kg])
+    if args.data:
+        paths["data"] = Path(args.data)
     split_files = None
     if args.train_file or args.val_file or args.test_file:
         missing = [n for n, v in (("--train-file", args.train_file),

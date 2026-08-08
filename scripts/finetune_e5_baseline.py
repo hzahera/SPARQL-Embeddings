@@ -222,6 +222,9 @@ def main():
                          "is preprocessing, not architecture.")
     ap.add_argument("--warmup-frac", type=float, default=0.05)
     ap.add_argument("--weight-decay", type=float, default=1e-2)
+    ap.add_argument("--data", default=None,
+                    help="override the KG's triplets file, keeping --splits. Must "
+                         "be the SAME corpus SparqlCE trains on.")
     ap.add_argument("--train-file", default=None,
                     help="self-contained training split (scripts/build_rq1_twoaxis.py "
                          "--from-split train). Must be the SAME file SparqlCE "
@@ -239,7 +242,9 @@ def main():
 
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    paths = KG_PATHS[args.kg]
+    paths = dict(KG_PATHS[args.kg])
+    if args.data:
+        paths["data"] = Path(args.data)
     if not (args.train_file or args.val_file) and not paths["data"].exists():
         raise SystemExit(f"{paths['data']} not found (see datasets/README.md).")
 
