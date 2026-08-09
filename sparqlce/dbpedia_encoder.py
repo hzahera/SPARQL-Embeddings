@@ -267,6 +267,7 @@ def calibrated_infonce(
     neg_slices=None,
     neg_j: torch.Tensor | None = None,
     calibrate_inbatch: bool = False,
+    share_negatives: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """InfoNCE + a **two-sided** Jaccard calibration term.
 
@@ -302,12 +303,24 @@ def calibrated_infonce(
 
     if n_emb is not None and n_emb.size(0) > 0:
         n = F.normalize(n_emb, dim=1)
-        max_neg = max((e - s) for s, e in neg_slices)
-        hard = a.new_full((b, max_neg), float("-inf"))
-        for i, (s, e) in enumerate(neg_slices):
-            if e > s:
-                hard[i, : e - s] = a[i] @ n[s:e].T / temperature
-        logits = torch.cat([logits, hard], dim=1)
+        if share_negatives:
+            # Every anchor scored against EVERY mined negative in the batch, the
+            # way finetune_e5_baseline.py's info_nce_loss already works. Without
+            # it the baseline sees BATCH mined negatives per step and SparqlCE
+            # sees --max-neg, a 64x gap at batch 128 with --max-neg 2. Free: the
+            # negatives are already encoded, so this is one [B, N] matmul.
+            logits = torch.cat([logits, a @ n.T / temperature], dim=1)
+        else:
+            max_neg = max((e - s) for s, e in neg_slices)
+            hard = a.new_full((b, max_neg), float("-inf"))
+            for i, (s, e) in enumerate(neg_slices):
+                if e > s:
+                    hard[i, : e - s] = a[i] @ n[s:e].T / temperature
+            logits = torch.cat([logits, hard], dim=1)
+        # NB the calibration below stays per-anchor regardless of
+        # share_negatives: neg_j is the measured Jaccard of an anchor
+        # against ITS OWN negatives. Another anchor's negative has no
+        # known target here, so regressing it would invent one.
         if neg_j is not None:
             cos_neg = torch.cat([a[i] @ n[s:e].T for i, (s, e) in enumerate(neg_slices)
                                  if e > s])

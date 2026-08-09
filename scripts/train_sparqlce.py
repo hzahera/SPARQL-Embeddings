@@ -79,13 +79,32 @@ def infonce_inbatch(a_emb, p_emb, temperature):
     return F.cross_entropy(logits, labels)
 
 
-def infonce_hard(a_emb, p_emb, n_emb, neg_slices, temperature):
-    """InfoNCE with in-batch negatives PLUS each anchor's curated hard negatives.
+def infonce_hard(a_emb, p_emb, n_emb, neg_slices, temperature, share=False):
+    """InfoNCE with in-batch negatives PLUS curated hard negatives.
 
     For anchor i the candidate set is: its own positive (target), every other
-    anchor's positive (in-batch negatives), and the mined hard negatives listed
-    in neg_slices[i] (variable count, padded with -inf and masked out). Assumes
+    anchor's positive (in-batch negatives), and mined hard negatives. Assumes
     exactly one positive per anchor, so p_emb rows align 1:1 with a_emb rows.
+
+    `share` decides whose hard negatives anchor i is scored against:
+
+      False (default)  only its own slice, neg_slices[i]
+      True             EVERY negative in the batch
+
+    This is a parity question, not a tuning knob. finetune_e5_baseline.py's
+    info_nce_loss concatenates [p_emb; n_emb] and scores every anchor against
+    the whole thing, so at batch 128 the baseline sees 128 mined negatives per
+    step while SparqlCE with --max-neg 2 sees two -- a 64x difference in
+    exposure to exactly the signal the method is supposed to exploit. Measured
+    on DBpedia v1, the mined corpus moved the baseline +0.034 nDCG@10 and left
+    SparqlCE unchanged.
+
+    Sharing is free: those negatives are already encoded, so the extra logits
+    cost one [B, N] matmul and no additional graph forwards. The caveat is the
+    same one the baseline already lives with -- another anchor's hard negative
+    can be result-equivalent to this anchor, making it a false negative. Under
+    the component protocol that cannot happen across components; on a group
+    split it can, which is why this is opt-in rather than unconditional.
     """
     a = F.normalize(a_emb, dim=1)
     p = F.normalize(p_emb, dim=1)
@@ -93,6 +112,9 @@ def infonce_hard(a_emb, p_emb, n_emb, neg_slices, temperature):
     logits = a @ p.T / temperature                         # [B, B] (diag = pos)
     if n_emb is not None and n_emb.size(0) > 0:
         n = F.normalize(n_emb, dim=1)
+        if share:
+            logits = torch.cat([logits, a @ n.T / temperature], dim=1)  # [B, B+N]
+            return F.cross_entropy(logits, torch.arange(b, device=a.device))
         max_neg = max((e - s) for s, e in neg_slices)
         hard = a.new_full((b, max_neg), float("-inf"))     # padding -> masked
         for i, (s, e) in enumerate(neg_slices):
@@ -353,6 +375,12 @@ def main():
     ap.add_argument("--augment-rename-prob", type=float, default=0.0,
                      help="probability of randomly renaming a query's variables "
                           "(training view only); teaches variable-name invariance")
+    ap.add_argument("--shared-negatives", action="store_true",
+                     help="score every anchor against EVERY mined negative in the "
+                          "batch, as the E5 baseline's loss already does, instead "
+                          "of only its own --max-neg slice. Costs no extra memory "
+                          "(the negatives are already encoded) and removes a large "
+                          "asymmetry in hard-negative exposure.")
     ap.add_argument("--data", default=None,
                      help="override the KG's triplets file, keeping --splits. Use "
                           "for a corpus that differs only in its NEGATIVES (see "
@@ -573,7 +601,8 @@ def main():
                     loss, loss_ce, loss_reg = calibrated_infonce(
                         a_emb, p_emb, pos_js, args.temperature, args.lambda_reg,
                         n_emb=n_emb, neg_slices=neg_slices, neg_j=neg_js,
-                        calibrate_inbatch=args.calibrate_inbatch)
+                        calibrate_inbatch=args.calibrate_inbatch,
+                        share_negatives=args.shared_negatives)
                 elif args.hard_negatives:
                     # semantic_collate_fn: (anchor, pos, neg, pos_slices, neg_slices,
                     #                       pos_js, neg_js); one positive per anchor.
@@ -581,7 +610,9 @@ def main():
                     p_emb, _ = model(batch[1].to(device))
                     n_emb, _ = model(batch[2].to(device))
                     neg_slices, pos_js = batch[4], batch[5].to(device)
-                    loss_ce = infonce_hard(a_emb, p_emb, n_emb, neg_slices, args.temperature)
+                    loss_ce = infonce_hard(a_emb, p_emb, n_emb, neg_slices,
+                                           args.temperature,
+                                           share=args.shared_negatives)
                 else:
                     a_graphs, p_graphs, pos_js = batch[0].to(device), batch[1].to(device), batch[2].to(device)
                     a_emb, _ = model(a_graphs)
@@ -669,6 +700,7 @@ def main():
             "hard_negatives": args.hard_negatives, "max_neg": args.max_neg,
             "augment_rename_prob": args.augment_rename_prob,
             "query_stream": args.query_stream, "join_hubs": args.join_hubs,
+            "shared_negatives": args.shared_negatives,
             # Which data a run saw is part of its identity: a component-split run
             # and an index-split run are not comparable, and nothing else in this
             # file distinguishes them.

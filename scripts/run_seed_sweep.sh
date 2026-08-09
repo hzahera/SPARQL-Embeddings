@@ -279,6 +279,16 @@ MAX_NEG="${MAX_NEG:-16}"
 if [ "$HARD_NEGS" != "0" ]; then
   SPARQLCE_DATA_ARGS+=(--hard-negatives --max-neg "$MAX_NEG")
   echo "negative parity: SparqlCE --hard-negatives --max-neg $MAX_NEG"
+  # The baseline's info_nce_loss scores every anchor against every mined
+  # negative in the batch; SparqlCE's loss used only the anchor's own slice, so
+  # at batch 128 with --max-neg 2 the baseline saw 64x more of them. That is
+  # what the first parity-fixed run measured: +0.034 nDCG@10 for E5-FT and
+  # nothing for SparqlCE. Sharing costs no memory -- they are already encoded.
+  # SHARED_NEGATIVES=0 restores the per-anchor form.
+  if [ "${SHARED_NEGATIVES:-1}" != "0" ]; then
+    SPARQLCE_DATA_ARGS+=(--shared-negatives)
+    echo "  shared negatives: every anchor scored against all $((BATCH * MAX_NEG)) in the batch"
+  fi
   # Sound ONLY under the component protocol: two anchors from different
   # components provably have disjoint answers, so regressing their cosine to 0
   # uses a correct target. On a GROUP split two in-batch anchors can be
