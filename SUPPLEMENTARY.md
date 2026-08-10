@@ -6,6 +6,7 @@ sentences in the paper, with a footnote pointing here. Section labels
 match the `\suppurl` footnotes in the paper.
 
 Contents:
+0. Measurement-parity audit — **read this before any number below**
 1. Preprocessing and benchmark construction
 2. Sensitivity to the SQuARE construction threshold
 3. Full set-overlap (Precision / Recall / F1) tables — RQ1
@@ -14,6 +15,51 @@ Contents:
 6. Embedding–answer-set alignment on Wikidata
 7. Full semantic caching grids (K × θ)
 8. Retrieval-at-scale latency benchmark
+
+> **Staleness warning.** Sections 2, 3, 5 and 6 predate the parity fixes in
+> Section 0 and, where they compare SparqlCE to a fine-tuned control, predate
+> the replacement of that control (Qwen3 → E5-base-v2). They are retained as a
+> record of what was measured, not as current results. The current DBpedia RQ1
+> result and the reasoning behind it are in
+> [DBPEDIA_RQ1_FINDINGS.md](DBPEDIA_RQ1_FINDINGS.md).
+
+---
+
+## 0. Measurement-Parity Audit
+
+Comparing two architectures trained on the same supervision requires that
+nothing except the architecture differ. Nine violations of that requirement
+were found and fixed; each had been silently distorting results, and every
+number in the paper's experiments section is measured after all of them. Most
+are not specific to this work — a contrastive retrieval comparison between a
+graph model and a text model is a natural home for all nine.
+
+| # | Violation | Effect | Fix |
+|---|---|---|---|
+| i | Validation metric credited only the diagonal of the similarity matrix | Val MRR capped ≈0.09 regardless of model quality; **both** trainers early-stopped at epoch 1–2 | credit any of the anchor's positives (`e3ea5d4`, `ca152f7`) |
+| ii | Validation resampled positives every epoch | the same checkpoint scored differently per pass; early stopping reacted to sampling noise | `deterministic=True` eval views |
+| iii | Negative parity (component protocol) | control received curated negatives SparqlCE did not | `1b9c26f` |
+| iv | Negative parity (group protocol) | same bug, other branch — control +0.034, SparqlCE +0.000 | `713fe79` |
+| v | Hard-negative exposure | control's loss scored every anchor against all batch negatives, SparqlCE's only its own slice — 64× at batch 128 | `--shared-negatives` (`67816e9`) |
+| vi | Embedding width | 128-d vs the control's 768-d, in a comparison described as capacity-matched; worth 0.4949 → 0.6003 nDCG@10 within one seed | `--output-dim` (`cdc2e0c`) |
+| vii | Query-stream truncation | fixed 256-token padding truncated >5% of queries — the longest ones — while wasting ≈3.5× memory (median 73 tokens, max 364) | per-batch padding, budget 384 (`d31ec9d`) |
+| viii | Text stream read node labels, not the query | SparqlCE was strictly less informed than the baseline it was measured against | `--query-stream` |
+| ix | Inference tokenized node labels at 16 vs training's 32 | long labels encoded differently at inference | fixed |
+
+Two infrastructure faults in the same class: an OOM fallback path indexed an
+`(embedding, gate)` tuple and so raised instead of recovering; and checkpoint
+and result paths collided across variants, so one sweep silently overwrote
+another's checkpoints and a 768-d sweep destroyed the 128-d exports (paths now
+carry variant, width and corpus — `f425300`, `a420372`, `3d6d860`, `07dde19`).
+
+**Corpus diagnostics.** Two scripts measure, before any training, whether a
+query log can support a structural encoder at all:
+`scripts/select_structured_queries.py` (join vertices, query-graph diameter,
+template count, operator mix) and `scripts/check_pair_density.py` (relevance
+density, and the share of result-equivalence that is structural rather than
+constant-driven). Section 3 of
+[DBPEDIA_RQ1_FINDINGS.md](DBPEDIA_RQ1_FINDINGS.md) reports what they say about
+SQuARE-DBpedia and why the paper's tie is the expected outcome there.
 
 ---
 
