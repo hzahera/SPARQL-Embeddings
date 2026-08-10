@@ -306,14 +306,23 @@ def main():
         print(f"  The {len(truncated)} truncated sets are PREFIXES, not sets; the "
               f"builders read {side.name} and drop them rather than compare them.")
     if args.kg == "dbpedia":
-        print(f"\nNext -- component protocol (see RUN_GUIDE.md Step 1c):")
+        # Output names are derived from THIS oracle, not the canonical ones.
+        # Printing the canonical paths invites overwriting the split a published
+        # number came from -- an oracle built for a side experiment is not the
+        # corpus datasets/{kg}-testsplit-RQ1.json was built from.
+        tag = out_path.stem.replace("result_sets_", "").replace(f"{args.kg}_", "")
+        print(f"\nNext -- component protocol (see RUN_GUIDE.md Step 1c).")
+        print(f"  NOTE: this oracle covers {out_path.name}'s pool. If it was built")
+        print(f"  for a side experiment, keep its outputs under their own names --")
+        print(f"  the commands below already do, so they cannot clobber the")
+        print(f"  canonical splits_{args.kg}_components.json / {args.kg}-testsplit-RQ1.json.")
         print(f"  python scripts/build_component_splits.py --kg {args.kg} \\")
         print(f"    --result-sets datasets/{out_path.name} \\")
-        print(f"    --out datasets/splits_{args.kg}_components.json")
+        print(f"    --out datasets/splits_{args.kg}_{tag}.json")
         print(f"  python scripts/build_rq1_twoaxis.py --kg {args.kg} \\")
-        print(f"    --splits datasets/splits_{args.kg}_components.json \\")
+        print(f"    --splits datasets/splits_{args.kg}_{tag}.json \\")
         print(f"    --result-sets datasets/{out_path.name} \\")
-        print(f"    --out datasets/{args.kg}-testsplit-RQ1.json")
+        print(f"    --out datasets/{args.kg}-{tag}-RQ1.json")
     else:
         print(f"\nNext -- group protocol (this KG has no component split yet):")
         print(f"  python scripts/build_clean_rq1.py --kg {args.kg} --min-result-size 5 \\")
