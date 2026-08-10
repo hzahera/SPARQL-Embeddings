@@ -180,6 +180,12 @@ def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--kg", choices=sorted(KG), default="dbpedia")
+    ap.add_argument("--triplets", default=None,
+                    help="corpus to partition, overriding the KG default. "
+                         "Required for a derived corpus such as "
+                         "dbpedia-rewrites-triplets.json -- passing only "
+                         "--result-sets silently partitions the DEFAULT "
+                         "corpus and produces a split of the wrong data.")
     ap.add_argument("--result-sets", default=None,
                     help="execution oracle path (default: the KG's "
                          "result_sets_*.json under datasets/). Without it the "
@@ -201,7 +207,11 @@ def main():
     args = ap.parse_args()
 
     cfg = KG[args.kg]
-    trip = json.load(open(ROOT / "datasets" / cfg["triplets"]))
+    trip_path = Path(args.triplets) if args.triplets else ROOT / "datasets" / cfg["triplets"]
+    if not trip_path.is_absolute():
+        trip_path = ROOT / trip_path
+    trip = json.load(open(trip_path))
+    print(f"corpus: {trip_path.name} ({len(trip)} groups)")
     ratios = [float(x) for x in args.ratios.split(",")]
     if len(ratios) != 3 or abs(sum(ratios) - 1.0) > 1e-6:
         raise SystemExit(f"--ratios must be three fractions summing to 1, got {args.ratios}")

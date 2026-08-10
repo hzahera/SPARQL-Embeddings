@@ -177,6 +177,12 @@ def main():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--kg", choices=sorted(KG), default="dbpedia")
     ap.add_argument("--splits", default=None, help="component split file")
+    ap.add_argument("--triplets", default=None,
+                    help="corpus to partition, overriding the KG default. "
+                         "Required for a derived corpus such as "
+                         "dbpedia-rewrites-triplets.json -- passing only "
+                         "--result-sets silently partitions the DEFAULT "
+                         "corpus and produces a split of the wrong data.")
     ap.add_argument("--result-sets", default=None, help="execution oracle")
     ap.add_argument("--jac-min", type=float, default=0.80,
                     help="positive iff Jaccard > this (default 0.80)")
@@ -209,7 +215,11 @@ def main():
     args = ap.parse_args()
 
     cfg = KG[args.kg]
-    trip = json.load(open(ROOT / "datasets" / cfg["triplets"]))
+    trip_path = Path(args.triplets) if args.triplets else ROOT / "datasets" / cfg["triplets"]
+    if not trip_path.is_absolute():
+        trip_path = ROOT / trip_path
+    trip = json.load(open(trip_path))
+    print(f"corpus: {trip_path.name} ({len(trip)} groups)")
     spl_path = Path(args.splits) if args.splits else ROOT / "datasets" / cfg["splits"]
     if not spl_path.is_absolute():
         spl_path = ROOT / spl_path
