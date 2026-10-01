@@ -1,0 +1,66 @@
+models:
+  mpnet:
+    config: models/mpnet.yaml
+    display_name: MPNet
+    category: text
+    citation: song2020mpnet
+
+  e5-base-v2:
+    config: models/e5-base-v2.yaml
+    display_name: E5-base-v2
+    category: text
+    citation: wang2022e5
+
+  bge-base:
+    config: models/bge-base.yaml
+    display_name: BGE-base
+    category: text
+    citation: xiao2024bge
+
+  gte-base:
+    config: models/gte-base.yaml
+    display_name: GTE-base
+    category: text
+    citation: li2023gte
+
+  qwen3-embedding:
+    config: models/qwen3-embedding.yaml
+    display_name: Qwen3-Embedding
+    category: text
+    citation: zhang2025qwen3emb
+
+  codebert:
+    config: models/codebert.yaml
+    display_name: CodeBERT
+    category: code
+    citation: feng2020codebert
+
+  graphcodebert:
+    config: models/graphcodebert.yaml
+    display_name: GraphCodeBERT
+    category: code
+    citation: guo2021graphcodebert
+
+  qwen2.5-coder:
+    config: models/qwen2.5-coder.yaml
+    display_name: Qwen2.5-Coder
+    category: code
+    citation: null
+
+  gemma:
+    config: models/gemma.yaml
+    display_name: Gemma
+    category: general
+    citation: null
+
+  spbert:
+    config: models/spbert.yaml
+    display_name: SPBERT
+    category: sparql
+    citation: tran2021spbert
+
+categories:
+  text: Text embedding models
+  code: Code encoders
+  general: General-purpose transformers
+  sparql: SPARQL-pretrained

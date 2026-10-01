@@ -1,0 +1,10 @@
+name: qwen2.5-coder
+model_name_or_path: Qwen/Qwen2.5-Coder-0.5B
+architecture: decoder
+pooling: last_token
+prefix: ""
+max_length: 512
+padding_side: left
+trust_remote_code: true
+torch_dtype: float32
+input_transform: identity

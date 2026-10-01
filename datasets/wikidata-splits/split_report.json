@@ -1,0 +1,95 @@
+{
+  "input": "../datasets/wikidata-triplets-dataset.json",
+  "endpoint": "https://wikidata.data.dice-research.org/sparql",
+  "seed": 42,
+  "thresholds": {
+    "positive_min": 0.8,
+    "negative_max": 0.1
+  },
+  "requested_ratios": {
+    "train": 0.8,
+    "valid": 0.1,
+    "test": 0.1
+  },
+  "input_unique_queries": 10749,
+  "execution_status_counts": {
+    "success": 10749
+  },
+  "usable_nonempty_queries": 10749,
+  "pairs_with_shared_answers": 661859,
+  "positive_edges": 123509,
+  "positive_components": 3970,
+  "largest_positive_component": 398,
+  "partition_query_counts_before_anchor_filter": {
+    "train": 8599,
+    "valid": 1075,
+    "test": 1075
+  },
+  "output": {
+    "train": {
+      "anchors": 7570,
+      "positive_relations": 41660,
+      "negative_relations": 151400,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9821277462042544
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.014164913775156657
+      }
+    },
+    "valid": {
+      "anchors": 946,
+      "positive_relations": 6006,
+      "negative_relations": 18920,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9941924106826457
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.005703936401465328
+      }
+    },
+    "test": {
+      "anchors": 946,
+      "positive_relations": 5568,
+      "negative_relations": 18920,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9877344801508959
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.005555873180681819
+      }
+    }
+  },
+  "leakage_checks": {
+    "normalized_output_queries": {
+      "train": 8599,
+      "valid": 1075,
+      "test": 1075
+    },
+    "train_valid_overlap": 0,
+    "train_test_overlap": 0,
+    "valid_test_overlap": 0,
+    "cross_split_positive_edges": 0,
+    "cross_split_exact_result_fingerprints": 0,
+    "passed": true
+  },
+  "files": {
+    "train": "wikidata-clean-splits/wikidata-train-clean.json",
+    "valid": "wikidata-clean-splits/wikidata-valid-clean.json",
+    "test": "wikidata-clean-splits/wikidata-test-clean.json",
+    "execution_cache": "wikidata-clean-splits/query_execution_cache.jsonl",
+    "unique_queries": "wikidata-clean-splits/unique_queries.json"
+  }
+}

@@ -1,0 +1,10 @@
+name: e5-base-v2
+model_name_or_path: intfloat/e5-base-v2
+architecture: encoder
+pooling: mean
+prefix: "query: "
+max_length: 512
+padding_side: right
+trust_remote_code: false
+torch_dtype: float32
+input_transform: identity

@@ -1,0 +1,95 @@
+{
+  "input": "../datasets/dbpedia-triplets-dataset.json",
+  "endpoint": "https://dbpedia.data.dice-research.org/sparql",
+  "seed": 42,
+  "thresholds": {
+    "positive_min": 0.8,
+    "negative_max": 0.1
+  },
+  "requested_ratios": {
+    "train": 0.8,
+    "valid": 0.1,
+    "test": 0.1
+  },
+  "input_unique_queries": 4727,
+  "execution_status_counts": {
+    "success": 4727
+  },
+  "usable_nonempty_queries": 4727,
+  "pairs_with_shared_answers": 680949,
+  "positive_edges": 46192,
+  "positive_components": 1156,
+  "largest_positive_component": 161,
+  "partition_query_counts_before_anchor_filter": {
+    "train": 3781,
+    "valid": 473,
+    "test": 473
+  },
+  "output": {
+    "train": {
+      "anchors": 3737,
+      "positive_relations": 31831,
+      "negative_relations": 74740,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9744747912515215
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.030344065471219858
+      }
+    },
+    "valid": {
+      "anchors": 469,
+      "positive_relations": 3826,
+      "negative_relations": 9380,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9246833533627142
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.03356172458253294
+      }
+    },
+    "test": {
+      "anchors": 468,
+      "positive_relations": 3773,
+      "negative_relations": 9360,
+      "positive_jaccard": {
+        "min": 0.8,
+        "max": 1.0,
+        "mean": 0.9763186206294
+      },
+      "negative_jaccard": {
+        "min": 0.0,
+        "max": 0.1,
+        "mean": 0.01836468901920705
+      }
+    }
+  },
+  "leakage_checks": {
+    "normalized_output_queries": {
+      "train": 3781,
+      "valid": 473,
+      "test": 473
+    },
+    "train_valid_overlap": 0,
+    "train_test_overlap": 0,
+    "valid_test_overlap": 0,
+    "cross_split_positive_edges": 0,
+    "cross_split_exact_result_fingerprints": 0,
+    "passed": true
+  },
+  "files": {
+    "train": "dbpedia-clean-splits/dbpedia-train-clean.json",
+    "valid": "dbpedia-clean-splits/dbpedia-valid-clean.json",
+    "test": "dbpedia-clean-splits/dbpedia-test-clean.json",
+    "execution_cache": "dbpedia-clean-splits/query_execution_cache.jsonl",
+    "unique_queries": "dbpedia-clean-splits/unique_queries.json"
+  }
+}

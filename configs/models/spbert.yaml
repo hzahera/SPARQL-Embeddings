@@ -1,0 +1,14 @@
+name: spbert
+model_name_or_path: razent/spbert-mlm-base
+architecture: encoder
+pooling: mean
+prefix: ""
+max_length: 512
+padding_side: right
+trust_remote_code: false
+torch_dtype: float32
+# IMPORTANT: this is intentionally identity by default so the benchmark does
+# not silently rewrite SPARQL. If you want a faithful SPBERT-native surface
+# representation, register the exact preprocessing used by the SPBERT authors
+# in result_aware/preprocessing.py and set it here.
+input_transform: identity

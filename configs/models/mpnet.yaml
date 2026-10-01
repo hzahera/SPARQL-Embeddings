@@ -1,0 +1,10 @@
+name: mpnet
+model_name_or_path: sentence-transformers/all-mpnet-base-v2
+architecture: encoder
+pooling: mean
+prefix: ""
+max_length: 512
+padding_side: right
+trust_remote_code: false
+torch_dtype: float32
+input_transform: identity

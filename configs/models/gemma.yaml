@@ -1,0 +1,12 @@
+name: gemma
+# 270M keeps full fine-tuning practical on a 24 GB GPU. Swap this HF id for a
+# larger Gemma checkpoint if desired; the rest of the pipeline is unchanged.
+model_name_or_path: google/gemma-3-270m
+architecture: decoder
+pooling: last_token
+prefix: ""
+max_length: 512
+padding_side: left
+trust_remote_code: true
+torch_dtype: float32
+input_transform: identity
