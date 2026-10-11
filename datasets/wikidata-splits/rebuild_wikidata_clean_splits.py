@@ -2,7 +2,10 @@
 """
 Rebuild leakage-free Wikidata semantic triplets from an existing triplet dataset.
 
-Input:
+Input (either format is accepted via --input):
+  unique_queries.json
+    ["SELECT ...", "SELECT ...", ...]
+
   wikidata-triplets-dataset.json
     [
       {
@@ -14,7 +17,8 @@ Input:
     ]
 
 What this script does:
-  1. Extracts every UNIQUE query string from anchors/positives/negatives.
+  1. Reads every UNIQUE query string (from the list, or from
+     anchors/positives/negatives) and drops scalar-aggregate queries.
   2. Re-executes every unique query on the configured Wikidata SPARQL endpoint.
   3. Stores a resumable execution cache.
   4. Recomputes answer-set Jaccard from the NEW endpoint results.
@@ -41,7 +45,7 @@ Requirements:
 
 How to run:
     python rebuild_wikidata_clean_splits.py \
-  --input wikidata-triplets-dataset.json \
+  --input unique_queries.json \
   --output-dir wikidata-clean-splits \
   --workers 4
 """
@@ -54,6 +58,7 @@ import json
 import math
 import random
 import re
+import statistics
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -84,6 +89,36 @@ def query_hash(q: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Scalar-aggregate filter
+# ---------------------------------------------------------------------------
+
+_AGG = re.compile(r"\b(COUNT|SUM|AVG|MIN|MAX|SAMPLE|GROUP_CONCAT)\s*\(", re.I)
+_GROUP_BY = re.compile(r"\bGROUP\s+BY\b", re.I)
+
+
+def is_scalar_aggregate(q: str) -> bool:
+    """
+    True for SELECT queries that project an aggregate (in the outer query or a
+    sub-SELECT) and contain no GROUP BY, i.e. queries that return a single
+    aggregate row such as SELECT (COUNT(?x) AS ?n) WHERE { ... }.
+
+    Answer-set Jaccard is not meaningful for these queries: two unrelated
+    queries become result-equivalent (J = 1) whenever their single values
+    coincide. They are therefore excluded before execution.
+    """
+    # Drop IRIs first: they may contain '#', '{' or keywords such as COUNT.
+    body = re.sub(r"<[^<>\s]*>", "<>", q)
+    if _GROUP_BY.search(body):
+        return False
+    # Check the projection of the outer query and of any sub-SELECT, so that
+    # a scalar aggregate wrapped in an outer SELECT is also caught.
+    for m in re.finditer(r"\bSELECT\b(.*?)(\bWHERE\b|\{)", body, re.I | re.S):
+        if _AGG.search(m.group(1)):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Input extraction
 # ---------------------------------------------------------------------------
 
@@ -92,7 +127,10 @@ def extract_unique_queries(input_path: Path) -> List[str]:
         data = json.load(f)
 
     if not isinstance(data, list):
-        raise ValueError("Expected the input JSON root to be a list.")
+        raise ValueError(
+            "Expected the input JSON root to be a list of query strings "
+            "(unique_queries.json) or of anchor/positive/negative records."
+        )
 
     by_norm: Dict[str, str] = {}
 
@@ -103,6 +141,11 @@ def extract_unique_queries(input_path: Path) -> List[str]:
         by_norm.setdefault(n, q.strip())
 
     for item in data:
+        # unique_queries.json: a plain list of query strings.
+        if isinstance(item, str):
+            add(item)
+            continue
+        # Triplet dataset: anchor/positive/negative records.
         if not isinstance(item, dict):
             continue
 
@@ -693,8 +736,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--input",
-        default="wikidata-triplets-dataset.json",
-        help="Existing anchor/positive/negative JSON.",
+        default="unique_queries.json",
+        help="unique_queries.json (list of query strings) or the older "
+        "wikidata-triplets-dataset.json (anchor/positive/negative records).",
     )
     ap.add_argument(
         "--output-dir",
@@ -717,6 +761,11 @@ def main() -> None:
     ap.add_argument("--valid-ratio", type=float, default=0.10)
     ap.add_argument("--test-ratio", type=float, default=0.10)
 
+    ap.add_argument(
+        "--keep-scalar-aggregates",
+        action="store_true",
+        help="Keep single-row aggregate queries (excluded by default).",
+    )
     ap.add_argument("--max-positives", type=int, default=20)
     ap.add_argument("--max-negatives", type=int, default=20)
     ap.add_argument(
@@ -735,12 +784,35 @@ def main() -> None:
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    if (out / "unique_queries.json").resolve() == input_path.resolve():
+        raise ValueError(
+            "--output-dir would overwrite the input unique_queries.json; "
+            "choose a different output directory."
+        )
+
     print("=" * 80)
     print("1) Extracting UNIQUE queries from the old triplet dataset")
     print("=" * 80)
 
     unique_queries = extract_unique_queries(input_path)
-    print(f"Unique normalized queries: {len(unique_queries)}")
+    n_input_queries = len(unique_queries)
+    print(f"Unique normalized queries: {n_input_queries}")
+
+    excluded_scalar_aggregates: List[str] = []
+    if not args.keep_scalar_aggregates:
+        excluded_scalar_aggregates = [
+            q for q in unique_queries if is_scalar_aggregate(q)
+        ]
+        unique_queries = [
+            q for q in unique_queries if not is_scalar_aggregate(q)
+        ]
+        print(f"Excluded scalar-aggregate queries: {len(excluded_scalar_aggregates)}")
+        print(f"Queries kept for execution:        {len(unique_queries)}")
+    write_json(
+        out / "excluded_scalar_aggregates.json",
+        excluded_scalar_aggregates,
+    )
+
     write_json(out / "unique_queries.json", unique_queries)
 
     print("\n" + "=" * 80)
@@ -796,6 +868,7 @@ def main() -> None:
     print(f"Positive edges (J >= {args.positive_min}): {len(positive_edges)}")
     print(f"Positive components: {len(components)}")
     print(f"Largest positive component: {max(map(len, components))}")
+    print(f"Median positive component:  {statistics.median(map(len, components))}")
 
     print("\n" + "=" * 80)
     print("4) Creating component-disjoint train/valid/test splits")
@@ -893,6 +966,8 @@ def main() -> None:
             "valid": args.valid_ratio,
             "test": args.test_ratio,
         },
+        "input_unique_queries_before_filter": n_input_queries,
+        "excluded_scalar_aggregates": len(excluded_scalar_aggregates),
         "input_unique_queries": len(unique_queries),
         "execution_status_counts": dict(status_counts),
         "usable_nonempty_queries": len(successful_queries),
@@ -900,6 +975,8 @@ def main() -> None:
         "positive_edges": len(positive_edges),
         "positive_components": len(components),
         "largest_positive_component": max(map(len, components)),
+        "median_positive_component": statistics.median(map(len, components)),
+        "non_singleton_components": sum(1 for c in components if len(c) > 1),
         "partition_query_counts_before_anchor_filter": {
             k: len(v) for k, v in split_ids.items()
         },
