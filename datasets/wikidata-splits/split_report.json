@@ -1,5 +1,5 @@
 {
-  "input": "../datasets/wikidata-triplets-dataset.json",
+  "input": "unique_queries.json",
   "endpoint": "https://wikidata.data.dice-research.org/sparql",
   "seed": 42,
   "thresholds": {
@@ -11,72 +11,77 @@
     "valid": 0.1,
     "test": 0.1
   },
-  "input_unique_queries": 10749,
+  "input_unique_queries_before_filter": 10749,
+  "excluded_scalar_aggregates": 1058,
+  "input_unique_queries": 9691,
   "execution_status_counts": {
-    "success": 10749
+    "success": 9679,
+    "error": 12
   },
-  "usable_nonempty_queries": 10749,
-  "pairs_with_shared_answers": 661859,
-  "positive_edges": 123509,
-  "positive_components": 3970,
-  "largest_positive_component": 398,
+  "usable_nonempty_queries": 9679,
+  "pairs_with_shared_answers": 556599,
+  "positive_edges": 20243,
+  "positive_components": 3846,
+  "largest_positive_component": 52,
+  "median_positive_component": 2.0,
+  "non_singleton_components": 2585,
   "partition_query_counts_before_anchor_filter": {
-    "train": 8599,
-    "valid": 1075,
-    "test": 1075
+    "train": 7743,
+    "valid": 968,
+    "test": 968
   },
   "output": {
     "train": {
-      "anchors": 7570,
-      "positive_relations": 41660,
-      "negative_relations": 151400,
+      "anchors": 6734,
+      "positive_relations": 29867,
+      "negative_relations": 134680,
       "positive_jaccard": {
         "min": 0.8,
         "max": 1.0,
-        "mean": 0.9821277462042544
+        "mean": 0.9815973853770715
       },
       "negative_jaccard": {
         "min": 0.0,
         "max": 0.1,
-        "mean": 0.014164913775156657
+        "mean": 0.014998719005628838
       }
     },
     "valid": {
-      "anchors": 946,
-      "positive_relations": 6006,
-      "negative_relations": 18920,
+      "anchors": 842,
+      "positive_relations": 3848,
+      "negative_relations": 16840,
       "positive_jaccard": {
         "min": 0.8,
         "max": 1.0,
-        "mean": 0.9941924106826457
+        "mean": 0.95735623757041
       },
       "negative_jaccard": {
         "min": 0.0,
         "max": 0.1,
-        "mean": 0.005703936401465328
+        "mean": 0.010664137049965853
       }
     },
     "test": {
-      "anchors": 946,
-      "positive_relations": 5568,
-      "negative_relations": 18920,
+      "anchors": 842,
+      "positive_relations": 3493,
+      "negative_relations": 16840,
       "positive_jaccard": {
         "min": 0.8,
         "max": 1.0,
-        "mean": 0.9877344801508959
+        "mean": 0.9616753864833879
       },
       "negative_jaccard": {
         "min": 0.0,
         "max": 0.1,
-        "mean": 0.005555873180681819
+        "mean": 0.010752205002743117
       }
     }
   },
   "leakage_checks": {
     "normalized_output_queries": {
-      "train": 8599,
-      "valid": 1075,
-      "test": 1075
+      "train": 7743,
+      "valid": 968,
+      "test": 968
     },
     "train_valid_overlap": 0,
     "train_test_overlap": 0,
@@ -86,10 +91,10 @@
     "passed": true
   },
   "files": {
-    "train": "wikidata-clean-splits/wikidata-train-clean.json",
-    "valid": "wikidata-clean-splits/wikidata-valid-clean.json",
-    "test": "wikidata-clean-splits/wikidata-test-clean.json",
-    "execution_cache": "wikidata-clean-splits/query_execution_cache.jsonl",
-    "unique_queries": "wikidata-clean-splits/unique_queries.json"
+    "train": "wikidata-clean-splits-v2/wikidata-train-clean.json",
+    "valid": "wikidata-clean-splits-v2/wikidata-valid-clean.json",
+    "test": "wikidata-clean-splits-v2/wikidata-test-clean.json",
+    "execution_cache": "wikidata-clean-splits-v2/query_execution_cache.jsonl",
+    "unique_queries": "wikidata-clean-splits-v2/unique_queries.json"
   }
 }
