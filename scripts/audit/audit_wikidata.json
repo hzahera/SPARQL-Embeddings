@@ -1,6 +1,6 @@
 {
   "graph": "wikidata",
-  "unique_queries": 10749,
+  "unique_queries": 9679,
   "ws_identity_conflicts": 0,
   "cross_split_ws": {
     "train_valid": 0,
@@ -13,52 +13,52 @@
     "valid_test": 0
   },
   "cross_split_algebra_colfree": {
-    "train_valid": 4,
-    "train_test": 1,
+    "train_valid": 3,
+    "train_test": 6,
     "valid_test": 0
   },
   "cross_split_template": {
-    "train_valid": 150,
-    "train_test": 143,
-    "valid_test": 103
+    "train_valid": 105,
+    "train_test": 111,
+    "valid_test": 73
   },
-  "test_anchors": 946,
-  "test_anchors_with_train_template": 551,
+  "test_anchors": 842,
+  "test_anchors_with_train_template": 417,
   "cross_split_positive_edges": 0,
-  "components": 3970,
-  "components_size_ge2": 2683,
-  "largest_component": 398,
+  "components": 3846,
+  "components_size_ge2": 2585,
+  "largest_component": 52,
   "median_component_size_ge2": 2,
-  "test_components": 397,
-  "positive_relations": 53234,
-  "positive_J1_share": 0.8558440094676335,
-  "positive_unordered_pairs": 33818,
-  "negative_relations": 189240,
-  "negative_nonzero_share": 0.4708729655463961,
-  "negatives_same_arity_share": 0.6594570605125682,
-  "positives_same_arity_share": 0.9980557098642965,
+  "test_components": 384,
+  "positive_relations": 37208,
+  "positive_J1_share": 0.7939152870350462,
+  "positive_unordered_pairs": 19535,
+  "negative_relations": 168360,
+  "negative_nonzero_share": 0.524952482775006,
+  "negatives_same_arity_share": 0.6602691020221299,
+  "positives_same_arity_share": 0.9973626137036439,
   "features_count": {
-    "aggregate": 1956,
-    "limit": 86,
+    "aggregate": 897,
+    "limit": 84,
     "offset": 2,
-    "order": 1493,
-    "distinct": 2224,
-    "service": 84
+    "order": 1467,
+    "distinct": 2204,
+    "service": 8
   },
-  "slicing_count": 88,
+  "slicing_count": 86,
   "forms": {
-    "SELECT": 10749
+    "SELECT": 9679
   },
-  "parse_failures": 84,
+  "parse_failures": 8,
   "arity_distribution": {
-    "1": 6693,
-    "2": 1566,
-    "3": 1175,
-    "4": 435,
-    "5": 207,
-    "6": 344,
-    "7": 61,
-    "8": 83,
+    "1": 5750,
+    "2": 1534,
+    "3": 1170,
+    "4": 430,
+    "5": 206,
+    "6": 343,
+    "7": 59,
+    "8": 78,
     "9": 20,
     "10": 8,
     "11": 44,
@@ -70,10 +70,10 @@
   },
   "triple_patterns_median_mean_max": [
     1,
-    2.35,
-    27
+    2.42,
+    24
   ],
-  "column_order_variant_groups": 45,
-  "queries_in_column_order_variant_groups": 104,
-  "distinct_templates": 5509
+  "column_order_variant_groups": 36,
+  "queries_in_column_order_variant_groups": 84,
+  "distinct_templates": 4989
 }
