@@ -1,0 +1,133 @@
+{
+  "graph": "dbpedia",
+  "anchors": 468,
+  "test_queries": 473,
+  "A:random": {
+    "hits@1": 0.2319,
+    "mrr@5": 0.3654,
+    "ndcg@5": 0.2946,
+    "mrr": 0.4036,
+    "ndcg@10": 0.3515
+  },
+  "A:tfidf": {
+    "hits@1": 0.8483,
+    "mrr@5": 0.8948,
+    "ndcg@5": 0.8506,
+    "mrr": 0.9,
+    "ndcg@10": 0.8688
+  },
+  "A:bm25": {
+    "hits@1": 0.8419,
+    "mrr@5": 0.8978,
+    "ndcg@5": 0.8595,
+    "mrr": 0.9007,
+    "ndcg@10": 0.8725
+  },
+  "A:normalized_match": {
+    "hits@1": 0.2759,
+    "mrr@5": 0.4053,
+    "ndcg@5": 0.326,
+    "mrr": 0.4406,
+    "ndcg@10": 0.3804
+  },
+  "A:algebra_similarity": {
+    "hits@1": 0.703,
+    "mrr@5": 0.7984,
+    "ndcg@5": 0.7612,
+    "mrr": 0.8062,
+    "ndcg@10": 0.7837
+  },
+  "A:query_form": {
+    "hits@1": 0.5377,
+    "mrr@5": 0.6638,
+    "ndcg@5": 0.6427,
+    "mrr": 0.6788,
+    "ndcg@10": 0.6854
+  },
+  "B:random": {
+    "hits@1": 0.018,
+    "mrr@5": 0.0381,
+    "ndcg@5": 0.0201,
+    "mrr": 0.0645,
+    "ndcg@10": 0.0226
+  },
+  "B:tfidf": {
+    "hits@1": 0.5812,
+    "mrr@5": 0.6416,
+    "ndcg@5": 0.474,
+    "mrr": 0.6577,
+    "ndcg@10": 0.466
+  },
+  "B:bm25": {
+    "hits@1": 0.3996,
+    "mrr@5": 0.4911,
+    "ndcg@5": 0.419,
+    "mrr": 0.5169,
+    "ndcg@10": 0.4355
+  },
+  "B:normalized_match": {
+    "hits@1": 0.0649,
+    "mrr@5": 0.0848,
+    "ndcg@5": 0.0568,
+    "mrr": 0.1105,
+    "ndcg@10": 0.0593
+  },
+  "B:algebra_similarity": {
+    "hits@1": 0.2585,
+    "mrr@5": 0.345,
+    "ndcg@5": 0.2776,
+    "mrr": 0.3829,
+    "ndcg@10": 0.3091
+  },
+  "B:query_form": {
+    "hits@1": 0.0926,
+    "mrr@5": 0.1608,
+    "ndcg@5": 0.1147,
+    "mrr": 0.2012,
+    "ndcg@10": 0.1312
+  },
+  "C:random": {
+    "hits@1": 0.0679,
+    "mrr@5": 0.1198,
+    "ndcg@5": 0.0682,
+    "mrr": 0.1419,
+    "ndcg@10": 0.0705
+  },
+  "C:tfidf": {
+    "hits@1": 0.5833,
+    "mrr@5": 0.6438,
+    "ndcg@5": 0.565,
+    "mrr": 0.6597,
+    "ndcg@10": 0.5748
+  },
+  "C:bm25": {
+    "hits@1": 0.5278,
+    "mrr@5": 0.6233,
+    "ndcg@5": 0.5541,
+    "mrr": 0.6388,
+    "ndcg@10": 0.5723
+  },
+  "C:normalized_match": {
+    "hits@1": 0.1147,
+    "mrr@5": 0.1664,
+    "ndcg@5": 0.105,
+    "mrr": 0.1879,
+    "ndcg@10": 0.1072
+  },
+  "C:algebra_similarity": {
+    "hits@1": 0.3868,
+    "mrr@5": 0.4773,
+    "ndcg@5": 0.4091,
+    "mrr": 0.5049,
+    "ndcg@10": 0.4404
+  },
+  "C:query_form": {
+    "hits@1": 0.2272,
+    "mrr@5": 0.3014,
+    "ndcg@5": 0.2482,
+    "mrr": 0.3301,
+    "ndcg@10": 0.2657
+  },
+  "normalized_match_recovers_positive_pairs_share": 0.0015082956259426848,
+  "struct_parse_failures": 0
+}

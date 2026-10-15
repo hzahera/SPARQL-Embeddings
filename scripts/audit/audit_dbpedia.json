@@ -1,0 +1,69 @@
+{
+  "graph": "dbpedia",
+  "unique_queries": 4727,
+  "ws_identity_conflicts": 0,
+  "cross_split_ws": {
+    "train_valid": 0,
+    "train_test": 0,
+    "valid_test": 0
+  },
+  "cross_split_algebra": {
+    "train_valid": 1,
+    "train_test": 0,
+    "valid_test": 0
+  },
+  "cross_split_algebra_colfree": {
+    "train_valid": 1,
+    "train_test": 1,
+    "valid_test": 0
+  },
+  "cross_split_template": {
+    "train_valid": 27,
+    "train_test": 20,
+    "valid_test": 16
+  },
+  "test_anchors": 468,
+  "test_anchors_with_train_template": 459,
+  "cross_split_positive_edges": 0,
+  "components": 1156,
+  "components_size_ge2": 1103,
+  "largest_component": 161,
+  "median_component_size_ge2": 2,
+  "test_components": 114,
+  "positive_relations": 39430,
+  "positive_J1_share": 0.7885873700228253,
+  "positive_unordered_pairs": 26621,
+  "negative_relations": 93480,
+  "negative_nonzero_share": 0.38059477963200683,
+  "negatives_same_arity_share": 0.7499572100984168,
+  "positives_same_arity_share": 1.0,
+  "features_count": {
+    "aggregate": 0,
+    "limit": 0,
+    "offset": 0,
+    "order": 59,
+    "distinct": 2351,
+    "service": 4
+  },
+  "slicing_count": 0,
+  "forms": {
+    "SELECT": 4727
+  },
+  "parse_failures": 0,
+  "arity_distribution": {
+    "1": 3854,
+    "2": 407,
+    "3": 66,
+    "5": 12,
+    "6": 248,
+    "10": 140
+  },
+  "triple_patterns_median_mean_max": [
+    2,
+    2.48,
+    13
+  ],
+  "column_order_variant_groups": 5,
+  "queries_in_column_order_variant_groups": 14,
+  "distinct_templates": 121
+}
