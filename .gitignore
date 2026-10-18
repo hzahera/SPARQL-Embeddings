@@ -7,3 +7,12 @@ results/
 checkpoints/
 *.log
 .DS_Store
+
+# logs, editor/packaging artifacts
+logs/
+*.bak
+.ipynb_checkpoints/
+*.egg-info/
+
+# large execution caches (released separately, not via git)
+datasets/*/query_execution_cache.jsonl

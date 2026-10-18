@@ -42,14 +42,14 @@ Examples
 
 DBpedia:
 
-python scripts/build_rq3_from_endpoint.py \
+python datasets/scripts/build_rq3_from_endpoint.py \
     --dataset dbpedia \
     --test datasets/dbpedia-splits/dbpedia-test.json \
     --output datasets/dbpedia-splits/dbpedia-test-rq3.json
 
 Wikidata:
 
-python scripts/build_rq3_from_endpoint.py \
+python datasets/scripts/build_rq3_from_endpoint.py \
     --dataset wikidata \
     --test datasets/wikidata-splits/wikidata-test.json \
     --output datasets/wikidata-splits/wikidata-test-rq3.json

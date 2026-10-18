@@ -1,0 +1,68 @@
+section,statistic,dbpedia,wikidata
+Split sizes,anchors_train_valid_test,"3,737 / 469 / 468","6,734 / 842 / 842"
+Split sizes,queries_over_1000_chars_pct,3,4.91
+Split sizes,queries_over_max_length_pct_by_model [bge-base],0,0.4
+Split sizes,queries_over_max_length_pct_by_model [codebert],2.96,6.18
+Split sizes,queries_over_max_length_pct_by_model [e5-base-v2],0,0.41
+Split sizes,queries_over_max_length_pct_by_model [gemma],0,0.93
+Split sizes,queries_over_max_length_pct_by_model [graphcodebert],2.96,6.18
+Split sizes,queries_over_max_length_pct_by_model [gte-base],0,0.4
+Split sizes,queries_over_max_length_pct_by_model [mpnet],0,0.4
+Split sizes,queries_over_max_length_pct_by_model [qwen2.5-coder],0,0.75
+Split sizes,queries_over_max_length_pct_by_model [qwen3-embedding],0,0.75
+Split sizes,queries_over_max_length_pct_by_model [spbert],0,0.57
+Split sizes,queries_over_max_length_pct_range,0.0–2.96,0.4–6.18
+Split sizes,queries_train_valid_test,"3,781 / 473 / 473","7,743 / 968 / 968"
+Split sizes,queries_with_blank_node_answers,0,230
+Split sizes,queries_with_limit_offset_pct,0,0.89
+Split sizes,split_report.excluded_scalar_aggregates,–,"1,058"
+Split sizes,split_report.execution_status_counts [error],–,12
+Split sizes,split_report.execution_status_counts [success],"4,727","9,679"
+Split sizes,split_report.input_unique_queries,"4,727","9,691"
+Split sizes,split_report.input_unique_queries_before_filter,–,"10,749"
+Split sizes,split_report.largest_positive_component,161,52
+Split sizes,split_report.median_positive_component,–,2
+Split sizes,split_report.non_singleton_components,–,"2,585"
+Split sizes,split_report.positive_components,"1,156","3,846"
+Split sizes,split_report.usable_nonempty_queries,"4,727","9,679"
+Split sizes,stored_negative_pairs,"93,480","168,360"
+Split sizes,stored_positive_pairs,"39,430","37,208"
+Split sizes,unique_queries,"4,727","9,679"
+Labels,negatives_nonzero_overlap_pct,38.1,52.5
+Labels,positive_pairs_identical_answers_pct,78.9,79.4
+Answers,max_answer_rows_all,"2,798,774","5,731,502"
+Answers,max_answer_rows_test[cache],"2,798,774","5,563,493"
+Answers,max_answer_rows_test[rq3],"2,798,774","5,563,493"
+Answers,median_answer_rows_all,2,3
+Answers,most_frequent_sizes_ge_1000,"[(2798774, 3), (1058, 3), (1474, 2), (77163, 2), (2143, 2)]","[(3041, 19), (12360, 13), (494418, 12), (1606, 11), (314082, 9)]"
+Answers,positive_pairs_with_blank_nodes_pct,0,0.71
+Answers,single_row_answers_pct,40.6,46.9
+Answers,test_rq3.query_count,473,968
+Execution time,execution_time_median_s,0.03,0.15
+Execution time,execution_time_p95_s,0.09,18.88
+Execution time,execution_time_total_hours,0.3,10.86
+Templates,largest_template_share_pct[all],34.7,8.9
+Templates,largest_template_share_pct[so],34.7,3.8
+Templates,templates[all],115,"3,056"
+Templates,templates[so],143,"5,363"
+Templates,test_anchors_with_training_template_pct[all],97.9,78
+Templates,test_anchors_with_training_template_pct[so],97.9,46.6
+Templates,test_queries_with_training_template_pct[all],97.5,72.4
+Templates,test_queries_with_training_template_pct[so],97.5,44.2
+Query form,negatives_different_arity_pct,25,33.9
+Query form,positives_same_arity_pct,100,100
+Query length,max_length_by_model [bge-base],512,512
+Query length,max_length_by_model [codebert],512,512
+Query length,max_length_by_model [e5-base-v2],512,512
+Query length,max_length_by_model [gemma],512,512
+Query length,max_length_by_model [graphcodebert],512,512
+Query length,max_length_by_model [gte-base],512,512
+Query length,max_length_by_model [mpnet],512,512
+Query length,max_length_by_model [qwen2.5-coder],512,512
+Query length,max_length_by_model [qwen3-embedding],512,512
+Query length,max_length_by_model [spbert],512,512
+Query length,max_query_chars,"1,145","1,669"
+In-batch candidates,inbatch_candidates_per_epoch,"55,853","100,920"
+In-batch candidates,"inbatch_intermediate_overlap_pct(mean,max)",3.2 / 3.36,0.61 / 0.69
+In-batch candidates,"inbatch_same_component_pct(mean,max)",0.46 / 0.54,0.02 / 0.03
+In-batch candidates,"inbatch_unlabeled_positive_pct(mean,max)",0.14 / 0.16,0 / 0

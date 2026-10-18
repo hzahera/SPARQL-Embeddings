@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GRAPHS=("$@"); [ ${#GRAPHS[@]} -eq 0 ] && GRAPHS=(dbpedia wikidata)
 export PYTHONHASHSEED=0
+mkdir -p "$ROOT/logs"
 for g in "${GRAPHS[@]}"; do
   if [ ! -f "$ROOT/scripts/audit/audit_${g}_perquery.json" ]; then
     echo "audit_${g}_perquery.json missing, building it (normalized_match may differ slightly, see README)"
@@ -12,5 +13,5 @@ for g in "${GRAPHS[@]}"; do
   fi
   echo "== $g"
   python "$ROOT/scripts/baselines/nonneural.py" "$ROOT" "$g" "$ROOT/scripts/baselines/results_${g}.json" \
-    | tee "$ROOT/scripts/baselines/log_${g}.txt"
+    | tee "$ROOT/logs/baselines_${g}.txt"
 done

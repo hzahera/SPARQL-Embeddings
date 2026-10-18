@@ -1,0 +1,207 @@
+{
+  "dbpedia": {
+    "unique_queries": 4727,
+    "queries_train_valid_test": "3,781 / 473 / 473",
+    "anchors_train_valid_test": "3,737 / 469 / 468",
+    "stored_positive_pairs": 39430,
+    "stored_negative_pairs": 93480,
+    "split_report.input_unique_queries": 4727,
+    "split_report.execution_status_counts": {
+      "success": 4727
+    },
+    "split_report.usable_nonempty_queries": 4727,
+    "split_report.positive_components": 1156,
+    "split_report.largest_positive_component": 161,
+    "positive_pairs_identical_answers_pct": 78.9,
+    "negatives_nonzero_overlap_pct": 38.1,
+    "test_rq3.query_count": 473,
+    "max_answer_rows_test[rq3]": 2798774,
+    "max_answer_rows_test[cache]": 2798774,
+    "max_answer_rows_all": 2798774,
+    "median_answer_rows_all": 2,
+    "single_row_answers_pct": 40.6,
+    "most_frequent_sizes_ge_1000": [
+      [
+        2798774,
+        3
+      ],
+      [
+        1058,
+        3
+      ],
+      [
+        1474,
+        2
+      ],
+      [
+        77163,
+        2
+      ],
+      [
+        2143,
+        2
+      ]
+    ],
+    "queries_with_blank_node_answers": 0,
+    "positive_pairs_with_blank_nodes_pct": 0.0,
+    "execution_time_total_hours": 0.3,
+    "execution_time_median_s": 0.03,
+    "execution_time_p95_s": 0.09,
+    "templates[so]": 143,
+    "test_anchors_with_training_template_pct[so]": 97.9,
+    "test_queries_with_training_template_pct[so]": 97.5,
+    "largest_template_share_pct[so]": 34.7,
+    "templates[all]": 115,
+    "test_anchors_with_training_template_pct[all]": 97.9,
+    "test_queries_with_training_template_pct[all]": 97.5,
+    "largest_template_share_pct[all]": 34.7,
+    "queries_with_limit_offset_pct": 0.0,
+    "negatives_different_arity_pct": 25.0,
+    "positives_same_arity_pct": 100.0,
+    "max_query_chars": 1145,
+    "queries_over_1000_chars_pct": 3.0,
+    "queries_over_max_length_pct_range": "0.0–2.96",
+    "queries_over_max_length_pct_by_model": {
+      "mpnet": 0.0,
+      "e5-base-v2": 0.0,
+      "bge-base": 0.0,
+      "gte-base": 0.0,
+      "qwen3-embedding": 0.0,
+      "gemma": 0.0,
+      "codebert": 2.96,
+      "graphcodebert": 2.96,
+      "qwen2.5-coder": 0.0,
+      "spbert": 0.0
+    },
+    "max_length_by_model": {
+      "mpnet": 512,
+      "e5-base-v2": 512,
+      "bge-base": 512,
+      "gte-base": 512,
+      "qwen3-embedding": 512,
+      "gemma": 512,
+      "codebert": 512,
+      "graphcodebert": 512,
+      "qwen2.5-coder": 512,
+      "spbert": 512
+    },
+    "inbatch_candidates_per_epoch": 55853,
+    "inbatch_same_component_pct(mean,max)": [
+      0.455,
+      0.535
+    ],
+    "inbatch_unlabeled_positive_pct(mean,max)": [
+      0.135,
+      0.163
+    ],
+    "inbatch_intermediate_overlap_pct(mean,max)": [
+      3.204,
+      3.356
+    ]
+  },
+  "wikidata": {
+    "unique_queries": 9679,
+    "queries_train_valid_test": "7,743 / 968 / 968",
+    "anchors_train_valid_test": "6,734 / 842 / 842",
+    "stored_positive_pairs": 37208,
+    "stored_negative_pairs": 168360,
+    "split_report.input_unique_queries_before_filter": 10749,
+    "split_report.excluded_scalar_aggregates": 1058,
+    "split_report.input_unique_queries": 9691,
+    "split_report.execution_status_counts": {
+      "success": 9679,
+      "error": 12
+    },
+    "split_report.usable_nonempty_queries": 9679,
+    "split_report.positive_components": 3846,
+    "split_report.largest_positive_component": 52,
+    "split_report.median_positive_component": 2.0,
+    "split_report.non_singleton_components": 2585,
+    "positive_pairs_identical_answers_pct": 79.4,
+    "negatives_nonzero_overlap_pct": 52.5,
+    "test_rq3.query_count": 968,
+    "max_answer_rows_test[rq3]": 5563493,
+    "max_answer_rows_test[cache]": 5563493,
+    "max_answer_rows_all": 5731502,
+    "median_answer_rows_all": 3,
+    "single_row_answers_pct": 46.9,
+    "most_frequent_sizes_ge_1000": [
+      [
+        3041,
+        19
+      ],
+      [
+        12360,
+        13
+      ],
+      [
+        494418,
+        12
+      ],
+      [
+        1606,
+        11
+      ],
+      [
+        314082,
+        9
+      ]
+    ],
+    "queries_with_blank_node_answers": 230,
+    "positive_pairs_with_blank_nodes_pct": 0.71,
+    "execution_time_total_hours": 10.86,
+    "execution_time_median_s": 0.15,
+    "execution_time_p95_s": 18.88,
+    "templates[so]": 5363,
+    "test_anchors_with_training_template_pct[so]": 46.6,
+    "test_queries_with_training_template_pct[so]": 44.2,
+    "largest_template_share_pct[so]": 3.8,
+    "templates[all]": 3056,
+    "test_anchors_with_training_template_pct[all]": 78.0,
+    "test_queries_with_training_template_pct[all]": 72.4,
+    "largest_template_share_pct[all]": 8.9,
+    "queries_with_limit_offset_pct": 0.89,
+    "negatives_different_arity_pct": 33.9,
+    "positives_same_arity_pct": 100.0,
+    "max_query_chars": 1669,
+    "queries_over_1000_chars_pct": 4.91,
+    "queries_over_max_length_pct_range": "0.4–6.18",
+    "queries_over_max_length_pct_by_model": {
+      "mpnet": 0.4,
+      "e5-base-v2": 0.41,
+      "bge-base": 0.4,
+      "gte-base": 0.4,
+      "qwen3-embedding": 0.75,
+      "gemma": 0.93,
+      "codebert": 6.18,
+      "graphcodebert": 6.18,
+      "qwen2.5-coder": 0.75,
+      "spbert": 0.57
+    },
+    "max_length_by_model": {
+      "mpnet": 512,
+      "e5-base-v2": 512,
+      "bge-base": 512,
+      "gte-base": 512,
+      "qwen3-embedding": 512,
+      "gemma": 512,
+      "codebert": 512,
+      "graphcodebert": 512,
+      "qwen2.5-coder": 512,
+      "spbert": 512
+    },
+    "inbatch_candidates_per_epoch": 100920,
+    "inbatch_same_component_pct(mean,max)": [
+      0.02,
+      0.026
+    ],
+    "inbatch_unlabeled_positive_pct(mean,max)": [
+      0.002,
+      0.003
+    ],
+    "inbatch_intermediate_overlap_pct(mean,max)": [
+      0.61,
+      0.685
+    ]
+  }
+}
