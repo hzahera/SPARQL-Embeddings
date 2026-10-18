@@ -12,7 +12,7 @@ Fine-tuned per-anchor scores are averaged over the available seeds before bootst
 intervals reflect variation over test anchors (resampled 10,000 times, paired).
 
 Usage: python scripts/analysis/paired_analysis.py --dataset wikidata
-Output: printed tables + results/per_anchor/<dataset>/paired_analysis.json
+Output: printed tables + results/analysis/paired_analysis_<dataset>.json
 """
 import argparse
 import json
@@ -125,6 +125,8 @@ def main():
         for label, mask in (("seen", groups), ("unseen", ~groups)):
             print(f"  -- {label} ({int(mask.sum())} anchors)")
             if base is not None:
+                out["templates"].setdefault("baseline", {})[label] = {
+                    m: float(base[m][mask].mean()) for m in ("hits@1", "ndcg@5")}
                 print(f"     {args.baseline:16s} Hits@1 {base['hits@1'][mask].mean():.3f}  nDCG@5 {base['ndcg@5'][mask].mean():.3f}")
             for name, e in list(enc.items()) + [("mean of encoders", {m: (allz[m], allf[m]) for m in METRICS})]:
                 r = {}
@@ -163,6 +165,7 @@ def main():
             bC = {m: np.array([bl[ckey][a][m] for a in anchors], dtype=float) for m in FULL}
             print(f"\n    full collection: fine-tuned minus {args.baseline} (paired 95% CI); {args.baseline} "
                   + "  ".join(f"{m} {bC[m].mean():.3f}" for m in FULL))
+            out["full_collection"]["baseline"] = {m: float(bC[m].mean()) for m in FULL}
             out["full_collection"]["vs_baseline"] = {}
             for d in sorted(p for p in root.iterdir() if p.is_dir() and p.name in rows):
                 ft = np.mean([vec(json.load(open(s)), "hits@1") for s in sorted(d.glob("seed_*_full.json"))], axis=0)
@@ -172,8 +175,10 @@ def main():
         else:
             print(f"    (no per-anchor '{ckey}' in {bfile}; full-collection baseline comparison skipped)")
 
-    json.dump(out, open(root / "paired_analysis.json", "w"), indent=2)
-    print(f"\nSaved {root / 'paired_analysis.json'}")
+    dest = Path("results/analysis") / f"paired_analysis_{g}.json"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    json.dump(out, open(dest, "w"), indent=2)
+    print(f"\nSaved {dest}")
 
 
 if __name__ == "__main__":
