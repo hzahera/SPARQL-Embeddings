@@ -8,5 +8,6 @@ prefix: ""
 max_length: 512
 padding_side: left
 trust_remote_code: true
+load_as_causal_lm: true
 torch_dtype: float32
 input_transform: identity

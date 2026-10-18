@@ -97,11 +97,17 @@ class HFEmbeddingModel(nn.Module):
         # Transformer
         # ---------------------------------------------------------
 
-        self.transformer = AutoModel.from_pretrained(
-            source,
-            trust_remote_code=trust_remote_code,
-            torch_dtype=dtype,
-        )
+        if checkpoint_path is None and model_cfg.get("load_as_causal_lm", False):
+            from transformers import AutoModelForCausalLM
+            lm = AutoModelForCausalLM.from_pretrained(
+                source, trust_remote_code=trust_remote_code, torch_dtype=dtype)
+            self.transformer = lm.get_decoder() if hasattr(lm, "get_decoder") else lm.model
+        else:
+            self.transformer = AutoModel.from_pretrained(
+                source,
+                trust_remote_code=trust_remote_code,
+                torch_dtype=dtype,
+            )
 
         # If a new pad token was introduced, expand embeddings.
         if (

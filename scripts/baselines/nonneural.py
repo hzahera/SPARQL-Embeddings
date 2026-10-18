@@ -10,6 +10,7 @@ import json, math, re, sys, random
 from collections import Counter
 from multiprocessing import Pool
 import numpy as np
+import os
 sys.path.insert(0, f"{sys.argv[1]}/scripts/audit"); sys.path.insert(0, f"{sys.argv[1]}/src")
 import audit_splits as au
 from result_aware.metrics import hits_at_k, mrr_at_k, ndcg_at_k
@@ -141,8 +142,12 @@ def evaluate(m, proto, reps):
             acc["hits@1"] += hits_at_k(binr, 1); acc["mrr@5"] += mrr_at_k(binr, 5); acc["ndcg@5"] += ndcg_at_k(rels, 5)
             acc["mrr"] += mrr_at_k(binr, len(binr)); acc["ndcg@10"] += ndcg_at_k(rels, 10)
         for k in res: res[k].append(acc[k] / reps)
+    if proto in ("B", "C"):
+        PER[f"{proto}:{m}"] = {test_q[a]: {k: float(res[k][i]) for k in ("hits@1", "mrr@5", "ndcg@5", "mrr", "ndcg@10")}
+                  for i, (a, _) in enumerate(anchors)}
     return {k: round(float(np.mean(v)), 4) for k, v in res.items()}
 
+PER = {}
 methods = ["random", "tfidf", "bm25", "normalized_match", "algebra_similarity", "query_form"]
 results = {"graph": g, "anchors": len(anchors), "test_queries": len(test_q)}
 for proto in ("A", "B", "C"):
@@ -153,3 +158,6 @@ pos = rq3["positive_pairs"]
 results["normalized_match_recovers_positive_pairs_share"] = sum(ALG[a] == ALG[c] for a, c, _ in pos) / len(pos)
 results["struct_parse_failures"] = sum(x is None for x in SB)
 json.dump(results, open(out, "w"), indent=2); print(json.dumps(results, indent=1))
+
+os.makedirs(f"{root}/results/per_anchor/{g}", exist_ok=True)
+json.dump(PER, open(f"{root}/results/per_anchor/{g}/baselines.json", "w"))
