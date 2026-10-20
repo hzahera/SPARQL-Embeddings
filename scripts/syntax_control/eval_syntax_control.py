@@ -118,8 +118,8 @@ def main() -> None:
     ap.add_argument("--root", default=str(ROOT))
     ap.add_argument("--answer-results", default="results", help="output_dir of the main runs")
     ap.add_argument("--syntax-results", default="results_syntax_control")
-    ap.add_argument("--models", nargs="+", default=["e5-base-v2", "qwen3-embedding", "codebert"])
-    ap.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44])
+    ap.add_argument("--models", nargs="+", default=["e5-base-v2", "codebert"])
+    ap.add_argument("--seeds", nargs="+", type=int, default=[42, 43])
     ap.add_argument("--graphs", nargs="+", default=["dbpedia", "wikidata"])
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--bootstrap", type=int, default=10000)
@@ -181,7 +181,7 @@ def main() -> None:
     for p, label, tab in (("stored", "stored labels", "Tables/compact/retrieval.tex"),
                           ("complete", "complete labels", "Tables/compact/fullcollection.tex")):
         lines.append(f"% {tab} ({label}), columns: DBpedia {METRICS[p]} & Wikidata {METRICS[p]}")
-        for cond, name in (("answer", "Answer labels (3 encoders)"), ("syntax", "Syntax labels (3 encoders)")):
+        for cond, name in (("answer", f"Answer labels ({len(args.models)} encoders)"), ("syntax", f"Syntax labels ({len(args.models)} encoders)")):
             cells = []
             for g in ("dbpedia", "wikidata"):
                 if g in report["graphs"]:
