@@ -1,0 +1,52 @@
+# Syntax-supervised control (paper, Section 4.3).
+# Identical to experiment.yaml except:
+#   * training split uses syntax labels (scripts/syntax_control/build_syntax_labels.py)
+#   * validation/test stay answer-labeled, so checkpoint selection and evaluation
+#     use answer overlap exactly as for the main runs
+#   * three seeds, separate output folder, no semantic-cache runs
+project_name: result-aware-transformers-syntax-control
+output_dir: results_syntax_control
+
+datasets:
+  dbpedia:
+    train: datasets/dbpedia-splits/dbpedia-train-syntax.json
+    valid: datasets/dbpedia-splits/dbpedia-valid.json
+    test: datasets/dbpedia-splits/dbpedia-test.json
+  wikidata:
+    train: datasets/wikidata-splits/wikidata-train-syntax.json
+    valid: datasets/wikidata-splits/wikidata-valid.json
+    test: datasets/wikidata-splits/wikidata-test.json
+
+training:
+  epochs: 20
+  batch_size: 4
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  temperature: 0.05
+  explicit_negatives: 4
+  hard_fraction: 0.75
+  hard_top_k: 8
+  mining_start_epoch: 2
+  mining_refresh_every: 2
+  eval_every_epochs: 1
+  selection_metric: ranking.ndcg@10
+  num_workers: 0
+  amp: bf16
+  gradient_checkpointing: true
+
+evaluation:
+  ks: [1, 3, 5, 10, 20]
+  relevance_threshold: 0.8
+  relevance_operator: ge
+  ndcg_gain: linear
+  macro_average: true
+  encode_batch_size: 64
+  alignment_pairs: all
+
+semantic_cache:
+  enabled: false
+
+seeds: [42, 43, 44]

@@ -1,0 +1,18 @@
+{
+  "graph": "wikidata",
+  "anchors": 6734,
+  "training_queries": 7743,
+  "parse_failures": 7,
+  "neg_ratio": 0.5,
+  "seed": 0,
+  "positives": 29867,
+  "negatives": 134680,
+  "anchors_using_fallback_zone": 0,
+  "positive_similarity_min_median": 0.7333,
+  "positive_similarity_mean_median": 0.7718,
+  "negative_similarity_max_median": 0.3333,
+  "share_of_syntax_positives_that_are_answer_positives": 0.2151,
+  "share_of_syntax_positive_pairs_with_stored_J_ge_0.8": 0.157,
+  "share_of_syntax_negative_pairs_with_stored_J_ge_0.8": 0.0003,
+  "output": "datasets/wikidata-splits/wikidata-train-syntax.json"
+}
