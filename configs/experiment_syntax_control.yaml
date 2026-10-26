@@ -3,7 +3,8 @@
 #   * training split uses syntax labels (scripts/syntax_control/build_syntax_labels.py)
 #   * validation/test stay answer-labeled, so checkpoint selection and evaluation
 #     use answer overlap exactly as for the main runs
-#   * three seeds, separate output folder, no semantic-cache runs
+#   * two seeds, validation every 2 epochs, separate output folder, no cache runs
+#   * speed-only settings: no gradient checkpointing, encode batch 256
 project_name: result-aware-transformers-syntax-control
 output_dir: results_syntax_control
 
@@ -31,11 +32,11 @@ training:
   hard_top_k: 8
   mining_start_epoch: 2
   mining_refresh_every: 2
-  eval_every_epochs: 1
+  eval_every_epochs: 2      # control only; main runs used 1 (see README)
   selection_metric: ranking.ndcg@10
   num_workers: 0
   amp: bf16
-  gradient_checkpointing: true
+  gradient_checkpointing: false   # speed only: same results, more memory (fine at batch 4)
 
 evaluation:
   ks: [1, 3, 5, 10, 20]
@@ -43,10 +44,10 @@ evaluation:
   relevance_operator: ge
   ndcg_gain: linear
   macro_average: true
-  encode_batch_size: 64
+  encode_batch_size: 256
   alignment_pairs: all
 
 semantic_cache:
   enabled: false
 
-seeds: [42, 43, 44]
+seeds: [42, 43]

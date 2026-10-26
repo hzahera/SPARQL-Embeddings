@@ -1,0 +1,154 @@
+% Pipeline figure. Top band: execution-grounded supervision (offline, once).
+% Bottom band: execution-free use of the fine-tuned embeddings (online).
+% Drawn at 14cm width and scaled to \textwidth.
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize, >={Latex[length=1.7mm]},
+  band/.style={draw=#1!35, rounded corners=5pt, fill=#1!5, line width=0.6pt},
+  card/.style={draw=#1!30, rounded corners=3pt, fill=white, line width=0.5pt},
+  box/.style={draw=#1!55, rounded corners=2pt, fill=#1!8, align=center,
+              inner sep=2.5pt, minimum height=5mm},
+  num/.style={circle, fill=#1, text=white, font=\sffamily\bfseries\large,
+              minimum size=7mm, inner sep=0pt},
+  head/.style={font=\sffamily\bfseries\small, text=#1, anchor=west},
+  sub/.style={font=\sffamily\itshape\tiny, text=black!60, anchor=west},
+  ctitle/.style={font=\sffamily\bfseries\scriptsize, anchor=north west},
+  code/.style={font=\ttfamily\tiny, anchor=west, inner sep=1pt},
+  flow/.style={->, line width=0.7pt, #1!70!black},
+  flow/.default=blue,
+]
+\colorlet{off}{blue!70!black}
+\colorlet{on}{violet!75!black}
+% ========================= band 1: offline =================================
+\fill[band=blue] (0,4.05) rectangle (14,8.6);
+\node[num=off] at (0.5,8.1) {1};
+\node[head=off] at (0.95,8.22) {Execution-grounded supervision \textmd{\textit{(offline, once per graph)}}};
+\node[sub] at (0.95,7.88) {Execute each logged query once, label query pairs by answer overlap, fine-tune any pretrained encoder.};
+
+% --- card A: query log
+\fill[card=blue] (0.2,4.25) rectangle (3.4,7.55);
+\node[ctitle] at (0.3,7.5) {a\;\; Query log (LSQ)};
+\foreach \y/\q/\la/\lb in {6.9/q_1/{?p a dbo:Actor ;}/{\ \ dbo:birthPlace dbr:Paris},
+                           6.25/q_2/{?p a dbo:Actor ;}/{\ \ dbo:deathPlace dbr:Paris}} {
+  \node[box=blue, minimum width=4mm, minimum height=4mm, inner sep=1pt, font=\sffamily\tiny] at (0.5,\y) {$\q$};
+  \fill[black!3, rounded corners=1pt] (0.75,\y-0.26) rectangle (3.3,\y+0.26);
+  \node[code] at (0.8,\y+0.1) {\la};
+  \node[code] at (0.8,\y-0.12) {\lb};
+}
+\node[box=blue, minimum width=4mm, minimum height=4mm, inner sep=1pt, font=\sffamily\tiny] at (0.5,5.5) {$q_n$};
+\fill[black!3, rounded corners=1pt] (0.75,5.15) rectangle (3.3,5.85);
+\node[code] at (0.8,5.72) {?p a dbo:Actor ;};
+\node[code] at (0.8,5.5) {\ \ dbo:birthPlace ?c .};
+\node[code] at (0.8,5.28) {\ \ FILTER(?c = dbr:Paris)};
+\node[font=\sffamily\tiny, text=black!70, align=center] at (1.8,4.6) {15{,}476 unique queries\\[-1pt](DBpedia + Wikidata)};
+
+% --- card B: execute and cache
+\fill[card=blue] (3.6,4.25) rectangle (6.8,7.55);
+\node[ctitle] at (3.7,7.5) {b\;\; Execute once, cache};
+\node[cylinder, shape border rotate=90, aspect=0.25, draw=orange!60!black,
+      fill=orange!15, minimum width=1.1cm, minimum height=1.0cm, align=center,
+      font=\sffamily\tiny] (kg) at (4.35,5.95) {KG $G$};
+\node[font=\sffamily\tiny, text=black!60, align=center] at (4.35,5.1) {DBpedia /\\[-2pt]Wikidata};
+\draw[dashed, black!35, rounded corners=2pt] (5.1,4.45) rectangle (6.7,7.05);
+\node[font=\sffamily\bfseries\tiny] at (5.9,6.88) {cached answer sets};
+\foreach \y/\q in {6.35/q_1, 5.75/q_2, 4.85/q_n} {
+  \node[box=orange, minimum width=1.4cm, font=\sffamily\tiny] (A\q) at (5.9,\y) {$\Ans(\q,G)$};
+}
+\node at (5.9,5.32) {$\vdots$};
+\draw[flow=orange] (kg.east) -- (5.15,5.95);
+
+% --- card C: Jaccard labels
+\fill[card=blue] (7.0,4.25) rectangle (10.4,7.55);
+\node[ctitle] at (7.1,7.5) {c\;\; Label pairs by Jaccard};
+\def\M{{1.0,0.19,1.0,0.05,0.4},{0.19,1.0,0.19,0.0,0.6},{1.0,0.19,1.0,0.05,0.4},{0.05,0.0,0.05,1.0,0.1},{0.4,0.6,0.4,0.1,1.0}}
+\pgfmathsetmacro{\cs}{0.3}
+\foreach \i in {0,...,4} {
+  \foreach \j in {0,...,4} {
+    \pgfmathsetmacro{\v}{{\M}[\i][\j]}
+    \pgfmathsetmacro{\pct}{int(8+80*\v)}
+    \fill[blue!\pct!white] (7.45+\j*\cs, 6.85-\i*\cs) rectangle ++(\cs,-\cs);
+  }
+}
+\draw[black!30] (7.45,6.85) rectangle ++(5*\cs,-5*\cs);
+\foreach \l [count=\k from 0] in {q_1,q_2,q_3,\dots,q_n} {
+  \node[font=\sffamily\tiny] at (7.45+\k*\cs+\cs/2, 7.0) {$\l$};
+  \node[font=\sffamily\tiny, anchor=east] at (7.45, 6.85-\k*\cs-\cs/2) {$\l$};
+}
+\node[box=green, font=\sffamily\tiny, text width=1.05cm] at (9.7,6.5)
+  {\textbf{positive}\\[-1pt]$J \geq 0.8$};
+\node[box=red, font=\sffamily\tiny, text width=1.05cm] at (9.7,5.75)
+  {\textbf{negative}\\[-1pt]$J \leq 0.1$};
+\node[font=\sffamily\tiny] at (8.7,4.98) {$J(q_i,q_j) = |A_i \cap A_j| / |A_i \cup A_j|$};
+\node[box=yellow, font=\sffamily\tiny, minimum width=3.1cm] at (8.7,4.55)
+  {component split $\rightarrow$ train / val / test};
+
+% --- card D: contrastive fine-tuning
+\fill[card=blue] (10.6,4.25) rectangle (13.8,7.55);
+\node[ctitle] at (10.7,7.5) {d\;\; Fine-tune any encoder};
+\node[box=blue, minimum width=2.9cm, font=\sffamily\tiny] (enc) at (12.2,6.75)
+  {\textbf{pretrained encoder $f$}\\[-1pt]text $\cdot$ LLM $\cdot$ code $\cdot$ SPARQL};
+\node[box=blue, minimum width=2.9cm, font=\sffamily\tiny] (pool) at (12.2,6.0) {pooling + normalization};
+\node[box=blue, minimum width=2.9cm, fill=off, text=white, font=\sffamily\bfseries\tiny]
+  (loss) at (12.2,5.3) {in-batch InfoNCE\\+ explicit negatives};
+\draw[flow] (enc) -- (pool); \draw[flow] (pool) -- (loss);
+% mini embedding space
+\fill[black!50] (12.2,4.7) circle (0.05);
+\foreach \dx/\dy in {-0.25/0.08, 0.22/0.12, 0.1/-0.14} {
+  \fill[green!55!black] (12.2+\dx,4.7+\dy) circle (0.045);
+  \draw[->, green!50!black, line width=0.35pt] (12.2+\dx,4.7+\dy) -- (12.2+0.45*\dx,4.7+0.45*\dy);
+}
+\foreach \dx/\dy in {-0.8/0.0, 0.85/-0.05, 0.6/0.2} {
+  \fill[red!70!black] (12.2+\dx,4.7+\dy) circle (0.045);
+  \draw[<-, red!65!black, line width=0.35pt] (12.2+1.3*\dx,4.7+1.3*\dy) -- (12.2+\dx,4.7+\dy);
+}
+\node[font=\sffamily\tiny, text=black!60] at (12.2,4.42) {pull positives, push negatives};
+
+% arrows between cards
+\draw[flow] (3.4,5.9) -- (3.6,5.9);
+\draw[flow] (6.8,5.9) -- (7.0,5.9);
+\draw[flow] (10.4,5.9) -- (10.6,5.9);
+
+% ========================= band 2: online ==================================
+\fill[band=violet] (0,0) rectangle (14,3.85);
+\node[num=on] at (0.5,3.35) {2};
+\node[head=on] at (0.95,3.47) {Execution-free use \textmd{\textit{(online, similarity estimation needs no execution)}}};
+\node[sub] at (0.95,3.13) {Only the query text is encoded; the fine-tuned embeddings drive caching, retrieval and log analysis.};
+
+% incoming query
+\fill[card=violet] (0.2,0.25) rectangle (3.0,2.8);
+\node[ctitle] at (0.3,2.75) {Incoming query $q$};
+\fill[black!3, rounded corners=1pt] (0.3,0.85) rectangle (2.9,2.3);
+\node[code] at (0.35,2.1) {SELECT ?p WHERE \{};
+\node[code] at (0.35,1.8) {\ \ ?p a dbo:Actor ;};
+\node[code] at (0.35,1.5) {\ \ \ \ dbo:birthPlace ?c .};
+\node[code] at (0.35,1.2) {\ \ FILTER(?c = dbr:Paris) \}};
+\node[font=\sffamily\tiny, text=black!60] at (1.6,0.55) {text only, no execution};
+
+% fine-tuned encoder + embedding
+\node[box=violet, minimum width=1.7cm, minimum height=1.0cm, font=\sffamily\tiny] (fz) at (4.1,1.5)
+  {\textbf{fine-tuned}\\[-1pt]\textbf{encoder $f$}\\[-1pt](same as 1d)};
+\fill[card=violet] (5.2,0.9) rectangle (6.9,2.1);
+\node[font=\sffamily\bfseries\tiny] at (6.05,1.9) {embedding $z_q$};
+\foreach \c [count=\k from 0] in {blue!70,blue!45,cyan!50,teal!40,violet!50,blue!30,violet!30} {
+  \fill[\c] (5.35+\k*0.2,1.3) rectangle ++(0.2,0.3);
+}
+\node[font=\sffamily\tiny] at (6.05,1.07) {$z_q \in \mathbb{R}^d$};
+\draw[flow=violet] (3.0,1.5) -- (fz.west);
+\draw[flow=violet] (fz.east) -- (5.2,1.5);
+
+% caching
+\fill[card=green] (7.4,1.65) rectangle (13.8,2.8);
+\node[ctitle, text=green!35!black] at (7.5,2.75) {Semantic caching};
+\node[font=\sffamily\tiny, anchor=west, align=left] at (7.5,2.05)
+  {nearest cached query $c^\ast$\\[-1pt]$s(q,c^\ast) = \cos(z_q, z_{c^\ast})$};
+\node[box=green, font=\sffamily\tiny, minimum width=1.3cm] (hit) at (11.45,2.2) {$s \geq \theta$: reuse};
+\node[box=red, font=\sffamily\tiny, minimum width=1.25cm] (miss) at (12.95,2.2) {$s < \theta$: execute};
+% retrieval
+\fill[card=orange] (7.4,0.25) rectangle (13.8,1.4);
+\node[ctitle, text=orange!40!black] at (7.5,1.35) {Retrieval and log analysis};
+\node[font=\sffamily\tiny, anchor=west, align=left] at (7.5,0.68)
+  {rank logged queries by $\cos(z_q, z_c)$:\\[-1pt]recommendation, grouping queries that return the same data};
+% branches
+\draw[flow=violet] (6.9,1.5) -- (7.15,1.5) |- (7.4,2.2);
+\draw[flow=violet] (7.15,1.5) |- (7.4,0.85);
+\end{tikzpicture}}

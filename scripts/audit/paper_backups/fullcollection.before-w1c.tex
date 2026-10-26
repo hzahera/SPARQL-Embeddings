@@ -1,0 +1,29 @@
+\begin{table}[t]
+\centering
+\caption{Full held-out collection retrieval: pending main comparison.
+Self-matches are excluded and intermediate-overlap candidates retained.
+\hp{[TODO: replace placeholders with measured scores. Give ZS/FT rows for
+individual backbones, with remaining models in the appendix; this table
+is not completed evidence.]}}
+\label{tab:fullcollection}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l ccc p{0pt} ccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{DBpedia}} & & \multicolumn{3}{c}{\textbf{Wikidata}}\\
+\cmidrule(lr){2-4}\cmidrule(lr){6-8}
+Method & Hits@1 & MRR & nDCG@10 & & Hits@1 & MRR & nDCG@10\\
+\midrule
+TF-IDF & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+BM25 & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Normalized match & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Structural similarity & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Query-form features & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Zero-shot (per backbone) & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Execution FT (per backbone) & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Syntax FT (planned control) & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

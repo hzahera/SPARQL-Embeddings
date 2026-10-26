@@ -1,0 +1,49 @@
+\begin{table}[t]
+\centering
+\caption{Retrieval of high-overlap queries (RQ2). Fine-tuned scores (mean over
+five seeds, std $\leq 0.02$) with the gain over zero-shot in grey. Best result per
+column highlighted (ties broken at three decimals). Non-neural baselines fit statistics on training data only.
+The pending control row will use syntax-derived labels (Section~\ref{sec:setup}). All metrics are given in Appendix~\ref{app:full}.}
+\label{tab:retrieval}
+\small
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l cccp{0pt}ccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{DBpedia}} & & \multicolumn{3}{c}{\textbf{Wikidata}}\\
+\cmidrule(lr){2-4}\cmidrule(lr){6-8}
+Backbone & Hits@1 & MRR@5 & nDCG@5 & & Hits@1 & MRR@5 & nDCG@5\\
+\midrule
+\multicolumn{8}{l}{\textit{Non-neural baselines (no training)}}\\
+Random ranking & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+TF-IDF & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+BM25 & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Normalized match & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Structural similarity & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+Query-form features & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+\midrule
+\multicolumn{8}{l}{\textit{Text embedding models}}\\
+MPNet & 0.56\,\dg{$+$0.19} & 0.63\,\dg{$+$0.19} & 0.56\,\dg{$+$0.19} & & 0.39\,\dg{$+$0.11} & 0.44\,\dg{$+$0.11} & 0.41\,\dg{$+$0.11}\\
+E5-base-v2 & 0.57\,\dg{$+$0.17} & 0.64\,\dg{$+$0.19} & \cellcolor{bestgreen}\textbf{0.57}\,\dg{$+$0.19} & & 0.39\,\dg{$+$0.06} & 0.44\,\dg{$+$0.06} & 0.41\,\dg{$+$0.06}\\
+BGE-base & 0.56\,\dg{$+$0.21} & 0.63\,\dg{$+$0.19} & 0.56\,\dg{$+$0.18} & & 0.38\,\dg{$+$0.07} & 0.43\,\dg{$+$0.06} & 0.40\,\dg{$+$0.08}\\
+GTE-base & 0.56\,\dg{$+$0.23} & 0.64\,\dg{$+$0.24} & 0.56\,\dg{$+$0.25} & & 0.38\,\dg{$+$0.10} & 0.43\,\dg{$+$0.09} & 0.40\,\dg{$+$0.11}\\
+Qwen3-Embedding & \cellcolor{bestgreen}\textbf{0.58}\,\dg{$+$0.17} & \cellcolor{bestgreen}\textbf{0.64}\,\dg{$+$0.16} & 0.56\,\dg{$+$0.16} & & \cellcolor{bestgreen}\textbf{0.41}\,\dg{$+$0.04} & \cellcolor{bestgreen}\textbf{0.46}\,\dg{$+$0.05} & \cellcolor{bestgreen}\textbf{0.42}\,\dg{$+$0.05}\\
+\midrule
+\multicolumn{8}{l}{\textit{General-purpose language model}}\\
+Gemma-3-270M & 0.55\,\dg{$+$0.24} & 0.62\,\dg{$+$0.24} & 0.55\,\dg{$+$0.24} & & 0.39\,\dg{$+$0.14} & 0.44\,\dg{$+$0.12} & 0.41\,\dg{$+$0.13}\\
+\midrule
+\multicolumn{8}{l}{\textit{Code models}}\\
+CodeBERT & 0.52\,\dg{$+$0.18} & 0.59\,\dg{$+$0.17} & 0.52\,\dg{$+$0.19} & & 0.38\,\dg{$+$0.12} & 0.42\,\dg{$+$0.11} & 0.40\,\dg{$+$0.11}\\
+GraphCodeBERT & 0.50\,\dg{$+$0.19} & 0.58\,\dg{$+$0.18} & 0.51\,\dg{$+$0.20} & & 0.38\,\dg{$+$0.09} & 0.42\,\dg{$+$0.08} & 0.40\,\dg{$+$0.08}\\
+Qwen2.5-Coder & 0.56\,\dg{$+$0.29} & 0.63\,\dg{$+$0.27} & 0.55\,\dg{$+$0.26} & & 0.39\,\dg{$+$0.16} & 0.44\,\dg{$+$0.15} & 0.41\,\dg{$+$0.16}\\
+\midrule
+\multicolumn{8}{l}{\textit{SPARQL-pretrained model}}\\
+SPBERT & 0.53\,\dg{$+$0.22} & 0.60\,\dg{$+$0.20} & 0.53\,\dg{$+$0.20} & & 0.39\,\dg{$+$0.06} & 0.43\,\dg{$+$0.05} & 0.40\,\dg{$+$0.06}\\
+\midrule
+\textit{Mean} (execution labels) & 0.55\,\dg{$+$0.21} & 0.62\,\dg{$+$0.20} & 0.55\,\dg{$+$0.20} & & 0.39\,\dg{$+$0.10} & 0.44\,\dg{$+$0.09} & 0.41\,\dg{$+$0.09}\\
+\textit{Mean} (syntax labels, control) & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--}\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

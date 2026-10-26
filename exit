@@ -1,0 +1,13 @@
+[33mcommit 00333cbe1f0e9d774f4d30f7cd51c6945e20e74b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32msparql-embeddings[m[33m)[m
+Author: hzahera <hamada.zahera@uni-paderborn.de>
+Date:   Thu Oct 15 13:41:49 2026 +0200
+
+    Add non-neural retrieval baselines
+    
+    - scripts/baselines/nonneural.py: random, TF-IDF, BM25, normalized algebra
+      match, algebra similarity and query-form baselines under protocols
+      A (sampled), B (code) and C (full RQ3 labels)
+    - results_dbpedia.json / results_wikidata.json: numbers used in the paper
+    - run_baselines.sh, requirements.txt and README with run steps
+    - scripts/audit/audit_splits.py plus per-query audit files the baselines read
+      (committed so normalized_match reproduces exactly)

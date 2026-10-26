@@ -71,6 +71,19 @@ What each step does:
    - `control_results.json`: all numbers, per encoder and averaged
    - `control_latex.txt`: table rows and the numbers for the paper paragraph
 
+## Speed settings (do not change results)
+
+- `gradient_checkpointing: false`: checkpointing saves memory by recomputing activations,
+  which costs about 20-30% extra time. At 4 anchors per batch memory is not a problem.
+- `encode_batch_size: 256` for validation and mining encodes.
+- `src/result_aware/evaluation.py` ranks all validation queries with one matrix product per
+  anchor instead of one dot product per candidate. Same scores and order (up to float
+  rounding), much faster validation. This also speeds up the main runs.
+
+Not changed on purpose: `batch_size: 4`, `explicit_negatives: 4` (they define the in-batch
+negatives of the loss), learning rate, schedule and `max_length`. Changing them would make the
+control no longer matched to the main runs.
+
 ## Differences from the main runs (report in the paper)
 
 - 2 encoders and 2 seeds instead of 10 and 5.

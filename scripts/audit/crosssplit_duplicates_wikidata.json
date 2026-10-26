@@ -1,0 +1,56 @@
+[
+ [
+  {
+   "split": "train",
+   "query": "PREFIX wde: <http://www.wikidata.org/entity/> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT DISTINCT ?var1 ?var2Label ?var3 ?var4 WHERE { ?var1 wdt:P31 wde:Q1248784 ; ?var4 wde:Q31 ; wdt:P625 ?var3 }"
+  },
+  {
+   "split": "train",
+   "query": "PREFIX wde: <http://www.wikidata.org/entity/> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT DISTINCT ?var1 ?var1Label ?var2 ?var3 WHERE { ?var1 wdt:P31 wde:Q1248784 ; ?var3 wde:Q31 ; wdt:P625 ?var2 }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX wde: <http://www.wikidata.org/entity/> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT DISTINCT ?var1 ?var2 ?var3 ?var1Label WHERE { ?var1 wdt:P31 wde:Q1248784 ; ?var3 wde:Q31 ; wdt:P625 ?var2 }"
+  }
+ ],
+ [
+  {
+   "split": "train",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1Label ?var2 ?var3 ?var4 WHERE { ?var4 wdt:P31 wde:Q178561 ; wdt:P625 ?var2 OPTIONAL { ?var4 wdt:P580 ?var5 } OPTIONAL { ?var4 wdt:P585 ?var6 } OPTIONAL { ?var4 wdt:P582 ?var7 } BIND(if(( ! bound(?var5) ), if(( ! bound(?var6) ), ?var7, ?var6), ?var5) AS ?var8) BIND(year(?var8) AS ?var3) ?var4 rdfs:label ?var1Label FILTER ( lang(?var1Label) = \"en\" ) }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1Label ?var2 ?var3 ?var4 WHERE { ?var3 wdt:P31 wde:Q178561 ; wdt:P625 ?var2 OPTIONAL { ?var3 wdt:P580 ?var5 } OPTIONAL { ?var3 wdt:P585 ?var6 } OPTIONAL { ?var3 wdt:P582 ?var7 } BIND(if(( ! bound(?var5) ), if(( ! bound(?var6) ), ?var7, ?var6), ?var5) AS ?var8) BIND(year(?var8) AS ?var4) ?var3 rdfs:label ?var1Label FILTER ( lang(?var1Label) = \"en\" ) }"
+  }
+ ],
+ [
+  {
+   "split": "train",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1 ?var2 ?var3 ?var4 WHERE { ?var5 wdt:P106 wde:Q2526255 ; wdt:P69 ?var6 . ?var7 wdt:P57 ?var5 ; wdt:P577 ?var4 . ?var6 wdt:P31 wde:Q3918 ; wdt:P17 wde:Q298 . ?var5 rdfs:label ?var1 . ?var6 rdfs:label ?var2 . ?var7 rdfs:label ?var3 FILTER ( lang(?var1) = \"es\" ) FILTER ( lang(?var2) = \"es\" ) FILTER ( lang(?var3) = \"es\" ) } ORDER BY DESC(?var4)"
+  },
+  {
+   "split": "test",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1 ?var2 ?var3 ?var4 WHERE { ?var5 wdt:P106 wde:Q2526255 ; wdt:P69 ?var6 . ?var7 wdt:P57 ?var5 . ?var6 wdt:P31 wde:Q3918 ; wdt:P17 wde:Q298 . ?var7 wdt:P577 ?var4 . ?var5 rdfs:label ?var2 FILTER ( lang(?var2) = \"es\" ) ?var6 rdfs:label ?var1 FILTER ( lang(?var1) = \"es\" ) ?var7 rdfs:label ?var3 FILTER ( lang(?var3) = \"es\" ) } ORDER BY DESC(?var4)"
+  }
+ ],
+ [
+  {
+   "split": "train",
+   "query": "PREFIX psv: <http://www.wikidata.org/prop/statement/value/> PREFIX wdt: <http://www.wikidata.org/prop/direct/> PREFIX wikibase: <http://wikiba.se/ontology#> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?var1 ?var2 ?var3 ?var4 ?var5 ?var6 WHERE { ?var1 wdt:P31 wde:Q150093 ; rdfs:label ?var7Label ; rdfs:label ?var4 ; wdt:P1448 ?var8 ; wdt:P17 ?var9 . ?var9 wdt:P297 ?var3 . ?var1 wdt:P31/(wdt:P279)* ?var10 . ?var10 wdt:P2452 \"A.ADM1\" ; wdt:P2452 ?var2 OPTIONAL { ?var1 <http://www.wikidata.org/prop/P625> ?var11 . ?var11 psv:P625 ?var12 . ?var12 wikibase:geoLatitude ?var5 ; wikibase:geoLongitude ?var6 } FILTER ( lang(?var4) = \"en\" ) FILTER EXISTS { ?var1 wdt:P300 ?var13 } }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX psv: <http://www.wikidata.org/prop/statement/value/> PREFIX wdt: <http://www.wikidata.org/prop/direct/> PREFIX wikibase: <http://wikiba.se/ontology#> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?var1 ?var2 ?var3 ?var4 ?var5 ?var6 WHERE { ?var1 wdt:P31 wde:Q150093 ; rdfs:label ?var7Label ; rdfs:label ?var6 ; wdt:P17 ?var8 ; wdt:P1448 ?var9 . ?var8 wdt:P297 ?var3 . ?var1 wdt:P31/(wdt:P279)* ?var10 . ?var10 wdt:P2452 \"A.ADM1\" ; wdt:P2452 ?var2 OPTIONAL { ?var1 <http://www.wikidata.org/prop/P625> ?var11 . ?var11 psv:P625 ?var12 . ?var12 wikibase:geoLatitude ?var4 ; wikibase:geoLongitude ?var5 } FILTER ( lang(?var6) = \"en\" ) FILTER EXISTS { ?var1 wdt:P300 ?var13 } }"
+  }
+ ],
+ [
+  {
+   "split": "train",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1 ?var2 ?var3 ?var4 ?var5 ?var6 WHERE { ?var1 wdt:P17 wde:Q29 ; wdt:P300 ?var4 ; rdfs:label ?var2 FILTER ( lang(?var2) = \"en\" ) ?var1 rdfs:label ?var3 FILTER ( lang(?var3) = \"ca\" ) OPTIONAL { ?var1 wdt:P1549 ?var7 . ?var7 rdfs:label ?var5 FILTER ( lang(?var5) = \"en\" ) ?var7 rdfs:label ?var6 FILTER ( lang(?var6) = \"ca\" ) } }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> PREFIX wde: <http://www.wikidata.org/entity/> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX wdt: <http://www.wikidata.org/prop/direct/> SELECT ?var1 ?var2 ?var3 ?var4 ?var5 ?var6 WHERE { ?var1 wdt:P300 ?var6 ; wdt:P17 wde:Q29 ; rdfs:label ?var2 FILTER ( lang(?var2) = \"en\" ) ?var1 rdfs:label ?var3 FILTER ( lang(?var3) = \"ca\" ) OPTIONAL { ?var1 wdt:P1549 ?var7 . ?var7 rdfs:label ?var4 FILTER ( lang(?var4) = \"en\" ) ?var7 rdfs:label ?var5 FILTER ( lang(?var5) = \"ca\" ) } }"
+  }
+ ]
+]

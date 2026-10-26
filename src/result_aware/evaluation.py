@@ -25,9 +25,18 @@ from .utils import normalize_query
 class EncodedSplit:
     embeddings: dict[str, torch.Tensor]
     surface_forms: dict[str, str]
+    _keys: list | None = None
+    _matrix: torch.Tensor | None = None
 
     def get(self, query: str) -> torch.Tensor:
         return self.embeddings[normalize_query(query)]
+
+    def matrix(self) -> tuple[list[str], torch.Tensor]:
+        """All embeddings stacked once (same order as ``embeddings``), for fast ranking."""
+        if self._matrix is None:
+            self._keys = list(self.embeddings.keys())
+            self._matrix = torch.stack([self.embeddings[k] for k in self._keys]).float()
+        return self._keys, self._matrix
 
 
 def encode_split(
@@ -93,25 +102,26 @@ def rank_record_global(rec: QueryRecord, encoded: EncodedSplit) -> list[dict[str
     are eligible retrieval candidates.
     """
     anchor_key = normalize_query(rec.anchor_query)
-    anchor = encoded.embeddings[anchor_key]
     relevance = _global_relevance_map(rec)
     excluded = {
         normalize_query(q)
         for q in getattr(rec, "excluded_queries", [])
     }
+    excluded.add(anchor_key)
 
-    ranked: list[dict[str, Any]] = []
-    for key, cand_emb in encoded.embeddings.items():
-        if key == anchor_key or key in excluded:
-            continue
-        score = float(torch.dot(anchor, cand_emb).item())
-        ranked.append(
-            {
-                "query": encoded.surface_forms[key],
-                "cosine": score,
-                "answer_jaccard": float(relevance.get(key, 0.0)),
-            }
-        )
+    # Vectorized: one matrix-vector product instead of one dot product per
+    # candidate. Same candidates, same scores, same stable descending order.
+    keys, mat = encoded.matrix()
+    scores = (mat @ encoded.embeddings[anchor_key].float()).tolist()
+    ranked: list[dict[str, Any]] = [
+        {
+            "query": encoded.surface_forms[key],
+            "cosine": score,
+            "answer_jaccard": float(relevance.get(key, 0.0)),
+        }
+        for key, score in zip(keys, scores)
+        if key not in excluded
+    ]
     ranked.sort(key=lambda x: x["cosine"], reverse=True)
     return ranked
 

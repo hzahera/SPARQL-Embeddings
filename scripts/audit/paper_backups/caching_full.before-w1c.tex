@@ -1,0 +1,90 @@
+\begin{table}[p]
+\centering
+\caption{Full semantic-caching results on DBpedia ($N=473$, $K=128$, $\theta=0.8$). SHR: total hit rate (no preferred direction); Opp.\ Rec.: fraction of available reuse opportunities exploited. ZS: mean $\pm$ std over five stream orders; FT: reported mean $\pm$ std over five training seeds.
+\hp{[TODO: verify whether stream orders were averaged within each seed;
+recompute all summaries consistently from the replay logs.]}}
+\label{tab:app-caching-db}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{ll ccccc}
+\toprule
+Backbone & & Prec.\,$\uparrow$ & CHR\,$\uparrow$ & FHR\,$\downarrow$ & SHR & Opp.\ Rec.\,$\uparrow$\\
+\midrule
+\multicolumn{7}{l}{\textit{Text embedding models}}\\
+MPNet & ZS & 0.32\,{\scriptsize$\pm$0.10} & 0.27\,{\scriptsize$\pm$0.10} & 0.55\,{\scriptsize$\pm$0.01} & 0.95\,{\scriptsize$\pm$0.00} & 0.84\,{\scriptsize$\pm$0.10}\\
+ & FT & 0.94\,{\scriptsize$\pm$0.02} & 0.21\,{\scriptsize$\pm$0.05} & 0.01\,{\scriptsize$\pm$0.01} & 0.28\,{\scriptsize$\pm$0.08} & 0.34\,{\scriptsize$\pm$0.07}\\
+E5-base-v2 & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.96\,{\scriptsize$\pm$0.01} & 0.20\,{\scriptsize$\pm$0.03} & 0.01\,{\scriptsize$\pm$0.00} & 0.26\,{\scriptsize$\pm$0.04} & 0.33\,{\scriptsize$\pm$0.04}\\
+BGE-base & ZS & 0.22\,{\scriptsize$\pm$0.10} & 0.21\,{\scriptsize$\pm$0.10} & 0.75\,{\scriptsize$\pm$0.11} & 0.99\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.90\,{\scriptsize$\pm$0.03} & 0.29\,{\scriptsize$\pm$0.03} & 0.03\,{\scriptsize$\pm$0.01} & 0.40\,{\scriptsize$\pm$0.05} & 0.46\,{\scriptsize$\pm$0.05}\\
+GTE-base & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.88\,{\scriptsize$\pm$0.02} & 0.32\,{\scriptsize$\pm$0.03} & 0.04\,{\scriptsize$\pm$0.01} & 0.44\,{\scriptsize$\pm$0.06} & 0.50\,{\scriptsize$\pm$0.05}\\
+Qwen3-Embedding & ZS & 0.40\,{\scriptsize$\pm$0.02} & 0.16\,{\scriptsize$\pm$0.01} & 0.24\,{\scriptsize$\pm$0.01} & 0.50\,{\scriptsize$\pm$0.01} & 0.29\,{\scriptsize$\pm$0.02}\\
+ & FT & 0.89\,{\scriptsize$\pm$0.10} & 0.28\,{\scriptsize$\pm$0.13} & 0.05\,{\scriptsize$\pm$0.06} & 0.42\,{\scriptsize$\pm$0.24} & 0.45\,{\scriptsize$\pm$0.21}\\
+\midrule
+\multicolumn{7}{l}{\textit{General-purpose language model}}\\
+Gemma-3-270M & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.91\,{\scriptsize$\pm$0.04} & 0.27\,{\scriptsize$\pm$0.08} & 0.03\,{\scriptsize$\pm$0.02} & 0.37\,{\scriptsize$\pm$0.11} & 0.43\,{\scriptsize$\pm$0.11}\\
+\midrule
+\multicolumn{7}{l}{\textit{Code models}}\\
+CodeBERT & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.79\,{\scriptsize$\pm$0.02} & 0.37\,{\scriptsize$\pm$0.04} & 0.10\,{\scriptsize$\pm$0.02} & 0.61\,{\scriptsize$\pm$0.06} & 0.60\,{\scriptsize$\pm$0.06}\\
+GraphCodeBERT & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.82\,{\scriptsize$\pm$0.04} & 0.31\,{\scriptsize$\pm$0.08} & 0.07\,{\scriptsize$\pm$0.04} & 0.51\,{\scriptsize$\pm$0.15} & 0.51\,{\scriptsize$\pm$0.13}\\
+Qwen2.5-Coder & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.87\,{\scriptsize$\pm$0.09} & 0.29\,{\scriptsize$\pm$0.12} & 0.06\,{\scriptsize$\pm$0.05} & 0.44\,{\scriptsize$\pm$0.21} & 0.46\,{\scriptsize$\pm$0.18}\\
+\midrule
+\multicolumn{7}{l}{\textit{SPARQL-pretrained model}}\\
+SPBERT & ZS & 0.15\,{\scriptsize$\pm$0.12} & 0.15\,{\scriptsize$\pm$0.12} & 0.83\,{\scriptsize$\pm$0.13} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.77\,{\scriptsize$\pm$0.06} & 0.35\,{\scriptsize$\pm$0.06} & 0.11\,{\scriptsize$\pm$0.05} & 0.59\,{\scriptsize$\pm$0.14} & 0.57\,{\scriptsize$\pm$0.11}\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+\begin{table}[p]
+\centering
+\caption{Full semantic-caching results on Wikidata ($N=1{,}075$, $K=128$, $\theta=0.8$). SHR: total hit rate (no preferred direction); Opp.\ Rec.: fraction of available reuse opportunities exploited. ZS: mean $\pm$ std over five stream orders; FT: reported mean $\pm$ std over five training seeds.
+\hp{[TODO: verify whether stream orders were averaged within each seed;
+recompute all summaries consistently from the replay logs.]}}
+\label{tab:app-caching-wd}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{ll ccccc}
+\toprule
+Backbone & & Prec.\,$\uparrow$ & CHR\,$\uparrow$ & FHR\,$\downarrow$ & SHR & Opp.\ Rec.\,$\uparrow$\\
+\midrule
+\multicolumn{7}{l}{\textit{Text embedding models}}\\
+MPNet & ZS & 0.08\,{\scriptsize$\pm$0.01} & 0.08\,{\scriptsize$\pm$0.01} & 0.88\,{\scriptsize$\pm$0.02} & 0.98\,{\scriptsize$\pm$0.00} & 0.68\,{\scriptsize$\pm$0.16}\\
+ & FT & 0.24\,{\scriptsize$\pm$0.01} & 0.15\,{\scriptsize$\pm$0.00} & 0.47\,{\scriptsize$\pm$0.01} & 0.64\,{\scriptsize$\pm$0.01} & 0.61\,{\scriptsize$\pm$0.02}\\
+E5-base-v2 & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.23\,{\scriptsize$\pm$0.01} & 0.14\,{\scriptsize$\pm$0.01} & 0.47\,{\scriptsize$\pm$0.02} & 0.63\,{\scriptsize$\pm$0.02} & 0.60\,{\scriptsize$\pm$0.04}\\
+BGE-base & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 1.00\,{\scriptsize$\pm$0.00} & 0.38\,{\scriptsize$\pm$0.37}\\
+ & FT & 0.24\,{\scriptsize$\pm$0.00} & 0.15\,{\scriptsize$\pm$0.00} & 0.48\,{\scriptsize$\pm$0.01} & 0.64\,{\scriptsize$\pm$0.01} & 0.62\,{\scriptsize$\pm$0.03}\\
+GTE-base & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.24\,{\scriptsize$\pm$0.01} & 0.15\,{\scriptsize$\pm$0.00} & 0.49\,{\scriptsize$\pm$0.01} & 0.67\,{\scriptsize$\pm$0.01} & 0.68\,{\scriptsize$\pm$0.03}\\
+Qwen3-Embedding & ZS & 0.12\,{\scriptsize$\pm$0.01} & 0.11\,{\scriptsize$\pm$0.01} & 0.77\,{\scriptsize$\pm$0.01} & 0.89\,{\scriptsize$\pm$0.00} & 0.42\,{\scriptsize$\pm$0.04}\\
+ & FT & 0.45\,{\scriptsize$\pm$0.31} & 0.08\,{\scriptsize$\pm$0.03} & 0.21\,{\scriptsize$\pm$0.18} & 0.29\,{\scriptsize$\pm$0.21} & 0.27\,{\scriptsize$\pm$0.13}\\
+\midrule
+\multicolumn{7}{l}{\textit{General-purpose language model}}\\
+Gemma-3-270M & ZS & 0.01\,{\scriptsize$\pm$0.00} & 0.01\,{\scriptsize$\pm$0.00} & 0.98\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.00} & 0.51\,{\scriptsize$\pm$0.20}\\
+ & FT & 0.24\,{\scriptsize$\pm$0.01} & 0.13\,{\scriptsize$\pm$0.02} & 0.43\,{\scriptsize$\pm$0.07} & 0.58\,{\scriptsize$\pm$0.09} & 0.53\,{\scriptsize$\pm$0.12}\\
+\midrule
+\multicolumn{7}{l}{\textit{Code models}}\\
+CodeBERT & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.23\,{\scriptsize$\pm$0.00} & 0.14\,{\scriptsize$\pm$0.01} & 0.48\,{\scriptsize$\pm$0.02} & 0.65\,{\scriptsize$\pm$0.02} & 0.62\,{\scriptsize$\pm$0.06}\\
+GraphCodeBERT & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.23\,{\scriptsize$\pm$0.01} & 0.15\,{\scriptsize$\pm$0.01} & 0.49\,{\scriptsize$\pm$0.02} & 0.65\,{\scriptsize$\pm$0.02} & 0.62\,{\scriptsize$\pm$0.01}\\
+Qwen2.5-Coder & ZS & 0.00\,{\scriptsize$\pm$0.00} & 0.00\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 0.99\,{\scriptsize$\pm$0.00} & 0.10\,{\scriptsize$\pm$0.07}\\
+ & FT & 0.34\,{\scriptsize$\pm$0.28} & 0.10\,{\scriptsize$\pm$0.04} & 0.32\,{\scriptsize$\pm$0.18} & 0.42\,{\scriptsize$\pm$0.21} & 0.38\,{\scriptsize$\pm$0.16}\\
+\midrule
+\multicolumn{7}{l}{\textit{SPARQL-pretrained model}}\\
+SPBERT & ZS & 0.01\,{\scriptsize$\pm$0.00} & 0.01\,{\scriptsize$\pm$0.00} & 0.99\,{\scriptsize$\pm$0.01} & 1.00\,{\scriptsize$\pm$0.00} & 1.00\,{\scriptsize$\pm$0.00}\\
+ & FT & 0.24\,{\scriptsize$\pm$0.01} & 0.15\,{\scriptsize$\pm$0.01} & 0.48\,{\scriptsize$\pm$0.00} & 0.65\,{\scriptsize$\pm$0.01} & 0.63\,{\scriptsize$\pm$0.04}\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

@@ -1,0 +1,34 @@
+[
+ [
+  {
+   "split": "train",
+   "query": "PREFIX dbpo: <http://dbpedia.org/ontology/> SELECT DISTINCT ?thumbnail ?genre WHERE { { _:b0 dbpo:format ?genre } UNION { _:b1 dbpo:genre ?genre } UNION { _:b2 dbpo:thumbnail ?thumbnail } }"
+  },
+  {
+   "split": "test",
+   "query": "PREFIX dbpo: <http://dbpedia.org/ontology/> SELECT DISTINCT ?genre ?thumbnail WHERE { { _:b0 dbpo:format ?genre } UNION { _:b1 dbpo:genre ?genre } UNION { _:b2 dbpo:thumbnail ?thumbnail } }"
+  }
+ ],
+ [
+  {
+   "split": "train",
+   "query": "PREFIX : <http://dbpedia.org/resource/> SELECT ?property ?isValueOf WHERE { { ?isValueOf ?property :Category:Mexican_cuisine } }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX dbpr: <http://dbpedia.org/resource/> SELECT * WHERE { ?isValueOf ?property dbpr:Category:Mexican_cuisine }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX dbpr: <http://dbpedia.org/resource/> SELECT * WHERE { ?property ?isValueOf dbpr:Category:Mexican_cuisine }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX : <http://dbpedia.org/resource/> SELECT * WHERE { ?property ?isValueOf :Category:Mexican_cuisine }"
+  },
+  {
+   "split": "valid",
+   "query": "PREFIX : <http://dbpedia.org/resource/> SELECT * WHERE { { ?isValueOf ?property :Category:Mexican_cuisine } }"
+  }
+ ]
+]

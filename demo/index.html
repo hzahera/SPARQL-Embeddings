@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results-Aware SPARQL Embeddings</title>
+<meta name="description" content="Interactive guide to results-aware SPARQL query embeddings, the SQuARE resource, and their effect on query retrieval and approximate result caching.">
+<link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Interactive companion to the paper</p>
+    <h1>Contrastive Learning for <span class="hl">Results-Aware</span> SPARQL Embeddings</h1>
+    <p class="lede">Two SPARQL queries can look almost the same and return different answers, or look different and return the same answers.
+      We teach query encoders to place queries by <b>what they return</b>, not by how they are written, using answers collected once, offline.
+      At query time the encoder needs only the query text.</p>
+
+    <div class="claims">
+      <article class="claim">
+        <h3><span class="num">1</span> What we did</h3>
+        <p>Execute a query log once, label query pairs by the <b>Jaccard overlap of their answer sets</b>, and fine-tune any pretrained encoder with a contrastive loss on these labels. We release the labels as <b>SQuARE</b> (DBpedia + Wikidata).</p>
+      </article>
+      <article class="claim">
+        <h3><span class="num">2</span> Why it matters</h3>
+        <p>Query retrieval and approximate result caching need <b>answer overlap</b>, but text, code and SPARQL encoders are trained on how queries look. Fine-tuning improves retrieval for <b>all 10 encoders</b> on both graphs.</p>
+      </article>
+      <article class="claim">
+        <h3><span class="num">3</span> What is new</h3>
+        <p>To our knowledge, the first SPARQL query embeddings trained on <b>execution-derived answer overlap</b>, and the first SPARQL resource with query-pair supervision grounded in execution.</p>
+      </article>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#problem">1 · The problem</a>
+      <a href="#method">2 · How it works</a>
+      <a href="#retrieval">3 · Query retrieval</a>
+      <a href="#caching">4 · Result caching</a>
+      <a href="#novelty">5 · What is new</a>
+      <a href="#reproduce">6 · Reproduce</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- =============================== 1. PROBLEM =============================== -->
+<section id="problem" class="wrap">
+  <h2><span class="sec">1</span> The problem: looking alike is not returning alike</h2>
+  <p class="intro">Three DBpedia queries from the paper's Figure 1. Switch the encoder to see which query each one puts next to (a).</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="qcard qa"><span class="tag">a</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace dbr:Paris }</pre><span class="ans">136 answers</span></div>
+      <div class="qcard qb"><span class="tag">b</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       <mark class="mb">dbo:deathPlace</mark> dbr:Paris }</pre><span class="ans">94 answers · one predicate changed</span></div>
+      <div class="qcard qc"><span class="tag">c</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace <mark class="mc">?c</mark> .
+  <mark class="mc">FILTER(?c = dbr:Paris)</mark> }</pre><span class="ans">136 answers · same meaning, other form</span></div>
+
+      <table class="mini">
+        <thead><tr><th>Compared with (a)</th><th class="cb">(b)</th><th class="cc">(c)</th></tr></thead>
+        <tbody>
+          <tr><td>Token similarity</td><td class="cb"><b>0.92</b></td><td class="cc">0.77</td></tr>
+          <tr><td>Answer overlap <i>J</i></td><td class="cb">0.19</td><td class="cc"><b>1.00</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="seg" role="tablist" id="teaserSeg">
+        <button class="on" data-mode="text">Text-based encoder</button>
+        <button data-mode="ours">Results-aware encoder (ours)</button>
+      </div>
+      <svg id="teaserSvg" viewBox="0 0 420 260" class="teaser" role="img" aria-label="Embedding space sketch"></svg>
+      <div id="teaserMsg" class="verdict"></div>
+      <p class="note">Sketch for intuition (as in the paper's Figure 1, panels 2 and 3). Real measurements follow below.</p>
+    </div>
+  </div>
+
+  <div class="card wide">
+    <div class="cardhead">
+      <h3>On real data: text similarity vs. answer overlap</h3>
+      <div class="seg small" id="scatterSeg">
+        <button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button>
+      </div>
+    </div>
+    <div class="grid2 tight">
+      <svg id="scatterSvg" viewBox="0 0 480 330" role="img" aria-label="Scatter of TF-IDF cosine against answer Jaccard"></svg>
+      <div class="side">
+        <p>Each dot is a stored test pair of SQuARE: <b>x</b> = TF-IDF cosine of the two query strings, <b>y</b> = Jaccard overlap of their answers on the graph.</p>
+        <div class="stat warn"><span id="scA">–</span><small>of pairs that look alike (text cosine ≥ 0.5) share almost no answers (<i>J</i> ≤ 0.1)</small></div>
+        <div class="stat good"><span id="scB">–</span><small>of pairs with (nearly) the same answers (<i>J</i> ≥ 0.8) look quite different (text cosine &lt; 0.5)</small></div>
+        <p class="note" id="scNote"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 2. METHOD =============================== -->
+<section id="method" class="wrap">
+  <h2><span class="sec">2</span> How it works</h2>
+  <p class="intro">Answers need no human annotation: an endpoint computes them. We collect this evidence once, offline, and the encoder uses only the query text afterwards.</p>
+
+  <ol class="steps" id="steps">
+    <li class="on" data-step="0"><b>Execute once</b><small>cache each query's answers</small></li>
+    <li data-step="1"><b>Label by overlap</b><small>Jaccard <i>J</i> of answer sets</small></li>
+    <li data-step="2"><b>Split without leakage</b><small>by positive components</small></li>
+    <li data-step="3"><b>Fine-tune</b><small>InfoNCE + hard negatives</small></li>
+    <li data-step="4"><b>Use online</b><small>query text only</small></li>
+  </ol>
+
+  <div class="card step-panel" data-panel="0">
+    <h3>Step 1 · Execute each logged query once and cache its answers</h3>
+    <div class="flow">
+      <div class="fbox"><b>LSQ query log</b><small>DBpedia · Wikidata</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Local endpoint</b><small>DBpedia 2022-12 · Wikidata truthy 2025-01-22</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Cached answer sets</b><small>rows as sets of RDF terms</small></div>
+    </div>
+    <ul class="facts">
+      <li>Cost is small and paid once: <b>0.3 h</b> (DBpedia) and <b>10.9 h</b> (Wikidata) of total query time.</li>
+      <li>Labeling all pairs from the cache takes <b>26 s</b> and <b>10 min</b> on one CPU core (inverted index over answer rows).</li>
+      <li>Every label stays checkable: SQuARE ships the cached answer sets, so <i>J</i> can be recomputed without any endpoint.</li>
+    </ul>
+  </div>
+
+  <div class="card step-panel" data-panel="1" hidden>
+    <h3>Step 2 · Label query pairs by answer overlap</h3>
+    <div class="grid2 tight">
+      <div>
+        <svg id="vennSvg" viewBox="0 0 360 200" role="img" aria-label="Venn diagram of two answer sets"></svg>
+        <div class="sliders">
+          <label><span>|Ans(q<sub>i</sub>)|</span> <input type="range" id="vA" min="1" max="200" value="136"><output id="oA"></output></label>
+          <label><span>|Ans(q<sub>j</sub>)|</span> <input type="range" id="vB" min="1" max="200" value="94"><output id="oB"></output></label>
+          <label><span>shared rows</span> <input type="range" id="vI" min="0" max="200" value="37"><output id="oI"></output></label>
+        </div>
+        <div class="presets">
+          Try: <button data-p="136,94,37">(a) vs (b)</button><button data-p="136,136,136">(a) vs (c)</button><button data-p="100,95,92">near-duplicate</button><button data-p="50,200,50">containment</button>
+        </div>
+      </div>
+      <div class="side">
+        <div class="jbig"><i>J</i> = <span id="jVal">–</span></div>
+        <div id="jLabel" class="pill"></div>
+        <p class="formula"><i>J</i>(q<sub>i</sub>, q<sub>j</sub>) = |Ans(q<sub>i</sub>) ∩ Ans(q<sub>j</sub>)| / |Ans(q<sub>i</sub>) ∪ Ans(q<sub>j</sub>)|</p>
+        <div class="scale">
+          <div class="neg">negative<br><small>J ≤ 0.1</small></div>
+          <div class="mid">unlabeled<br><small>0.1 &lt; J &lt; 0.8</small></div>
+          <div class="pos">positive<br><small>J ≥ 0.8</small></div>
+          <div class="marker" id="jMarker"></div>
+        </div>
+        <p id="jGuarantee" class="note"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card step-panel" data-panel="2" hidden>
+    <h3>Step 3 · Split by connected components of positive pairs</h3>
+    <p>If an anchor is in the test split while its positive is in training, the pair is seen in training and scored again at test time. We avoid this by keeping each connected component of positive pairs in one split.</p>
+    <div class="seg small" id="splitSeg">
+      <button data-s="random">Random query split</button><button class="on" data-s="component">Component split (ours)</button>
+    </div>
+    <svg id="splitSvg" viewBox="0 0 640 210" role="img" aria-label="Positive-pair graph coloured by split"></svg>
+    <div class="legend"><span class="lg tr"></span>train <span class="lg va"></span>validation <span class="lg te"></span>test <span class="lg leak"></span>positive pair crossing splits (leak)</div>
+    <div id="splitMsg" class="verdict"></div>
+  </div>
+
+  <div class="card step-panel" data-panel="3" hidden>
+    <h3>Step 4 · Contrastive fine-tuning on answer-overlap labels</h3>
+    <div class="grid2 tight">
+      <div>
+        <svg id="toySvg" viewBox="0 0 420 300" role="img" aria-label="Toy embedding space during training"></svg>
+        <div class="controls">
+          <button id="toyPlay" class="primary">▶ Train</button>
+          <button id="toyReset">Reset</button>
+          <span class="ep">epoch <b id="toyEpoch">0</b> / 20</span>
+          <label class="chk"><input type="checkbox" id="toyHard" checked> hard-negative mining</label>
+        </div>
+      </div>
+      <div class="side">
+        <p>Colour = queries with the same answers. They start where <b>text</b> puts them: queries that differ in one constant or predicate sit together.</p>
+        <p>Each step applies the InfoNCE loss of the paper: pull an anchor toward one of its <b>positives</b>, push it away from its <b>negatives</b> and the other in-batch candidates (known positives are masked). From epoch 2, every two epochs, the current model's closest labeled negatives are mined (<span class="redtxt">red links</span>); they are execution-verified, so they can never be false negatives.</p>
+        <svg id="lossSvg" viewBox="0 0 480 150" role="img" aria-label="Training loss"></svg>
+        <p class="note">Toy demo: 12 free 2-D points trained live in your browser (distance-based similarity, so you can watch it). Real training updates all weights of a pretrained encoder, with cosine similarity and κ = 0.05.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card step-panel" data-panel="4" hidden>
+    <h3>Step 5 · Online: the frozen encoder sees only the query text</h3>
+    <div class="flow">
+      <div class="fbox"><b>New query</b><small>text only, never executed</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox ours"><b>Results-aware encoder</b><small>5–20 ms per query</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Nearest cached queries</b><small>&lt; 0.05 ms search</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Retrieval</b> or <b>reuse</b><small>Sections 3 and 4</small></div>
+    </div>
+    <p class="note">Timings from the paper (median, batch size 1, one A100; search over up to 968 cached queries).</p>
+  </div>
+</section>
+
+<!-- =============================== 3. RETRIEVAL =============================== -->
+<section id="retrieval" class="wrap">
+  <h2><span class="sec">3</span> Downstream task 1 · Query retrieval</h2>
+  <p class="intro">Given a new query, find earlier queries in the log that return (nearly) the same answers. Below: real SQuARE test queries, ranked against <b>all</b> other test queries.</p>
+
+  <div class="card wide">
+    <div class="cardhead">
+      <h3>Explorer: where does text similarity go wrong?</h3>
+      <div class="seg small" id="exSeg">
+        <button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button>
+      </div>
+    </div>
+    <div class="explorer">
+      <div class="exlist" id="exList"></div>
+      <div class="exmain">
+        <div class="anchor"><span class="tag ta">query</span><pre id="exAnchor"></pre><span id="exAnchorAns" class="ans"></span></div>
+        <div id="exVerdict" class="verdict"></div>
+        <table class="rank">
+          <thead><tr><th>TF-IDF rank</th><th>candidate query</th><th>answers</th><th>text cos</th><th>answer <i>J</i></th></tr></thead>
+          <tbody id="exRows"></tbody>
+        </table>
+        <p class="note">Ranking: TF-IDF (the strongest non-neural baseline in the paper), computed from the released files by <code>demo/scripts/build_demo_data.py</code>. <i>J</i> from the complete test labels; "partial" means 0.1 &lt; <i>J</i> &lt; 0.8. <span class="star">★</span> = the highest-overlap query in the collection, the one answer-overlap supervision rewards ranking first.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hits@1 with complete labels</h3>
+        <div class="seg small" id="fcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="fcSvg" viewBox="0 0 480 300" role="img" aria-label="Bar chart of Hits@1"></svg>
+      <p class="note">Share of test queries whose top-ranked query has <i>J</i> ≥ 0.8 (473 / 968 test queries). Encoder rows are means over ten encoders.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead">
+        <h3>Every encoder improves</h3>
+        <div class="seg small" id="dbSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="dumbSvg" viewBox="0 0 480 330" role="img" aria-label="Zero-shot vs fine-tuned Hits@1 per encoder"></svg>
+      <p class="note">Hits@1, stored labels; fine-tuned = mean of five seeds (std ≤ 0.02). Paired 95% intervals exclude zero for every encoder on both graphs. Dashed line: TF-IDF.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Is it the answers, or just fine-tuning on SPARQL?</h3>
+      <p>Matched control: the same encoders, seeds and protocol, but positives chosen by <b>syntax</b> (algebra similarity) instead of answers.</p>
+      <svg id="ctrlSvg" viewBox="0 0 480 190" role="img" aria-label="Syntax labels vs answer labels"></svg>
+      <p class="note">Mean Hits@1, complete labels, over E5-base-v2, Qwen3-Embedding and CodeBERT (3 seeds each). Only 13% (DBpedia) and 21% (Wikidata) of syntax positives are also answer positives.</p>
+    </div>
+    <div class="card">
+      <h3>Does it generalize beyond known query shapes?</h3>
+      <p>Wikidata test queries split by whether their <b>template</b> occurs in training.</p>
+      <svg id="suSvg" viewBox="0 0 480 190" role="img" aria-label="Seen vs unseen templates"></svg>
+      <p class="note">Mean Hits@1 (complete labels). Fine-tuning gains: seen 0.13 [0.11, 0.16], unseen 0.12 [0.10, 0.14]. On DBpedia 98% of test queries share a training template, so only Wikidata supports this test.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 4. CACHING =============================== -->
+<section id="caching" class="wrap">
+  <h2><span class="sec">4</span> Downstream task 2 · Approximate result caching</h2>
+  <p class="intro">For each incoming query, reuse the cached answers of its most similar cached query if cosine ≥ θ; otherwise execute it and add it to a FIFO cache (K = 128). A reuse is correct if <i>J</i> ≥ 0.8. Answers are used only to judge decisions, never to make them.</p>
+
+  <div class="card wide">
+    <h3>Walk through the cache</h3>
+    <div class="cachesim">
+      <div class="cs-stage" id="csStage"></div>
+      <div class="controls">
+        <button id="csNext" class="primary">Next query ▶</button>
+        <button id="csReset">Reset</button>
+        <div class="seg small" id="csSeg"><button class="on" data-m="text">text-based</button><button data-m="ours">results-aware</button></div>
+      </div>
+      <p class="note">Illustrative stream built from the Figure 1 queries (cosines are sketches; the answer counts and <i>J</i> are real). Measured results are below.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hit accuracy before and after fine-tuning (θ = 0.8)</h3>
+        <div class="seg small" id="caSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="caSvg" viewBox="0 0 480 330" role="img" aria-label="Cache hit accuracy per encoder"></svg>
+      <p class="note">Accuracy = correct hits / all hits, pooled over five seeds and five stream orders. Fine-tuning raises accuracy for all ten encoders on both graphs.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead">
+        <h3>Coverage vs. reliability: move θ</h3>
+        <div class="seg small" id="rcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="rcSvg" viewBox="0 0 480 300" role="img" aria-label="Accuracy vs hit rate as the threshold changes"></svg>
+      <label class="thr"><span>θ = <b id="thrVal">0.80</b></span><input type="range" id="thr" min="0" max="10" value="4"></label>
+      <div id="rcTable"></div>
+    </div>
+  </div>
+
+  <div class="card wide finding">
+    <h3>Finding: ranking and calibration are different problems</h3>
+    <p>Results-aware fine-tuning makes reuse decisions much better (DBpedia hit accuracy <b>0.15–0.33 → 0.59–0.79</b>). Still, a single cosine threshold does not make reuse <i>safe</i>: on Wikidata, most hits remain wrong for most encoders at any θ. SQuARE makes this gap measurable, and points to calibrated or verified reuse as the next step.</p>
+  </div>
+</section>
+
+<!-- =============================== 5. NOVELTY =============================== -->
+<section id="novelty" class="wrap">
+  <h2><span class="sec">5</span> What is new</h2>
+  <p class="intro">Prior work is <b>results-blind</b> (learns from how queries are written) or works with relations that are <b>exact but costly</b>. Ours learns graph-specific answer overlap and needs only text at inference.</p>
+  <div class="card wide scroll">
+    <table class="cmp" id="cmpTable"></table>
+    <p class="note">Based on the related-work discussion in the paper. "Partial": SQA compares execution results to assess a generated query against a reference, but does not train a query encoder.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>The SQuARE resource</h3>
+      <table class="mini stats" id="dsTable"></table>
+      <p class="note">SPARQL Query Answer Ranking Evaluation. Positives: J ≥ 0.8; negatives: J ≤ 0.1. Splits audited at query, pair, answer-set and normalized-algebra level.</p>
+    </div>
+    <div class="card">
+      <h3>Why reviewers can trust the labels</h3>
+      <ul class="facts">
+        <li><b>No human labels, no model labels:</b> every positive and negative is checked by execution.</li>
+        <li><b>No leakage:</b> no query string, positive pair or answer set is shared across splits.</li>
+        <li><b>Same universe:</b> zero-shot, fine-tuned and baselines rank the exact same candidates.</li>
+        <li><b>Model-agnostic:</b> one training protocol for ten encoders from four families (text, general LM, code, SPARQL).</li>
+        <li><b>Thresholds never tuned on test:</b> the cache threshold is chosen on validation only.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 6. REPRODUCE =============================== -->
+<section id="reproduce" class="wrap">
+  <h2><span class="sec">6</span> Reproduce</h2>
+  <div class="card wide">
+<pre class="code"># regenerate the real-data parts of this page from the released splits (no GPU, ~15 s)
+python demo/scripts/build_demo_data.py --repo . --out demo/data/demo_data.js
+
+# full benchmark: zero-shot + fine-tuning + retrieval + caching
+python scripts/run_experiment.py --models all --datasets dbpedia wikidata --seeds 42 43 44 45 46
+python scripts/aggregate_results.py &amp;&amp; python scripts/generate_tables.py</pre>
+    <p class="note">This page has no external dependencies: open <code>demo/index.html</code> in any browser, offline. Paper numbers live in <code>demo/data/paper_results.js</code>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap foot">Results-Aware SPARQL Embeddings · anonymous submission · demo page</footer>
+
+<script src="data/paper_results.js"></script>
+<script src="data/demo_data.js"></script>
+<script src="assets/demo.js"></script>
+</body>
+</html>

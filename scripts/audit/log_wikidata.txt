@@ -1,0 +1,153 @@
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '-4-01-01'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '6-12-31'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '6-01-01'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '16-12-31'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '-0001-01-14'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '918-08-22'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '928-08-22'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '928-08-22'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '938-08-22'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '918-08-18'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '928-08-18'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '928-08-18'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '938-08-18'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '-4-05-01'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '6-05-31'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '6-05-01'
+Failed to convert Literal lexical form to value. Datatype=http://www.w3.org/2001/XMLSchema#dateTime, Converter=<function parse_datetime at 0xf95a133d9900>
+Traceback (most recent call last):
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/rdflib/term.py", line 2262, in _castLexicalToPython
+    return conv_func(lexical)  # type: ignore[arg-type]
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodatetime.py", line 31, in parse_datetime
+    tmpdate = parse_date(datestring)
+  File "/sessions/rcw-01tx8a133ovmrqhckzhvtsvg/venv/lib/python3.10/site-packages/isodate/isodates.py", line 193, in parse_date
+    raise ISO8601Error("Unrecognised ISO 8601 date format: %r" % datestring)
+isodate.isoerror.ISO8601Error: Unrecognised ISO 8601 date format: '16-05-31'

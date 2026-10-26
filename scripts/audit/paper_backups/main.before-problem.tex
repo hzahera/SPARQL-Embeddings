@@ -1,0 +1,1120 @@
+% ---------------------------------------------------------------------------
+% Contrastive Learning for Answer-Aware SPARQL Query Embeddings
+% ESWC 2027, Research track. Springer LNCS (llncs.cls + splncs04.bst).
+% Open items are typeset in red with \hp{...}; search for "\hp{".
+% ---------------------------------------------------------------------------
+\documentclass[runningheads]{llncs}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hhline}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage[table]{xcolor}
+% table highlight colours
+\definecolor{headblue}{RGB}{221,232,245}
+\definecolor{grpgray}{RGB}{242,242,242}
+\definecolor{sumgray}{RGB}{230,230,230}
+\definecolor{bestgreen}{RGB}{204,236,208}
+\definecolor{posgreen}{RGB}{220,242,222}
+\definecolor{negred}{RGB}{250,222,220}
+\definecolor{ftblue}{RGB}{235,242,250}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\pdfstringdefDisableCommands{\def\\{ }}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{adjustbox}
+\usepackage{placeins}
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  aboveskip=2pt,
+  belowskip=2pt,
+}
+
+\newcommand{\squareds}{\textsc{SQuARE}}
+\newcommand{\Ans}{\mathrm{Ans}}
+% grey gain annotation used in the compact tables
+\newcommand{\dg}[1]{{\scriptsize\color{black!80}#1}}
+% open item (TODO): rendered in red
+\newcommand{\hp}[1]{{\color{red!75!black}#1}}
+
+\setlength{\emergencystretch}{2em}
+\begin{document}
+
+\title{Contrastive Learning for Answer-Aware\\SPARQL Query Embeddings}
+
+\titlerunning{Answer-Aware SPARQL Query Embeddings}
+
+\author{Anonymous Author(s)}
+\authorrunning{Anonymous}
+\institute{Anonymous Institution}
+
+\maketitle
+
+% ===========================================================================
+\begin{abstract}
+Pretrained SPARQL query representations are not explicitly optimized for
+answer overlap on a target RDF graph, although query recommendation,
+query-log analysis and approximate result reuse need this signal without
+executing each incoming query. Syntax alone is an imperfect proxy: similar queries may return disjoint answers, and different queries may
+return identical ones. We introduce answer-supervised representation learning
+for SPARQL, which exploits the fact that a query's denotation can be observed
+automatically. Each query of a log is executed once, offline, and query pairs
+are labelled by the Jaccard overlap of their answers; at inference time, only
+the query text is needed. Based on the LSQ logs of DBpedia and Wikidata, we
+release \squareds{}, a resource with cached answer sets, 92{,}664 positive and
+282{,}720 negative query pairs, and splits in which no positive relationship
+crosses from training to test. A paired before-and-after study of ten pretrained encoders from four model families shows that answer-supervised fine-tuning improves retrieval among held-out queries for every encoder (on DBpedia, Hits@1 rises from 0.34 to 0.55 on
+average) and substantially reduces the spread between encoders. The study
+also shows that ranking quality and similarity calibration are distinct
+problems: when the embeddings decide approximate result reuse with a fixed
+threshold, 59\% to 77\% of the reused answers on DBpedia and at most 28\% on
+Wikidata meet the overlap criterion, so a learned similarity alone does not
+make reuse reliable. The planned code and data release is \url{https://anonymous.4open.science/r/SQuARE-ESWC27}.
+
+\keywords{SPARQL \and Query Embeddings \and Contrastive Learning \and
+Semantic Caching \and Query Logs \and Knowledge Graphs}
+\end{abstract}
+
+% ===========================================================================
+\section{Introduction}
+\label{sec:intro}
+
+SPARQL embeddings map queries to vectors so that we can find related queries
+by vector similarity. They promise a fast way to search query logs such as
+LSQ~\cite{saleem2015lsq}, which collect millions of queries sent to public
+endpoints: given a new query, an embedding retrieves earlier queries without
+executing it. Two tasks build on this search. In \emph{query retrieval}, a
+user or a system looks for earlier queries that return related data; in
+\emph{approximate result reuse}, a system returns a stored answer instead of
+executing the new query, as in semantic
+caching~\cite{dar1996semanticcaching,papailiou2015caching}. Both tasks
+depend on one specific relation: two queries should be close when they
+return similar answers on the target graph.
+Textual similarity does not necessarily reflect this relation. Figure~\ref{fig:gap}
+shows three DBpedia queries. Query (b) differs from (a) in
+a single predicate, \texttt{deathPlace} instead of \texttt{birthPlace}, yet
+the two queries share only 37 answers ($J = 0.19$). Query (c), by contrast,
+adds a variable and a \texttt{FILTER} but returns exactly the same answer set as (a). By token overlap, however, (b) is closer to (a) than (c) is, so a similarity based on text alone ranks (b) first (Figure~\ref{fig:gap}, panel~2). An embedding that serves our tasks should do the opposite and place (c) closer to (a) than (b) (panel~3).
+Capturing this ordering requires evidence beyond the query text, because
+answer overlap depends on the data of the graph~\cite{perez2009sparql}.
+
+\begin{figure}[t]
+\centering
+\input{fig-teaser}
+\caption{\small{(1)~Query~(b)
+changes one predicate of~(a) and shares few answers with it on DBpedia,
+whereas query~(c) rewrites~(a) and returns the same answers. By token
+similarity, however, (b) is closer to~(a) than~(c) is. (2)~A text-based
+encoder places queries by how they look and therefore retrieves~(b) for~(a).
+(3)~Our answer-aware encoder, trained on answer overlap observed offline,
+places queries by what they return and retrieves~(c), the right match for
+query retrieval and approximate result reuse.}}
+\label{fig:gap}
+\end{figure}
+
+Existing embedding approaches do not use such evidence. Their supervision is
+\emph{result-blind}: it reflects how a query is written, not what it returns.
+Query2Vec and Querc embed SQL queries for workload tasks such as
+summarization and error prediction~\cite{jain2018query2vec,jain2019querc},
+SPBERT pretrains a language model on SPARQL logs~\cite{tran2021spbert}, and
+general text and code encoders such as E5 and CodeBERT learn from other
+data~\cite{wang2022e5,feng2020codebert}. These models may capture useful
+regularities in query text, but their training never aligns embedding
+similarity with answer overlap.
+
+Other approaches address related but distinct problems. Containment and
+equivalence checking establish relations that hold on every graph; these
+problems are computationally hard even for small SPARQL
+fragments~\cite{pichler2014containment}, and such universal relations miss
+the partial, data-dependent overlap between (a) and (b). Similarity search
+over RDF graphs~\cite{zheng2016sparqlsimilarity,calisto2025graphsimilarity}
+retrieves graph content rather than queries from a log. SQA compares
+execution results to assess a generated query against a
+reference~\cite{bao2026sqa}, but does not use them to train a query encoder.
+None of these lines of work answers the question that our tasks raise:
+\emph{can answers collected offline teach an encoder to retrieve
+high-overlap queries from text alone?}
+
+We address this question with a simple observation: query answers need no
+human annotation, because an endpoint can compute them. This lets us
+separate the collection of data-dependent evidence from its use at query
+time. We therefore propose \emph{answer-supervised representation learning}
+for SPARQL query embeddings. We execute each logged query once, offline, and
+label query pairs by the Jaccard overlap of their answer sets: pairs with
+high overlap serve as positives, and pairs with little or no overlap serve
+as negatives.
+We then introduce a contrastive objective that aligns embedding distances
+with these labels (Section~\ref{sec:method}). It pulls high-overlap queries
+together even when their formulations differ, and it pushes low-overlap
+queries apart even when their text is similar, which is exactly the ordering
+that Figure~\ref{fig:gap} calls for. Because the labels come from the target
+graph, the encoder learns overlap on that graph rather than relations that
+hold on every graph. Execution thus supervises training only: at inference,
+the encoder reads the query text alone.
+We evaluate this approach on \squareds{}, which we build from the DBpedia
+and Wikidata logs in LSQ, with ten pretrained encoders from four model
+families. Fine-tuning improves retrieval among held-out queries for
+every encoder on both graphs, raising mean Hits@1 on DBpedia from $0.34$ to
+$0.55$, and it narrows the gap between strong and weak encoders. Result
+reuse yields a second finding: better ranking alone does not make reuse
+reliable. With a fixed similarity threshold, most reused answers on Wikidata
+fall below the overlap criterion, so reliable reuse also needs calibrated
+decisions (Section~\ref{sec:caching}). We summarize our contributions as follows:
+\begin{itemize}
+  \item We define query relatedness by answer
+        overlap on a target graph and train SPARQL query embeddings from
+        offline execution, with query text as the only input at inference
+        (Section~\ref{sec:method}).
+  \item We release \squareds{}, which provides cached
+        answer sets for 15{,}476 queries, 92{,}664 positive pairs and
+        282{,}720 negative pairs from DBpedia and Wikidata, with splits that
+        keep every positive relation within one split
+        (Section~\ref{sec:data}), together with our code.
+  \item We compare ten encoders before and after
+        fine-tuning on query retrieval and approximate result reuse
+        (Section~\ref{sec:exp}).
+\end{itemize}
+
+%The remainder of this paper is organized as follows. Section~\ref{sec:related} reviews related work, Section~\ref{sec:method} presents the method and the resource, Section~\ref{sec:exp} reports the experiments, and Section~\ref{sec:conclusion} concludes.
+% ===========================================================================
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Contrastive representation learning.}
+InfoNCE~\cite{oord2018cpc} and its supervised
+variant~\cite{khosla2020supcon} underlie modern sentence and passage
+encoders~\cite{reimers2019sbert,gao2021simcse,karpukhin2020dpr,wang2022e5}.
+Text encoders derive positives from paraphrase pairs or dropout
+noise~\cite{gao2021simcse} and mine negatives from their own
+index~\cite{xiong2021ance}; both are approximations, since mined negatives may
+be false negatives. SPARQL queries differ in that their answers can be computed.
+Positives can therefore be verified by execution, and negatives can be
+verified to share almost no answers with the anchor. These labels define the
+resource; in-batch candidates from other anchors are not verified for every
+anchor, but known positives are masked (Section~\ref{sec:objective}). Our objective is
+standard; what is new is the task, graph-relative answer-overlap retrieval for
+SPARQL, and supervision for it that is measured rather than annotated.
+
+\paragraph{Learning from execution.}
+Using execution as a training signal is established for program code.
+CodeScore~\cite{dong2023codescore} learns to predict the functional
+correctness of generated code from execution outcomes, and
+CodeScore-R~\cite{yang2024codescorer} combines contrastive learning with
+semantics-preserving program transformations to make such a metric robust.
+Both compare a program with a reference specification on test inputs, whereas
+we compare two queries by the answers they return on one fixed graph, a
+relation that depends on the data and not only on program behavior.
+
+\paragraph{Encoders for queries and code.}
+CodeBERT~\cite{feng2020codebert} and
+GraphCodeBERT~\cite{guo2021graphcodebert} are pretrained on source code, the
+latter incorporating data-flow structure. SPBERT~\cite{tran2021spbert} is
+pretrained on SPARQL, but for question-to-query generation, and is therefore
+never exposed to a query-to-query signal. General-purpose text
+embedders~\cite{song2020mpnet,wang2022e5,xiao2024bge,li2023gte,zhang2025qwen3emb}
+and code language models~\cite{hui2024qwen25coder} are frequently applied to
+queries as plain strings. None of these models is trained to predict answer
+overlap on a target RDF graph. In this work, we treat them as inputs to our
+method rather than as competing approaches.
+
+\paragraph{Query embeddings for logs and workloads.}
+Learned representations of whole queries have mainly been studied for
+relational workloads. Query2Vec~\cite{jain2018query2vec} and
+Querc~\cite{jain2019querc} embed SQL query text with NLP models to support
+workload tasks such as error prediction, user labelling and index
+recommendation; their training signal is the query text itself. For SPARQL,
+embeddings have mostly been applied to the graph rather than to the query:
+TrQuery~\cite{zhang2018trquery} embeds the entities and relations of the RDF
+graph to score approximate solutions of a single query. Neither line compares
+two queries by the answers they return, which is the relation we learn.
+
+\paragraph{SPARQL equivalence, query logs and benchmarks.}
+Query containment and equivalence are classical decision
+problems~\cite{chandra1977,pichler2014containment}. They are exact but
+computationally expensive, and they are defined over all databases, whereas
+our notion of relatedness is relative to a specific graph.
+LSQ~\cite{saleem2015lsq} and USEWOD~\cite{luczak2014usewod} publish real
+query logs with structural metadata, but do not define relatedness between
+queries. Performance
+benchmarks~\cite{morsey2011dbpsb,saleem2015feasible,angles2022wdbench} select
+queries to stress query engines and use runtime as ground truth. Question
+answering
+benchmarks~\cite{dubey2019lcquad,usbeck2017qald7,kosten2023spider4sparql}
+pair a natural-language question with a single gold query and thus support
+semantic parsing rather than query-to-query retrieval. To the best of our
+knowledge, no existing SPARQL resource provides query-pair supervision
+grounded in execution.
+
+\paragraph{Semantic caching.}
+Semantic caching~\cite{dar1996semanticcaching} reuses a cached result when a
+stored query matches or subsumes an incoming one, a decision that is made
+symbolically. For SPARQL, Papailiou et al.~\cite{papailiou2015caching} cache
+the results of subgraph patterns and match them structurally against incoming
+queries, and Lorey and Naumann~\cite{lorey2013templates} detect query
+templates in logs to prefetch data. Both detect reuse that is visible in the
+query structure, but not data-dependent overlap. Semantic caches for large
+language models, such as GPTCache~\cite{bang2023gptcache}, instead reuse an
+answer when the embedding of a new request is close enough to a cached one.
+Our reuse experiment follows this design with an embedding learned from
+execution; since the decision thresholds the similarity, its absolute
+\emph{scale} matters in addition to its ranking.
+
+% ===========================================================================
+\section{Methodology}
+\label{sec:method}
+
+Our method has three steps (Figure~\ref{fig:pipeline}). We execute each
+logged query once and cache its answers, label query pairs by the overlap of
+these answers and split them without leakage (Section~\ref{sec:data}), and
+fine-tune a pretrained encoder on the labeled pairs with a contrastive
+objective (Section~\ref{sec:objective}). We first define the task.
+
+\begin{figure}[t]
+\centering
+\input{fig-pipeline}
+\caption{Overview of our approach. Offline: (1)~execute each logged query
+once and cache its answers; (2)~label query pairs by answer overlap $J$;
+(3)~split by connected components of positive pairs; (4)~fine-tune an
+encoder contrastively. Online: the frozen encoder embeds only the query text
+and ranks cached queries for retrieval or approximate reuse.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Problem Formulation}
+\label{sec:problem}
+
+\paragraph{Query fragment and answers.}
+We consider SPARQL \texttt{SELECT} queries; \texttt{ASK}, \texttt{CONSTRUCT}
+and \texttt{DESCRIBE} queries are out of scope. Let $G$ be an RDF graph. We
+denote by $\Ans(q,G)$ the \emph{set} of solution rows returned by $q$ over
+$G$. Each row is canonicalized as the tuple of its RDF terms in projection
+order, retaining the term type, lexical value, language tag and datatype of
+each term, while variable names are discarded, so that variable renaming does
+not alter the answer. Duplicate rows are collapsed and row order is ignored.
+Without slicing, \texttt{DISTINCT} and \texttt{ORDER BY} therefore do not
+affect $\Ans(q,G)$. With \texttt{LIMIT} or \texttt{OFFSET}, however, both
+modifiers can change \emph{which} rows are returned, since ordering and
+duplicate elimination precede slicing~\cite{w3c2013sparql11}; $\Ans(q,G)$ is
+then the set of rows actually returned for the logged query. This case is
+rare: no DBpedia query and 88 Wikidata queries (0.8\%) use \texttt{LIMIT} or
+\texttt{OFFSET}. Aggregates, which occur in 18\% of the Wikidata queries and in
+none of the DBpedia queries, are treated like any other projected value.
+Each query was executed with a timeout of 120\,s and up to three retries;
+queries that failed, timed out or returned no rows were discarded.
+We found no sign of a row limit: in the test split, answer sets reach 2.8
+million rows on DBpedia and 5.6 million on Wikidata, and no answer size
+recurs as a cap would cause. Blank-node labels are
+scoped to a single result document~\cite{w3c2013sparqljson}, so they are not
+comparable across queries; we \hp{[TODO: the current canonicalizer keeps
+blank-node labels as values. Count affected queries with
+table1\_from\_cache.py; if non-zero, replace each blank node by a placeholder
+term and relabel, otherwise state that no answer contains a blank node.]}.
+Two consequences follow. First, $\Ans$ is a set-based representation:
+$J = 1$ means identical canonical answer sets on $G$, not interchangeable
+SPARQL responses, since multiplicities, order and variable names are
+discarded. Second, returning one query's rows for another additionally
+requires mapping its output columns to the other query's variables.
+
+\paragraph{Result similarity.}
+The \emph{result similarity} of two queries is the Jaccard overlap of their
+answer sets:
+\begin{equation}
+J(q_i,q_j) = \frac{|\Ans(q_i,G) \cap \Ans(q_j,G)|}{|\Ans(q_i,G) \cup \Ans(q_j,G)|}.
+\label{eq:jaccard}
+\end{equation}
+A pair is \emph{high-overlap} (positive) if $J \geq 0.8$ and
+\emph{low-overlap} (negative) if $J \leq 0.1$; intermediate pairs are not
+assigned explicit positive or negative labels. Cross-triplet batching can
+nevertheless introduce such pairs as negative candidates
+(Section~\ref{sec:objective}). High overlap is not an equivalence relation: it is not
+transitive, and it admits pairs whose answers differ in a few rows. In \squareds{},
+79\% (DBpedia) and 86\% (Wikidata) of the positive pairs have $J = 1$. The distinction matters
+little for retrieval, but it is essential when one query's answer is returned
+in place of another's (Section~\ref{sec:caching}).
+We only retain queries with non-empty answers. $J$ is undefined for two empty
+answer sets, and empty answers can stem from errors such as misspelled IRIs;
+treating all empty queries as mutually related would therefore create
+spurious positives.
+
+$J$ is relative to a graph at a given point in time: a pair that is
+high-overlap on the current version of DBpedia may not be so after a
+subsequent release. We make this explicit by computing every label from a
+cached snapshot of the answer sets; labels are thus reproducible without
+endpoint access, and the construction can be repeated when the graph evolves.
+Since the answers are collected from public endpoints, they reflect one
+consistent graph only if the endpoint data does not change during collection.
+All queries were executed against local mirrors of the two graphs
+\hp{[TODO: name the DBpedia and Wikidata dump releases loaded in the mirrors
+and the execution dates; do not name the hosting institution (anonymity).]}.
+
+\paragraph{Learning objective.}
+We seek an encoder $f$ that maps a query string to a unit vector $z = f(q)$
+such that the cosine similarity $s(q_i,q_j) = z_i^{\top} z_j$ ranks high-overlap
+candidates ahead of low-overlap candidates for $q_i$. This ranking objective
+does not require cosine similarity to estimate $J$ numerically. We separately
+assess whether a threshold $\theta$ can identify high-overlap pairs reliably
+enough for approximate reuse. At inference time, $f$ has access to query
+text only.
+
+\subsection{\squareds{}: Answer Supervision from Query Logs}
+\label{sec:data}
+
+\squareds{} (\textbf{S}PARQL \textbf{Qu}ery \textbf{A}nswer \textbf{R}anking
+\textbf{E}valuation) converts a query log into contrastive training instances.
+Each training instance $(q_a,\mathcal{P},\mathcal{N})$ associates an anchor query $q_a$
+with a set of positives $\mathcal{P}$ and a set of negatives $\mathcal{N}$.
+We construct \squareds{} for DBpedia and Wikidata from the corresponding LSQ
+logs~\cite{saleem2015lsq}; Table~\ref{tab:dataset_square} summarizes its
+statistics.
+
+\paragraph{Execution oracle.}
+We sample \texttt{SELECT} queries from LSQ and keep those that return at
+least one row. A first labeling pass compares the first 200 rows of each
+answer and retains the anchors with at least one candidate positive,
+together with their sampled negatives. We then execute every retained query
+once more, without a row limit, and recompute all labels from the complete
+answers. This selection favors queries that have a related query in the
+log, which is the population our tasks address. On DBpedia, the retained
+queries stem from 59{,}000 sampled LSQ queries, of which 16{,}450 returned
+results \hp{[TODO: verify (the mining log reports 50{,}000 input queries) and
+add the Wikidata counts]}. The
+canonicalized answer sets are cached, and all labels are recomputed from this
+cache rather than inherited from upstream files, so that every label remains
+verifiable. Supervision is free of annotation but not of cost: it requires one
+execution per logged query and one Jaccard computation per candidate pair.
+On our hardware, executing all queries takes \hp{[TODO: --]} and labeling
+all pairs \hp{[TODO: --]}; at inference time, encoding a query takes \hp{[TODO: --]}\,ms and a
+nearest-neighbor search over the cached queries \hp{[TODO: --]}\,ms on
+\hp{[TODO: hardware]}.
+
+\paragraph{Component-disjoint splits.}
+High overlap is symmetric, and the queries form a closed set. If an
+anchor $a$ is held out while one of its positives $q$ remains in the training
+set as an anchor, the pair $\{a,q\}$ is observed during training and evaluated
+again at test time. We prevent this by construction: we build an undirected
+graph whose edges are the positive pairs and assign each connected component
+in its entirety to the training, validation or test split (80/10/10, fixed
+seed). Consequently, queries that are linked directly or transitively never
+appear in different splits. We audit the resulting splits at three levels: query strings, normalized
+queries and answer sets. Normalization parses each query into its SPARQL
+algebra, which expands prefixed IRIs, and renames variables in order of
+appearance. No query string, positive pair or canonical answer set occurs in
+two splits, and no normalized query is shared with the test split. The positive graph has 1{,}156 components on
+DBpedia and 3{,}970 on Wikidata; most are small (median size 2), and the
+largest contains 161 and 398 queries, respectively.
+A component is a conservative grouping, not an equivalence class, and the
+split does not rule out every shortcut. In particular, it does not prevent
+the reuse of query \emph{templates}, i.e., queries that differ only in the
+IRIs and literals in subject and object positions. Template reuse is
+pervasive on DBpedia: its 4{,}727 queries follow only 121 templates, and 98\%
+of the test anchors share a template with a training query, against 58\% on
+Wikidata. Section~\ref{sec:rq2} therefore also reports results on test
+anchors with unseen templates.
+
+\paragraph{Instance construction.}
+We construct instances within each split. Each anchor receives up to 20
+positives, ranked by decreasing $J$, and up to 20 negatives. Among negatives,
+\emph{nonzero-overlap} negatives that share at least one answer row with the
+anchor ($0 < J \leq 0.1$) are preferred over fully disjoint ones ($J = 0$).
+Nonzero-overlap negatives are taken in order of decreasing $J$, and the
+remaining slots are filled with randomly sampled disjoint queries from the
+same split. Nonzero-overlap negatives make up 38\% of the negatives on DBpedia
+and 47\% on Wikidata. Nonzero answer overlap does not establish lexical or
+structural difficulty, and some negatives are easy for a simpler reason: 25\%
+(DBpedia) and 34\% (Wikidata) of them differ from their anchor in projection
+arity, whereas almost all positives (over 99\%) share it
+(Section~\ref{sec:rq2}). In contrast to negatives mined
+with an embedding model~\cite{xiong2021ance}, which may be false negatives,
+every explicit negative in \squareds{} is verified by the oracle for its
+own anchor. This does not imply that all cross-triplet in-batch negatives are
+low-overlap (Section~\ref{sec:objective}). Anchors without at
+least one positive and one negative are discarded.
+
+\begin{table}[t]
+\centering
+\caption{Statistics of \squareds{}. Positives satisfy $J \geq 0.8$ and
+negatives $J \leq 0.1$; each anchor has at most 20 of each. Components are
+those of the positive graph used for splitting.}
+\label{tab:dataset_square}
+\small
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{lrr}
+\toprule
+& \textbf{DBpedia} & \textbf{Wikidata} \\
+\midrule
+Queries & 4{,}727 & 10{,}749 \\
+Anchors (train / valid / test) & 3{,}737 / 469 / 468 & 7{,}570 / 946 / 946 \\
+Positive / negative pairs & 39{,}430 / 93{,}480 & 53{,}234 / 189{,}240 \\
+Positive pairs with $J = 1$ & 79\% & 86\% \\
+Components (largest) & 1{,}156 (161) & 3{,}970 (398) \\
+Query templates & 121 & 5{,}509 \\
+Test anchors with a training template & 98\% & 58\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\FloatBarrier
+\subsection{Contrastive Fine-Tuning}
+\label{sec:objective}
+
+We fine-tune a pretrained query encoder with InfoNCE, using in-batch
+candidates and execution-verified explicit
+negatives~\cite{oord2018cpc,karpukhin2020dpr}.
+
+A batch contains $B$ anchors. For anchor $q_i^a$, we sample one positive
+$q_i^p$ from its stored positives and $m$ explicit negatives
+$q_{i1}^n,\dots,q_{im}^n$ from its stored negatives. Every positive and
+explicit negative in the batch serves as a candidate for every anchor, which
+gives the candidate set
+$\mathcal{C}=\{q_j^p\}_{j=1}^{B}\cup\{q_{jk}^n\}_{j\leq B,\,k\leq m}$ of size
+$B(m+1)$. The encoder $f_\theta$ produces unit-normalized embeddings, and $s$
+is their cosine similarity (Section~\ref{sec:problem}). For temperature
+$\kappa>0$, the batch loss is
+\begin{equation}
+\mathcal{L}
+=
+-\frac{1}{B}\sum_{i=1}^{B}
+\log
+\frac{\exp\!\left(s(q_i^a,q_i^p)/\kappa\right)}
+{\sum_{c\,\in\,\mathcal{C}\setminus\mathcal{M}_i}\exp\!\left(s(q_i^a,c)/\kappa\right)},
+\label{eq:loss}
+\end{equation}
+where $\mathcal{M}_i$ contains the candidates other than $q_i^p$ that are
+stored positives of $q_i^a$; masking them ensures that known positives never
+act as negatives.
+
+Execution verifies each anchor's own positive and explicit negatives.
+Candidates contributed by other anchors are not verified for $q_i^a$, but
+they can only be unlabeled positives if they lie in the positive component
+of $q_i^a$ (Section~\ref{sec:data}). In a simulation of our sampler, this is
+the case for at most 0.4\% (DBpedia) and 0.1\% (Wikidata) of these
+candidates; intermediate overlap ($0.1<J<0.8$) remains possible.
+
+\paragraph{Hard negatives.} In the first epoch, explicit negatives are
+sampled at random. Before the second epoch, and every two epochs
+thereafter, we encode the training queries with the current model and keep,
+for each anchor, the 8 stored negatives with the highest cosine similarity;
+three of the four explicit negatives are then drawn from this pool and one
+at random. Unlike negatives mined from an index~\cite{xiong2021ance}, these
+hard negatives are drawn from execution-verified negatives only, so they
+cannot be false negatives.
+
+The objective optimizes relative ranking: it favors each designated
+positive over its batch competitors, but it does not require cosine
+similarity to equal Jaccard overlap. We therefore introduce no
+Jaccard-regression term and evaluate retrieval and threshold-based
+approximate reuse separately (Section~\ref{sec:exp}).
+
+To attribute the observed effects to the supervision, we use a shared,
+minimal fine-tuning protocol for all encoders. We tokenize each raw query
+string with the encoder's native tokenizer, pool its token representations
+into a single vector, normalize the vector to unit length, and update all
+encoder parameters.
+Encoder models use mean pooling, except BGE and GTE, which use their
+\texttt{[CLS]} vector; decoder models (Qwen3-Embedding, Qwen2.5-Coder,
+Gemma-3) use the last token with left padding, and E5 receives its
+\texttt{query:} prefix. All encoders share one configuration: $B=4$ anchors and $m=4$ explicit
+negatives, so each anchor competes with 19 candidates, gradient accumulation
+over 8 batches (32 anchors per update), one pass over all training anchors
+per epoch, AdamW with
+learning rate $10^{-5}$ and weight decay $0.01$, a cosine schedule with 5\%
+warm-up, gradient clipping at $1.0$, $\kappa = 0.05$, 20 epochs, bf16 mixed
+precision, and a maximum length of 512 tokens. Truncation can only affect long queries: no DBpedia query exceeds 1{,}145
+characters, and 4.5\% of the Wikidata queries exceed 1{,}000 characters
+\hp{[TODO: exact share above 512 tokens per tokenizer, scripts/audit/token\_lengths.py]}. We evaluate on the validation split after every
+epoch and keep the checkpoint with the highest graded nDCG@10.
+After training, we freeze the encoder and use query text alone to
+rank cached queries.
+
+% ===========================================================================
+\section{Experiment}
+\label{sec:exp}
+
+We setup our experiments to answer the following questions: \textbf{i) RQ}$_1$.\textit{ Does fine-tuning on \squareds{} align embedding similarity with answer-set overlap?}, \textbf{ii) RQ}$_2$. D\textit{oes it improve the retrieval of high-overlap queries, compared with zero-shot encoders, non-neural baselines and fine-tuning on syntax-derived labels, and which relationships beyond syntax does it capture?} and \textbf{iii) RQ}$_3$. \textit{Can frozen embeddings decide when a cached result may be reused without query execution, and how often are its canonical answer sets identical?}
+
+\subsection{Experimental Setup}
+\label{sec:setup}
+
+\paragraph{Pretrained encoders.}
+We consider $10$ pretrained models from four families, selected to cover a
+range of pretraining signals:
+(i) \emph{text embedding models} trained contrastively on large text-pair
+corpora, namely MPNet~\cite{song2020mpnet}, E5-base-v2~\cite{wang2022e5},
+BGE-base~\cite{xiao2024bge}, GTE-base~\cite{li2023gte} and the LLM-based
+Qwen3-Embedding~\cite{zhang2025qwen3emb};
+(ii) a \emph{general-purpose language model} without embedding-specific
+training, Gemma-3-270M~\cite{gemmateam2025gemma3};
+(iii) \emph{code models}, namely CodeBERT~\cite{feng2020codebert},
+GraphCodeBERT~\cite{guo2021graphcodebert} and
+Qwen2.5-Coder~\cite{hui2024qwen25coder}; and
+(iv) a \emph{SPARQL-pretrained model}, SPBERT~\cite{tran2021spbert}.
+
+\paragraph{Non-neural baselines.}
+We compare against TF-IDF cosine similarity and BM25~\cite{robertson2009bm25}
+($k_1=1.2$, $b=0.75$) over SPARQL tokens, with variable names replaced by a
+placeholder and statistics fitted on the training split, and against a
+symbolic \emph{normalized match}: two queries match if their SPARQL algebra
+coincides after prefix expansion and variable renaming. Normalized match
+detects equality under this normalization, but does not identify arbitrary
+rewrites or data-dependent overlap. As a structural comparator,
+\emph{algebra similarity} ranks candidates by the weighted Jaccard
+similarity of the multisets of algebra operators, triple patterns (with
+variables abstracted) and parent--child operator pairs. A \emph{query-form}
+baseline uses only shallow features: projection arity, number of triple
+patterns, and the presence of each operator (\texttt{OPTIONAL},
+\texttt{UNION}, \texttt{FILTER}, aggregates, solution modifiers), ranked by
+Euclidean distance after standardization. It shows how much of the task can
+be solved without any information about the data. A \emph{random ranking} of each anchor's
+candidates gives the chance level of every metric.
+
+\paragraph{Syntax-supervised control (planned comparison).}
+To separate execution grounding from task-specific fine-tuning, the comparison
+will use syntax-derived labels with the same encoder, objective and training
+budget. Algebra similarity defines the labels, with per-anchor sampling used
+to match positive and negative counts.
+\hp{[TODO: run the matched-supervision comparison. Hold checkpoint,
+objective, candidate counts, training steps and validation-selection rule
+fixed. Prefer a shared candidate universe selected independently of answer
+overlap. If both arms instead use execution-selected candidates, describe
+the experiment as relabeling within an execution-selected pool; do not claim
+that it isolates all effects of execution supervision. Fix the algebra
+scorer and label-selection rule before test evaluation.]}
+
+\paragraph{Protocol.}
+Each encoder is evaluated in two settings: zero-shot, and after fine-tuning
+on \squareds{} from the same checkpoint. Architecture, tokenizer, model
+capacity and embedding dimensionality are held fixed, so that the supervision
+is the only experimental variable. Fine-tuned results are reported as mean and
+standard deviation over five training seeds. Seeds capture optimization
+variance, but not the variance due to which query families were sampled.
+Since anchors of one component share positives and failure modes,
+uncertainty should also reflect the sampled query families.
+\hp{[TODO: compute paired component-bootstrap 95\% confidence intervals
+(10,000 resamples) for the principal FT--ZS and FT--strongest-baseline
+differences. Resample whole components and preserve pairing between methods;
+document seed aggregation and the number of test components. Report these
+intervals separately from training-seed standard deviations.]}
+All reported results use the designated held-out test split; its separation
+is subject to the audit in Section~\ref{sec:data}.
+
+\paragraph{Metrics.}
+For RQ1, we report Spearman's rank correlation $\rho$ between the cosine
+similarity $s$ and the Jaccard overlap $J$ over all test anchor--candidate
+pairs. For RQ2, the candidates of each anchor are ranked by $s$, and a
+candidate is relevant if $J \geq 0.8$. In the main setting, each anchor is ranked against
+all other test queries (472 on DBpedia, 1{,}074 on Wikidata), and a candidate
+counts as relevant only if it is one of the anchor's stored positives. This
+undercounts relevant queries, since each anchor stores at most 20 positives;
+the full-collection setting in Section~\ref{sec:rq2} uses complete labels
+instead. \hp{[TODO: confirm that the reported neural scores used this
+protocol (evaluation\_test.json, field candidate\_universe); the code on the
+experiment branch does.]} We report Hits@$k$, MRR@$k$,
+Precision@$k$, Recall@$k$ and F1@$k$ with binary relevance, and nDCG@$k$ with
+$J$ as graded relevance, for $k \in \{1,3,5\}$, macro-averaged over anchors.
+Under binary relevance, Hits@1, MRR@1 and Precision@1 coincide, and the
+remaining metrics are strongly correlated, so they are not independent
+evidence. The main text reports Hits@1, MRR@5 and nDCG@5; all metrics are given in
+Appendix~\ref{app:full}. The caching metrics are defined in
+Section~\ref{sec:caching}. All scores are reported with two decimal places.
+
+\subsection{RQ1: Correlation with Answer Overlap}
+\label{sec:rq1}
+
+Table~\ref{tab:alignment} (Appendix~\ref{app:full}) reports the rank
+correlation before and after fine-tuning. In the zero-shot setting, all encoders exhibit a moderate
+correlation with answer overlap (mean $\rho = 0.70$ on DBpedia and $0.59$ on
+Wikidata), reflecting the fact that queries sharing many answers often share
+many tokens. Fine-tuning increases the mean correlation only marginally
+($+0.02$ and $+0.03$, respectively), but substantially reduces the variation
+across encoders, with the standard deviation decreasing from $0.06$ to $0.02$
+on DBpedia and from $0.03$ to $0.02$ on Wikidata. Encoders with a low
+zero-shot $\rho$ tend to gain more (Spearman $-0.87$ on both graphs), although
+this is partly a statistical artifact, since the change is computed from the
+zero-shot value itself. Gemma-3-270M, the weakest zero-shot encoder, exhibits the largest improvement
+($+0.14$ and $+0.09$), whereas several well-aligned encoders decrease
+slightly, for example GTE-base on DBpedia ($-0.05$).
+
+This is consistent with the objective, which compares a designated positive
+with the competitors in each training batch, rather than directly regressing
+answer overlap. The pooled $\rho$ additionally compares similarities across
+evaluation anchors. To test this
+directly, we also compute $\rho$ within each anchor's candidate set and
+average it over anchors: its measured change is \hp{[TODO: --]} to \hp{[TODO: --]} on
+DBpedia and \hp{[TODO: --]} to \hp{[TODO: --]} on Wikidata.
+
+RQ1 is thus only weak evidence that the learned similarity
+\emph{estimates} $J$; what improves is ranking, which RQ2 measures directly.
+
+\textit{Finding 1.} Answer supervision brings heterogeneous
+pretrained representation spaces to a comparable level of answer awareness,
+but changes the pooled correlation with answer overlap only marginally and
+does not by itself induce a globally consistent similarity scale.
+
+\subsection{RQ2: Retrieval of Related Queries}
+\label{sec:rq2}
+
+\input{Tables/compact/retrieval}
+
+Fine-tuning improves retrieval for all ten encoders on both knowledge graphs
+(Table~\ref{tab:retrieval}); the improvement holds for every metric and
+cut-off in Appendix~\ref{app:full}, which, given the correlation between the
+metrics, we regard as one consistent outcome rather than many. Seed standard
+deviations are at most $0.02$ \hp{[TODO: insert the component-bootstrap 95\%
+CI of the mean Hits@1 gain per graph]}. On DBpedia,
+Hits@1 increases by $0.17$ to $0.29$ (mean $0.34 \rightarrow 0.55$) and nDCG@5
+by $0.16$ to $0.26$; Qwen2.5-Coder more than doubles its Hits@1
+($0.27 \rightarrow 0.56$). On Wikidata, the improvements are smaller but
+consistent, with Hits@1 increasing by $0.04$ to $0.16$ (mean
+$0.29 \rightarrow 0.39$). In absolute terms, the best fine-tuned encoder ranks
+a high-overlap query first for $58\%$ of DBpedia and $41\%$ of Wikidata
+anchors, against a chance level of $0.02$ and $0.01$, so the
+task is far from solved. Lexical matching is a strong baseline: TF-IDF
+reaches a Hits@1 of $0.58$ on DBpedia, on par with the best fine-tuned
+encoder and above the fine-tuned mean ($0.55$), although fine-tuned encoders
+rank the remaining positives better (nDCG@5 $0.55$ against $0.47$). On
+Wikidata, TF-IDF ($0.36$) falls below every fine-tuned encoder
+($0.38$--$0.41$). Fine-tuning thus brings zero-shot encoders (mean $0.34$
+and $0.29$) to the level of lexical matching on DBpedia, where 98\% of the
+test anchors share a template with training, and beyond it on Wikidata.
+Algebra similarity and query-form features are weaker, and normalized match
+recovers only 0.2\% (DBpedia) and 0.3\% (Wikidata) of the test positive pairs. Failure to match
+under this normalization does not establish graph dependence, since other
+semantics-preserving rewrites can yield distinct normalized strings.
+The syntax-supervised comparison remains necessary to distinguish execution
+supervision from task-specific fine-tuning more generally
+\hp{[TODO: insert control scores and paired confidence intervals; state the
+scope of attribution allowed by the candidate-selection design.]}
+
+
+
+Three further observations follow. \emph{First, the improvement is inversely
+related to zero-shot quality} (Figure~\ref{fig:gain} in Appendix~\ref{app:full}; as for RQ1, this correlation is partly an artifact of
+computing the gain from the zero-shot value), and fine-tuning compresses the
+differences between encoders: the range of Hits@1 narrows from
+$0.27$--$0.41$ to $0.50$--$0.58$ on DBpedia, and from $0.23$--$0.37$ to
+$0.38$--$0.41$ on Wikidata. \emph{Second, across the evaluated encoders and the shared protocol,
+answer supervision substantially reduces the spread in retrieval
+performance.} Since the encoders also differ in architecture, size, tokenizer
+and training data, this does not isolate the effect of the pretraining domain.
+Gemma-3-270M, a general-purpose language model without
+embedding-specific training, attains a Hits@1 of $0.55$ on DBpedia, close to
+the best encoder, while SPBERT, CodeBERT and GraphCodeBERT remain below all
+five text embedding models after fine-tuning. \emph{Third, retrieval improves
+even where pooled correlation does not.} GTE-base loses $0.05$ in $\rho$ on
+DBpedia (Table~\ref{tab:alignment}) yet obtains one of the largest retrieval
+gains ($+0.23$ Hits@1), which corroborates the within-anchor interpretation of
+RQ1. Wikidata is more challenging for every encoder; a plausible explanation
+is that its opaque identifiers (e.g., \texttt{wdt:P31}) provide text encoders
+with little lexical evidence about the answers.
+
+\paragraph{What does the supervision teach beyond syntax?}
+This is the central question of the study: does execution supervision help
+where lexical and structural evidence is misleading? The planned diagnostic separates three
+categories of test pairs, each with inspected examples:
+(i) \emph{validated rewrites}, pairs related by a semantics-preserving
+rewrite, which we verify with \hp{[TODO: a set of algebra-level rewrite rules
+/ manual inspection of a sample]}; they test robustness to alternative
+formulations;
+(ii) \emph{structural look-alikes}, pairs whose algebra expressions are
+close (structural similarity $\geq \hp{[TODO: --]}$) but whose answers barely
+overlap ($J \leq 0.1$); they test resistance to misleading syntactic
+similarity. Queries (a) and (b) in Figure~\ref{fig:gap} resemble this
+category, but with $J = 0.19$ they are an intermediate pair and do not belong
+to it;
+(iii) \emph{graph-dependent overlap}, high-overlap pairs ($J \geq 0.8$) that
+are not related by any of the tested rewrites; their overlap is not explained
+by the rewrites we test, although we cannot exclude that some are equivalent
+on all graphs.
+For each category, the comparison will use the zero-shot and fine-tuned encoders, the
+syntax-supervised control and the structural comparator by the mean rank
+percentile of the partner query among all other test queries.
+\hp{[TODO: add a small table (3 categories $\times$ ZS / FT / syntax control /
+structural comparator, both graphs) and one inspected example per category.
+Report results whatever their direction. State category sizes, selection
+rules and category overlap. Do not infer data dependence from normalized
+match failure; optionally validate a subset with another graph snapshot or
+a counterexample graph.]}
+
+\paragraph{Shortcut audit.}
+Some negatives may be easy for reasons unrelated to the data. Under
+tuple-based comparison, answers with different projection arity can never
+share a row, so an encoder could separate them by counting projected
+variables. Likewise, two unrelated \texttt{COUNT} queries that return the same
+integer have identical answer sets: such a pair is a valid positive under $J$,
+but weak evidence of a shared information need. The shortcut audit should report Hits@1
+(i) with negatives restricted to those with the anchor's projection arity and
+query form, (ii) separately for aggregate and non-aggregate anchors, and
+(iii) by answer-set size and number of triple patterns.
+\hp{[TODO: run matched-arity/query-form retrieval and stratify by aggregate
+status, singleton versus larger answer sets, and query size. Report stratum
+sizes and FT--ZS/FT--baseline gains; state whether easy output-shape cues or
+coincident aggregate values explain the gains.]}
+
+\paragraph{Unseen templates.}
+A split that is both component- and template-disjoint is not feasible: merging
+queries along positive edges and shared templates yields one group with 61\%
+of all DBpedia queries and one with 30\% of all Wikidata queries. We therefore
+evaluate the existing models on the test anchors whose template does not occur
+in training, 395 anchors on Wikidata and only 9 on DBpedia, so that this
+analysis is informative for Wikidata only.
+\hp{[TODO W2: report ZS/FT Hits@1 and nDCG@5 on the 395 unseen-template Wikidata
+anchors next to the seen-template anchors (per-anchor scores already exist; no
+retraining). State plainly if gains shrink.]}
+
+\paragraph{Full-corpus retrieval.}
+The main setting counts only stored positives as relevant. We therefore
+also rank each test anchor against all other test queries with complete
+labels, taken from the exhaustive pair labeling of the test split: positives
+are rare (6.5\% of all test pairs on DBpedia and 0.8\% on Wikidata), and
+intermediate pairs ($0.1 < J < 0.8$) count as non-relevant.
+Table~\ref{tab:fullcollection} reports Hits@1, MRR and nDCG@10. With
+complete labels, TF-IDF reaches a Hits@1 of $0.58$ on DBpedia and $0.38$ on
+Wikidata. These collections contain hundreds to about a thousand queries and
+do not establish large-scale indexing.
+\input{Tables/compact/fullcollection}
+
+\textit{Finding 2.} Answer supervision consistently improves the
+retrieval of high-overlap queries across all model families, with the
+largest gains for the weakest encoders. On DBpedia it reaches, but does
+not exceed, a TF-IDF baseline; on Wikidata it moves beyond it.
+\hp{[TODO: extend once the full-corpus, category and syntax-control results
+are in.]}
+
+\subsection{RQ3: Execution-Free Approximate Result Reuse}
+\label{sec:caching}
+
+\paragraph{Task and workload.}
+This experiment diagnoses threshold-based decisions; it does not demonstrate
+a deployed cache or correctness-preserving reuse. A semantic cache processes a stream of queries. For an incoming query $q$, it
+retrieves the most similar cached query $c^* = \arg\max_{c \in C} s(q,c)$ and
+reuses its result if $s(q,c^*) \geq \theta$ (a \emph{hit}); otherwise, $q$ is
+executed and inserted under a FIFO policy with capacity $K = 128$. Answer
+overlap is used only afterwards, to assess the decision. We replay all unique
+test queries (473 for DBpedia, 1{,}075 for Wikidata) in five random orders and
+label every query pair by $J$. The replay population is distinct from the
+retrieval-anchor population (468 and 946, respectively, in
+Table~\ref{tab:dataset_square}): retrieval requires a positive and a negative
+for each anchor, whereas replay includes the full held-out query population.
+The additional 5 and 129 queries are test queries without any high-overlap
+partner in the test split. Positive pairs are considerably rarer on
+Wikidata (0.8\% of all pairs, compared with 6.5\% on DBpedia). Replaying unique
+queries isolates the reuse that string matching cannot find, but it removes
+the repeated queries that make exact caching effective in real workloads; an
+exact-match cache therefore has no hits here by design.
+\hp{[TODO: add a replay of the original LSQ stream with repetitions (and
+timestamps, if available), comparing an exact-match cache, a normalized-match
+cache, and an exact-match cache backed by the learned cache for its misses.
+Report the additional hits and their accuracy beyond exact caching.]}
+
+\paragraph{Approximation contract.}
+Reusing the answer of $c^*$ for $q$ is exact under our set-based answer
+representation only if $J(q,c^*) = 1$ (Section~\ref{sec:problem}). We
+evaluate an \emph{approximate} cache whose contract follows from the
+positive threshold: if $J(q,c^*) \geq 0.8$, then the reused answer contains at
+least $80\%$ of the rows of $\Ans(q,G)$, and at least $80\%$ of its rows belong
+to $\Ans(q,G)$, since both $|A \cap B|/|A|$ and $|A \cap B|/|B|$ are bounded
+below by $J$. Such reuse suits exploratory or recommendation settings that
+tolerate small differences; applications that require exact SPARQL responses additionally need compatible
+column mappings, multiplicities and ordering. Even $J = 1$ establishes only
+identity of canonical answer sets, and no similarity threshold alone can
+guarantee it. We
+use reuse as a demanding test of the embeddings, not as a proposal for a
+correctness-preserving cache.
+
+\paragraph{Metrics.}
+A hit is \emph{correct} if $J \geq 0.8$ (i.e., it satisfies the contract),
+\emph{set-exact} if $J = 1$, \emph{false} if $J \leq 0.1$, and
+\emph{intermediate} otherwise. With $N_q$ incoming queries, $N_h$ hits, of
+which $N_c$ are correct, $N_e$ exact and $N_f$ false, we report the correct hit
+rate $\mathrm{CHR} = N_c/N_q$ and the false hit rate $\mathrm{FHR} = N_f/N_q$.
+Our primary reliability measure is the \emph{hit accuracy}
+$\mathrm{Acc.} = N_c/N_h$, the share of all reused answers that satisfy the
+contract. As a secondary diagnostic, the \emph{precision against false hits}
+$\mathrm{Prec.} = N_c/(N_c+N_f)$ ignores intermediate hits and only measures
+how well the cache avoids clearly wrong reuse; it is always at least as high
+as Acc.\ and must not be read as the share of correct answers. Finally, the \emph{set-exact hit share} $N_e/N_h$ gives
+the share of hits with identical canonical answer sets
+\hp{[TODO: compute from the replay logs]}. An oracle that reuses a result
+whenever a high-overlap query is cached attains a CHR of $0.72$ on
+DBpedia and $0.37$ on Wikidata.
+
+\input{Tables/compact/caching}
+
+\paragraph{Aggregation and uncertainty.}
+Table~\ref{tab:caching} reports a ratio of mean hit rates,
+$\mathrm{Acc.}_{\mathrm{pool}} = \overline{\mathrm{CHR}} /
+\overline{\mathrm{SHR}}$, corresponding to pooling hit counts across runs
+with equal numbers of arrivals. This differs from a mean of per-run
+accuracies and weights runs by their number of hits. The current accuracy
+values are reconstructed from the reported two-decimal rates and should be
+read as approximate summaries.
+\hp{[TODO: recompute pooled accuracy from unrounded per-run hit counts;
+report a confidence interval and the mean per-run accuracy, documenting
+zero-hit runs and the treatment of seeds and stream orders.]}
+Reuse is also sensitive to the run: on Wikidata, Qwen3-Embedding's secondary
+precision is $0.45 \pm 0.31$ (Appendix~\ref{app:full}), so the largest mean
+in the table does not establish a stable advantage.
+
+\paragraph{Fixed threshold.}
+We first use a single threshold $\theta = 0.8$ for all models, which exposes
+differences in similarity scale (Table~\ref{tab:caching}). At this threshold,
+zero-shot encoders reuse almost indiscriminately: their similarities are
+concentrated in a narrow, high range, so nearly every query exceeds $\theta$
+and the cache does not grow beyond its first entry, which explains why six
+encoders obtain identical zero-shot scores. This shows a scale mismatch, not
+that zero-shot encoders cannot serve as caches at a better threshold. After
+fine-tuning, the hit accuracy on DBpedia lies between $0.59$ and $0.77$: between
+23\% and 41\% of the reused answers violate the contract. Clearly wrong reuse
+becomes rare (false hit rate between $0.01$ and $0.11$, precision against false
+hits between $0.77$ and $0.96$), so most violations are intermediate hits. On
+Wikidata, $\theta = 0.8$ remains too permissive: no encoder reaches a hit
+accuracy above $0.28$.
+
+\paragraph{Matched-accuracy comparison.}
+A fixed threshold favors encoders whose scale happens to suit it. The fairer
+comparison asks how many correct reuse decisions each method enables at the
+same accuracy requirement. For each method, including the zero-shot encoders
+and the lexical and structural baselines, we select $\theta$ on the validation
+stream by replaying it independently at every candidate threshold and
+maximizing validation CHR subject to validation hit accuracy of at least $0.9$.
+Ties are broken by higher validation accuracy, then by the larger threshold.
+Thresholds with no hits are ineligible. If no threshold is feasible, the
+method abstains from reuse; its hit rate is zero and hit accuracy is undefined.
+We report test CHR and achieved test accuracy at the selected threshold
+(Appendix~\ref{app:calibration}); the validation constraint does not guarantee
+that test accuracy reaches $0.9$.
+\hp{[TODO: insert test CHR and achieved test accuracy per method and graph
+after validation selection; report failures to meet 0.9 on test explicitly.]}
+
+\textit{Finding 3.} Ranking quality and similarity calibration are distinct
+problems: the same fine-tuned encoder that retrieves well can yield unreliable
+reuse decisions under a fixed threshold. Even on DBpedia, a substantial share
+of reused answers misses the overlap criterion, so learned similarity alone
+does not make reuse reliable, let alone exact.
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+\emph{Graph-relative labels.} The relatedness $J$ is defined on a single
+snapshot of each graph; the construction must be repeated when the graph
+changes substantially, and transfer across graph versions is not evaluated.
+\emph{In-batch candidates.} Known positives are masked and at most 0.4\% of
+the in-batch candidates can be unlabeled positives, but candidates with
+intermediate overlap are still treated as negatives.
+\emph{Empty answers.} Queries with empty answers are excluded, so the encoder
+is not trained to recognize equivalent queries that both return nothing.
+\emph{Template overlap.} Most DBpedia test anchors (98\%) share a template
+with a training query, so the DBpedia results mainly measure generalization
+to new constants within known query shapes; only Wikidata supports an
+unseen-template analysis (Section~\ref{sec:rq2}).
+\emph{Approximate reuse.} A positive pair shares at least $80\%$ of its
+answers, not all of them; our cache evaluation therefore concerns approximate
+reuse. Exact SPARQL response reuse needs compatible output semantics and
+verification beyond an embedding threshold. \emph{Offline caching evaluation.} The replay uses
+unique queries only and measures decision quality, not realized latency or the
+gain over an exact cache on a workload with repetitions. \emph{Scope.} We study
+the DBpedia and Wikidata logs of LSQ; cross-graph transfer is limited by
+disjoint vocabularies and is left to future work.
+
+% ===========================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We introduced answer-supervised representation learning for SPARQL: query
+embeddings that rank queries by the overlap of their answers on a given graph,
+learned
+from supervision obtained by executing a query log once. Embedding-based
+ranking then requires only query text; a reuse system still executes cache
+misses. The \squareds{} resource provides this
+supervision for DBpedia and Wikidata with component-disjoint splits. Across
+ten pretrained encoders, answer-supervised fine-tuning consistently improves
+retrieval of high-overlap queries over zero-shot checkpoints and
+substantially reduces the spread between encoders. This establishes a
+benefit of the complete fine-tuning procedure in the evaluated setting,
+not yet a causal advantage of execution labels over syntax supervision.
+\hp{[TODO: update this conclusion after full-collection baseline,
+matched-supervision and generalization results are available. State measured
+advantages and limitations; do not claim overlap estimation, equivalence
+recognition or learning beyond syntax from the current results alone.]} Our results further show that ranking quality and
+similarity calibration are distinct problems: improved retrieval does not
+ensure reliable result reuse at a fixed threshold, and exact SPARQL response
+reuse requires verification beyond embedding similarity.
+Promising directions include objectives
+that learn from the graded Jaccard
+values in \squareds{} rather than from binary labels, generalization across
+graph versions and query templates, and query logs with more complex queries.
+
+\subsubsection*{Resource Availability.}
+\label{sec:availability}
+\squareds{} (training instances, cached answer sets and splits), the trained checkpoints
+and all code are intended to be provided at
+\url{https://anonymous.4open.science/r/SQuARE-ESWC27} for review, and
+published under CC~BY~4.0 (data) and MIT (code) with a persistent DOI upon
+acceptance. The queries derive from LSQ~\cite{saleem2015lsq}, whose
+attribution requirements are propagated. Since the answer sets are cached,
+the supervision remains usable even if the source endpoints change or become
+unavailable.
+\hp{[TODO: create the anonymized mirror \texttt{SQuARE-ESWC27} and remove
+identifying terms from the code (see \texttt{CODE\_PAPER\_AUDIT.md}). Verify
+public reviewer access and every released dependency, then update the
+availability statements to describe the actual release.]}
+
+% ===========================================================================
+\bibliographystyle{splncs04}
+\bibliography{references}
+
+% ===========================================================================
+\clearpage
+\appendix
+\renewcommand{\theHsection}{appendix.\Alph{section}}
+\section{Full Results}
+\label{app:full}
+
+Table~\ref{tab:alignment} gives the RQ1 correlations per encoder and
+Figure~\ref{fig:gain} the retrieval gain against zero-shot quality.
+Tables~\ref{tab:dbpedia_results}--\ref{tab:wikidata_binary} report all
+retrieval metrics for $k \in \{1,3,5\}$, and
+Tables~\ref{tab:app-caching-db} and~\ref{tab:app-caching-wd} report the
+complete caching results, including the total hit rate (SHR) and the
+fraction of available reuse opportunities exploited by the cache
+(Opp.~Rec.). The intermediate hit rate is $\mathrm{SHR} - \mathrm{CHR} -
+\mathrm{FHR}$, and the hit accuracy of Table~\ref{tab:caching} is
+$\mathrm{CHR}/\mathrm{SHR}$.
+
+\input{Tables/compact/alignment}
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.62\textwidth, height=4.1cm,
+  xlabel={Zero-shot Hits@1}, ylabel={Gain in Hits@1},
+  xlabel style={font=\scriptsize}, ylabel style={font=\scriptsize},
+  tick label style={font=\scriptsize},
+  xmin=0.2, xmax=0.43, ymin=0, ymax=0.32,
+  xticklabel style={/pgf/number format/.cd, fixed, fixed zerofill, precision=2},
+  yticklabel style={/pgf/number format/.cd, fixed, fixed zerofill, precision=2},
+  legend style={font=\scriptsize, at={(0.98,0.97)}, anchor=north east, draw=black!30},
+  grid=major, grid style={black!10},
+]
+\addplot[only marks, mark=*, mark size=1.8pt, color=blue!70!black]
+  table[x=zs, y=gain] {Tables/compact/gain_db.dat};
+\addlegendentry{DBpedia}
+\addplot[only marks, mark=triangle*, mark size=2.3pt, color=orange!85!black]
+  table[x=zs, y=gain] {Tables/compact/gain_wd.dat};
+\addlegendentry{Wikidata}
+\end{axis}
+\end{tikzpicture}
+\caption{Gain from fine-tuning against zero-shot Hits@1, one point per
+encoder (Spearman $-0.87$ on DBpedia, $-0.99$ on Wikidata). The
+correlation is descriptive: the gain is computed from the zero-shot value.}
+\label{fig:gain}
+\end{figure}
+
+\input{Tables/appendix/retrieval_full}
+\input{Tables/appendix/caching_full}
+
+\clearpage
+\section{Calibrated Thresholds for Result Reuse}
+\label{app:calibration}
+
+Retrieval only requires a correct ordering of candidates, whereas a semantic
+cache must decide whether a single similarity value is high enough to reuse a
+stored result. Since Equation~\ref{eq:loss} does not train similarity to estimate $J$,
+a threshold that suits one encoder or graph need not suit another
+(Section~\ref{sec:caching}). We therefore select the threshold $\theta$ on
+held-out data, with two procedures that use the frozen embeddings and the
+validation split only.
+
+\emph{Validation-optimal threshold.} For each candidate $\theta$, we reset
+and replay the validation workload under the same cache policy. We choose the
+threshold maximizing validation CHR subject to validation hit accuracy of at
+least $0.9$, using the tie-breaking and abstention rules of
+Section~\ref{sec:caching}. A new replay is necessary because each threshold
+changes the miss decisions and hence the subsequent cache contents.
+The grid is $\theta\in\{0.50,0.60,0.70,0.75,0.80,0.85,0.90,0.95\}$, and
+hit counts are pooled over five validation stream orders. Test accuracy is measured after selection and may be below $0.9$.
+
+\emph{Conformal risk control (CRC).} As a second procedure, we adopt
+conformal risk control~\cite{angelopoulos2024crc,vovk2005alrw}. For each of
+$n$ validation arrivals $i$, we replay the validation stream with the same
+cache policy and let $c_i$ be the most similar query in the cache \emph{as it
+stands when $q_i$ arrives}, with similarity $s_i$. We define the loss
+$L_i(\theta) = \mathbf{1}[s_i \geq \theta \wedge J(q_i,c_i) < 0.8]$, which
+indicates a hit that violates the contract, intermediate hits included. With
+the empirical risk $\hat{R}_n(\theta) = \frac{1}{n}\sum_i L_i(\theta)$, we set
+\begin{equation}
+\hat{\theta} = \inf\Big\{\theta : \tfrac{n}{n+1}\hat{R}_n(\theta) + \tfrac{1}{n+1} \leq \alpha\Big\}.
+\label{eq:crc}
+\end{equation}
+Under the assumptions of conformal risk control, this loss would control
+the joint probability $P(\text{hit} \wedge \text{violation})$, averaged over
+arrivals, rather than the conditional violation probability among hits,
+$P(\text{violation} \mid \text{hit}) = 1 - \mathrm{Acc.}$ If the joint
+probability were bounded by $\alpha$ and $P(\text{hit}) > 0$, the conditional
+probability would be bounded only by
+$\min\{1, \alpha/P(\text{hit})\}$. A cache that reuses on $5\%$ of arrivals
+and is always wrong still meets a per-arrival bound of $0.05$.
+The theorem additionally requires monotonic losses and exchangeability.
+These assumptions are not established for our replay: cache contents vary
+with $\theta$, and arrivals are evaluated using evolving shared state. We
+therefore use Equation~\ref{eq:crc} only as a \emph{CRC-inspired heuristic}
+targeting per-arrival violations, and claim no formal risk bound for this
+adaptive replay. The validation-optimal procedure directly targets hit
+accuracy and is the main calibration comparison.
+Neither procedure requires retraining or access to
+answers at inference time. Besides single operating points, we report
+risk--coverage curves, i.e., $1 - \mathrm{Acc.}$ against the hit rate as
+$\theta$ varies \hp{[TODO: add one plot per graph for three encoders]}.
+
+\begin{table}[t]
+\centering
+\caption{Calibrated thresholds for result reuse. Fixed: $\theta = 0.8$;
+Val-opt: highest correct hit rate on validation with hit accuracy $\geq 0.9$;
+CRC: CRC-inspired heuristic targeting per-arrival contract violations
+with $\alpha = 0.05$ (Eq.~\ref{eq:crc}); no formal replay guarantee is claimed.
+Fine-tuned encoders; per training seed, the five stream orders are
+averaged, and we report the mean over five seeds.}
+\label{tab:calibration}
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{ll cccc p{0pt} cccc}
+\toprule
+& & \multicolumn{4}{c}{\textbf{DBpedia}} & & \multicolumn{4}{c}{\textbf{Wikidata}}\\
+\cmidrule(lr){3-6}\cmidrule(lr){8-11}
+Encoder & Threshold & Prec.\,$\uparrow$ & Acc.\,$\uparrow$ & CHR\,$\uparrow$ & FHR\,$\downarrow$ & & Prec.\,$\uparrow$ & Acc.\,$\uparrow$ & CHR\,$\uparrow$ & FHR\,$\downarrow$\\
+\midrule
+E5-base-v2 & Fixed & 0.96 & 0.77 & 0.20 & 0.01 & & 0.23 & 0.22 & 0.14 & 0.47 \\
+ & Val-opt & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+ & CRC & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+\midrule
+Qwen3-Embedding & Fixed & 0.89 & 0.67 & 0.28 & 0.05 & & 0.45 & 0.28 & 0.08 & 0.21 \\
+ & Val-opt & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+ & CRC & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+\midrule
+CodeBERT & Fixed & 0.79 & 0.61 & 0.37 & 0.10 & & 0.23 & 0.22 & 0.14 & 0.48 \\
+ & Val-opt & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+ & CRC & \hp{--} & \hp{--} & \hp{--} & \hp{--} & & \hp{--} & \hp{--} & \hp{--} & \hp{--} \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+Table~\ref{tab:calibration} reports the results.
+\hp{[TODO: report measured CHR, achieved hit accuracy, and the per-arrival
+violation rate, including intermediate hits. Compare calibration methods
+without presuming that either meets its target on test.]}
+
+\end{document}
