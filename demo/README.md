@@ -1,12 +1,6 @@
 # Interactive demo: Results-Aware SPARQL Embeddings
 
-**Live page:** see the link at the top of the main [README](../README.md). GitHub shows `.html` files as code, so the page is served as a website from [`docs/index.html`](../docs/index.html), a single self-contained file built from this folder.
-
-**Publish it (one time):**
-- *Anonymous review copy:* when creating the mirror on Anonymous GitHub, enable the **GitHub Pages** option; the site link it gives is the live demo.
-- *Public repository (camera-ready):* Settings → Pages → "Deploy from a branch" → this branch, folder `/docs`.
-
-Then put the site link in place of `LIVE_DEMO_URL` in the main README.
+**Live page:** [open the interactive demo](https://claude.ai/artifact/YBrrtD9ofjDWUthkmX9k62). GitHub shows `.html` files as code, so the page is also built as one self-contained file, [`docs/index.html`](../docs/index.html), which GitHub Pages can serve (Settings → Pages → this branch, folder `/docs`).
 
 **After editing anything in `demo/`, rebuild the single file:**
 
