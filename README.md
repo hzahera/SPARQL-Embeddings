@@ -6,11 +6,9 @@ Two SPARQL queries can look almost the same and return different answers, or loo
 
 ## ▶ Interactive demo
 
-### [Open the live interactive demo](https://claude.ai/artifact/YBrrtD9ofjDWUthkmX9k62)
+![Animated preview of the interactive demo](docs/media/demo_preview.gif)
 
-[![Animated preview of the interactive demo](docs/media/demo_preview.gif)](https://claude.ai/artifact/YBrrtD9ofjDWUthkmX9k62)
-
-Runs in the browser, nothing to install. It shows the problem on real test queries, the pipeline step by step (with live toy training), and the effect on query retrieval and result caching. The same page is in [`docs/index.html`](docs/index.html) for GitHub Pages; sources are in [`demo/`](demo/).
+Runs in the browser, nothing to install. It shows the problem on real test queries, the pipeline step by step (with live toy training), and the effect on query retrieval and result caching. The page is one self-contained file, [`docs/index.html`](docs/index.html) (sources in [`demo/`](demo/)), served as a static website.
 
 ## Key results
 

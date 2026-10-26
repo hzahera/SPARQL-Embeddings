@@ -1,6 +1,6 @@
 # Interactive demo: Results-Aware SPARQL Embeddings
 
-**Live page:** [open the interactive demo](https://claude.ai/artifact/YBrrtD9ofjDWUthkmX9k62). GitHub shows `.html` files as code, so the page is also built as one self-contained file, [`docs/index.html`](../docs/index.html), which GitHub Pages can serve (Settings → Pages → this branch, folder `/docs`).
+**Live page:** [https://hzahera.github.io/SPARQL-Embeddings/](https://hzahera.github.io/SPARQL-Embeddings/). GitHub shows `.html` files as code, so the page is also built as one self-contained file, [`docs/index.html`](../docs/index.html), which any static host can serve (Netlify, Anonymous GitHub "GitHub Pages", or GitHub Pages with folder `/docs`).
 
 **After editing anything in `demo/`, rebuild the single file:**
 
