@@ -10,15 +10,38 @@ The same zero-shot and fine-tuned checkpoints are evaluated on three connected e
 
 The repository is designed so that adding a new Hugging Face transformer requires a config/registry entry, not changes to the training or evaluation logic.
 
-> ### 👉 Interactive demo: start here
->
-> **Open [`demo/index.html`](demo/index.html) in a browser** (offline, no install) for a 10-minute visual tour of the paper:
->
-> - **What we did:** execute a query log once, label query pairs by the Jaccard overlap of their answers, and fine-tune any encoder contrastively on these labels (the **SQuARE** resource). Only the query text is needed at inference.
-> - **Why it matters:** queries that look alike often return different answers, and the reverse. Results-aware fine-tuning improves query retrieval for **all 10 encoders** on both graphs (mean Hits@1 0.49 → 0.70 on DBpedia, 0.30 → 0.43 on Wikidata, above TF-IDF) and raises cache hit accuracy on DBpedia from 0.15–0.33 (zero-shot) to 0.59–0.79 (fine-tuned).
-> - **What is new:** to our knowledge, the first SPARQL query embeddings trained on execution-derived answer overlap, and the first SPARQL resource with execution-grounded query-pair supervision.
->
-> The demo includes a real-data explorer of test queries where text similarity fails, live toy training with hard-negative mining, and a threshold explorer for result caching. See [`demo/README.md`](demo/README.md).
+## 👉 Interactive demo (start here)
+
+<!-- LIVE DEMO LINK: replace LIVE_DEMO_URL below with the website link of this repository
+     (Anonymous GitHub: enable "GitHub Pages" when anonymizing; GitHub: Settings > Pages > branch, folder /docs). -->
+### [▶ Open the live interactive demo](LIVE_DEMO_URL)
+
+[![Animated preview of the interactive demo](docs/media/demo_preview.gif)](LIVE_DEMO_URL)
+
+A visual tour of the paper in the browser, no installation:
+
+- **What we did:** execute a query log once, label query pairs by the Jaccard overlap of their answers, and fine-tune any encoder contrastively on these labels (the **SQuARE** resource). Only the query text is needed at inference.
+- **Why it matters:** queries that look alike often return different answers, and the reverse. Results-aware fine-tuning improves query retrieval for **all 10 encoders** on both graphs (mean Hits@1 0.49 → 0.70 on DBpedia, 0.30 → 0.43 on Wikidata, above TF-IDF) and raises cache hit accuracy on DBpedia from 0.15–0.33 (zero-shot) to 0.59–0.79 (fine-tuned).
+- **What is new:** to our knowledge, the first SPARQL query embeddings trained on execution-derived answer overlap, and the first SPARQL resource with execution-grounded query-pair supervision.
+
+<details>
+<summary><b>More screenshots</b> (click to expand)</summary>
+
+**Overview**
+
+![Overview](docs/media/hero.png)
+
+**Query retrieval: every encoder improves, and answer labels beat syntax labels**
+
+![Query retrieval](docs/media/retrieval.png)
+
+**Approximate result caching: accuracy before/after fine-tuning and the threshold trade-off**
+
+![Result caching](docs/media/caching.png)
+
+</details>
+
+The demo is one self-contained file, [`docs/index.html`](docs/index.html), built from the sources in [`demo/`](demo/) (see [`demo/README.md`](demo/README.md)).
 
 ---
 

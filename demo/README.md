@@ -1,6 +1,18 @@
 # Interactive demo: Results-Aware SPARQL Embeddings
 
-**Open [`index.html`](index.html) in any browser.** It works offline and needs no install, server or GPU.
+**Live page:** see the link at the top of the main [README](../README.md). GitHub shows `.html` files as code, so the page is served as a website from [`docs/index.html`](../docs/index.html), a single self-contained file built from this folder.
+
+**Publish it (one time):**
+- *Anonymous review copy:* when creating the mirror on Anonymous GitHub, enable the **GitHub Pages** option; the site link it gives is the live demo.
+- *Public repository (camera-ready):* Settings → Pages → "Deploy from a branch" → this branch, folder `/docs`.
+
+Then put the site link in place of `LIVE_DEMO_URL` in the main README.
+
+**After editing anything in `demo/`, rebuild the single file:**
+
+```bash
+python demo/scripts/bundle_demo.py      # writes docs/index.html
+```
 
 The page explains the paper in six short, interactive sections:
 
@@ -22,7 +34,8 @@ demo/
 ├── assets/demo.js             # interactions and charts (plain JavaScript, no libraries)
 ├── data/demo_data.js          # real examples, generated from the released splits
 ├── data/paper_results.js      # numbers from the paper tables
-└── scripts/build_demo_data.py # rebuilds data/demo_data.js
+├── scripts/build_demo_data.py # rebuilds data/demo_data.js
+└── scripts/bundle_demo.py     # inlines everything into docs/index.html
 ```
 
 ## Rebuild the real-data parts

@@ -1,0 +1,1423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results-Aware SPARQL Embeddings</title>
+<meta name="description" content="Interactive guide to results-aware SPARQL query embeddings, the SQuARE resource, and their effect on query retrieval and approximate result caching.">
+<style>
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface-2: #f0efe9;
+  --ink: #1f262d;
+  --ink-2: #4b555f;
+  --ink-3: #7b858f;
+  --line: #dedbd2;
+  --qa: #254f79;
+  --qb: #bd571c;
+  --qc: #007c83;
+  --qb-soft: #f8e5d6;
+  --qc-soft: #ddeff0;
+  --good: #1f7a4d;
+  --good-soft: #dcf0e4;
+  --bad: #b3372b;
+  --bad-soft: #f8e0dc;
+  --mid: #8a8f96;
+  --mid-soft: #eceae4;
+  --accent: #254f79;
+  --tr: #4e79a7;
+  --va: #c9a227;
+  --te: #8e5aa8;
+  --shadow: 0 1px 2px rgba(20, 25, 30, .06), 0 4px 16px rgba(20, 25, 30, .05);
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181c; --surface: #1c2227; --surface-2: #242b31; --ink: #e8ebee; --ink-2: #b6bec6; --ink-3: #87909a;
+    --line: #333c44; --qa: #7fb0e3; --qb: #f0915a; --qc: #3cc4cc; --qb-soft: #4a2f1f; --qc-soft: #163c3f;
+    --good: #5cc98f; --good-soft: #193a2a; --bad: #f07a6d; --bad-soft: #43231f; --mid: #9aa1a8; --mid-soft: #2c3237;
+    --accent: #7fb0e3; --tr: #7ea7d6; --va: #e0c25a; --te: #c193dc; --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14181c; --surface: #1c2227; --surface-2: #242b31; --ink: #e8ebee; --ink-2: #b6bec6; --ink-3: #87909a;
+  --line: #333c44; --qa: #7fb0e3; --qb: #f0915a; --qc: #3cc4cc; --qb-soft: #4a2f1f; --qc-soft: #163c3f;
+  --good: #5cc98f; --good-soft: #193a2a; --bad: #f07a6d; --bad-soft: #43231f; --mid: #9aa1a8; --mid-soft: #2c3237;
+  --accent: #7fb0e3; --tr: #7ea7d6; --va: #e0c25a; --te: #c193dc; --shadow: none; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.6rem); letter-spacing: -.02em; }
+h2 { font-size: clamp(1.3rem, 2.6vw, 1.7rem); margin-top: 0; }
+h3 { font-size: 1.05rem; }
+p { margin: 0 0 .8em; }
+code, pre { font-family: var(--mono); }
+code { font-size: .88em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+b { font-weight: 650; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--ink-2); font-family: var(--sans); }
+button { font: inherit; cursor: pointer; }
+
+/* ---------- hero ---------- */
+.hero { padding: 48px 0 28px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); }
+.eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; color: var(--ink-3); margin-bottom: .6em; }
+.hl { color: var(--qc); }
+.lede { font-size: 1.1rem; color: var(--ink-2); max-width: 820px; }
+.claims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 26px 0 18px; }
+.claim { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); }
+.claim h3 { display: flex; align-items: center; gap: 8px; }
+.claim p { font-size: .94rem; color: var(--ink-2); margin: 0; }
+.num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--surface); font-size: .8rem; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.kpi .v { font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.kpi .v .arrow { color: var(--ink-3); font-weight: 400; margin: 0 4px; }
+.kpi .v .to { color: var(--good); }
+.kpi small { display: block; color: var(--ink-3); font-size: .82rem; line-height: 1.35; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+.toc a { text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: .9rem; }
+.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- sections ---------- */
+section { padding: 44px 16px 8px; scroll-margin-top: 10px; }
+.sec { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: .95rem; margin-right: 8px; vertical-align: 2px; }
+.intro { color: var(--ink-2); max-width: 860px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 16px; min-width: 0; }
+.card.wide { width: 100%; }
+.cardhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.cardhead h3 { margin: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid2 > .card { margin-bottom: 0; }
+.grid2 + .grid2, .card + .grid2, .grid2 + .card { margin-top: 16px; }
+.grid2.tight { gap: 22px; align-items: start; }
+.side { min-width: 0; }
+.note { font-size: .82rem; color: var(--ink-3); margin-top: .6em; }
+.scroll { overflow-x: auto; }
+
+/* ---------- query cards ---------- */
+.qcard { position: relative; border: 1px solid var(--line); border-left: 4px solid; border-radius: 10px; padding: 10px 12px 8px 44px; margin-bottom: 10px; background: var(--surface); }
+.qcard pre { margin: 0; font-size: .82rem; white-space: pre-wrap; word-break: break-word; }
+.qcard .ans { font-size: .78rem; color: var(--ink-3); }
+.qa { border-left-color: var(--qa); } .qb { border-left-color: var(--qb); } .qc { border-left-color: var(--qc); }
+.tag { position: absolute; left: 10px; top: 10px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: .8rem; }
+.qa .tag { background: var(--qa); } .qb .tag { background: var(--qb); } .qc .tag { background: var(--qc); }
+mark.mb { background: var(--qb-soft); color: inherit; border-radius: 3px; }
+mark.mc { background: var(--qc-soft); color: inherit; border-radius: 3px; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); font-size: .82rem; }
+.mini td, .mini th { padding: 5px 8px; }
+.cb { color: var(--qb); } .cc { color: var(--qc); }
+td { font-variant-numeric: tabular-nums; }
+
+/* ---------- segmented control ---------- */
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--ink-2); padding: 6px 12px; border-radius: 8px; font-size: .9rem; }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+.seg.small button { padding: 4px 10px; font-size: .84rem; }
+.teaser { margin-top: 10px; background: var(--surface-2); border-radius: 10px; }
+.verdict { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: .94rem; background: var(--surface-2); }
+.verdict.good { background: var(--good-soft); }
+.verdict.bad { background: var(--bad-soft); }
+
+/* ---------- scatter stats ---------- */
+.stat { border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+.stat span { font-size: 1.6rem; font-weight: 700; display: block; font-variant-numeric: tabular-nums; }
+.stat small { color: var(--ink-2); font-size: .85rem; }
+.stat.warn { background: var(--bad-soft); } .stat.warn span { color: var(--bad); }
+.stat.good { background: var(--good-soft); } .stat.good span { color: var(--good); }
+
+/* ---------- steps ---------- */
+.steps { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; counter-reset: s; }
+.steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 10px 42px; cursor: pointer; position: relative; font-size: .92rem; line-height: 1.3; }
+.steps li::before { content: counter(s); position: absolute; left: 12px; top: 11px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font-size: .78rem; font-weight: 700; }
+.steps li small { display: block; color: var(--ink-3); font-size: .78rem; }
+.steps li.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.steps li.on::before { background: var(--accent); color: var(--surface); }
+.flow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.fbox { flex: 1 1 150px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.fbox small { display: block; color: var(--ink-3); font-size: .8rem; }
+.fbox.ours { border-color: var(--qc); background: var(--qc-soft); }
+.farrow { align-self: center; color: var(--ink-3); font-size: 1.2rem; }
+.facts { padding-left: 1.1em; margin: 6px 0 0; }
+.facts li { margin-bottom: 6px; }
+
+/* ---------- jaccard ---------- */
+.sliders label { display: grid; grid-template-columns: 110px 1fr 40px; align-items: center; gap: 8px; font-size: .9rem; margin: 6px 0; }
+.sliders output { font-variant-numeric: tabular-nums; text-align: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.presets { font-size: .85rem; color: var(--ink-3); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.presets button, .controls button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 4px 10px; border-radius: 8px; font-size: .85rem; }
+.presets button:hover, .controls button:hover { border-color: var(--accent); }
+.jbig { font-size: 2.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
+.pill.pos { background: var(--good-soft); color: var(--good); }
+.pill.neg { background: var(--bad-soft); color: var(--bad); }
+.pill.mid { background: var(--mid-soft); color: var(--ink-2); }
+.formula { font-size: .88rem; color: var(--ink-2); }
+.scale { position: relative; display: grid; grid-template-columns: 10fr 70fr 20fr; height: 52px; border-radius: 8px; overflow: hidden; font-size: .72rem; text-align: center; margin: 10px 0 18px; line-height: 1.2; }
+.scale > div { display: grid; place-items: center; padding-top: 2px; }
+.scale .neg { background: var(--bad-soft); color: var(--bad); }
+.scale .mid { background: var(--mid-soft); color: var(--ink-2); }
+.scale .pos { background: var(--good-soft); color: var(--good); }
+.marker { position: absolute; top: -4px; bottom: -4px; width: 3px; background: var(--ink); border-radius: 2px; transition: left .25s; }
+
+/* ---------- split ---------- */
+.legend { font-size: .82rem; color: var(--ink-2); display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.lg { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: -8px; vertical-align: -1px; }
+.lg.tr { background: var(--tr); } .lg.va { background: var(--va); } .lg.te { background: var(--te); }
+.lg.leak { border-radius: 0; height: 3px; width: 18px; background: var(--bad); }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.controls .primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.ep { font-size: .88rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.chk { font-size: .86rem; color: var(--ink-2); display: inline-flex; gap: 5px; align-items: center; }
+.redtxt { color: var(--bad); font-weight: 600; }
+
+/* ---------- explorer ---------- */
+.explorer { display: grid; grid-template-columns: 250px 1fr; gap: 16px; }
+.exlist { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; padding-right: 4px; }
+.exitem { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 7px 9px; font: .76rem/1.35 var(--mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exitem .r { font-family: var(--sans); font-size: .72rem; float: right; margin-left: 6px; padding: 0 6px; border-radius: 6px; }
+.exitem .r.bad { background: var(--bad-soft); color: var(--bad); }
+.exitem .r.good { background: var(--good-soft); color: var(--good); }
+.exitem.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+.exmain { min-width: 0; }
+.anchor { position: relative; border: 1px solid var(--line); border-left: 4px solid var(--qa); border-radius: 10px; padding: 10px 12px 8px 64px; }
+.anchor pre { margin: 0; font-size: .82rem; white-space: pre-wrap; word-break: break-all; }
+.anchor .ans { font-size: .78rem; color: var(--ink-3); }
+.tag.ta { width: auto; padding: 0 8px; border-radius: 6px; background: var(--qa); font-size: .72rem; height: 22px; }
+.rank { margin-top: 10px; }
+.rank td.q { font: .76rem/1.4 var(--mono); word-break: break-all; }
+.rank tr.best td { background: var(--good-soft); }
+.rank tr.gap td { text-align: center; color: var(--ink-3); font-size: .8rem; padding: 2px; }
+.jb { display: inline-block; min-width: 54px; text-align: center; padding: 1px 6px; border-radius: 6px; font-weight: 600; font-size: .8rem; }
+.jb.pos { background: var(--good-soft); color: var(--good); }
+.jb.neg { background: var(--bad-soft); color: var(--bad); }
+.jb.mid { background: var(--mid-soft); color: var(--ink-2); }
+.star { color: var(--good); }
+
+/* ---------- cache sim ---------- */
+.cs-stage { display: grid; grid-template-columns: 1.1fr 1fr 1.1fr; gap: 12px; align-items: stretch; min-height: 170px; }
+.cs-col { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.cs-col h4 { margin: 0 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.cs-q { font: .76rem/1.35 var(--mono); background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--ink-3); border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; white-space: pre-wrap; word-break: break-word; }
+.cs-q.qa { border-left-color: var(--qa); } .cs-q.qb { border-left-color: var(--qb); } .cs-q.qc { border-left-color: var(--qc); } .cs-q.qd { border-left-color: var(--te); }
+.cs-q.new { animation: pop .4s ease; }
+@keyframes pop { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.cs-dec { font-size: .9rem; }
+.cs-dec .big { font-size: 1.15rem; font-weight: 700; margin: 4px 0; }
+.cs-dec .ok { color: var(--good); } .cs-dec .ko { color: var(--bad); } .cs-dec .ex { color: var(--ink-2); }
+.tally { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: .84rem; }
+.tally span { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.thr { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: center; font-size: .95rem; margin: 6px 0 8px; }
+.finding { border-left: 5px solid var(--qb); }
+
+/* ---------- comparison ---------- */
+.cmp th, .cmp td { text-align: center; white-space: nowrap; }
+.cmp th:first-child, .cmp td:first-child { text-align: left; white-space: normal; min-width: 220px; }
+.cmp tr.ours td { background: var(--qc-soft); font-weight: 600; }
+.yes { color: var(--good); font-weight: 700; } .no { color: var(--bad); } .part { color: var(--ink-3); }
+.stats td:nth-child(2), .stats td:nth-child(3), .stats th:nth-child(2), .stats th:nth-child(3) { text-align: right; }
+pre.code { background: var(--surface-2); padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: .84rem; margin: 0; }
+.foot { color: var(--ink-3); font-size: .82rem; padding: 30px 16px 40px; text-align: center; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .claims { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .grid2 { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .explorer { grid-template-columns: 1fr; }
+  .exlist { flex-direction: row; overflow-x: auto; max-height: none; padding-bottom: 4px; }
+  .exitem { flex: 0 0 220px; }
+  .cs-stage { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .kpis { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .card { padding: 14px; }
+  .rank th:nth-child(3), .rank td:nth-child(3) { display: none; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Interactive companion to the paper</p>
+    <h1>Contrastive Learning for <span class="hl">Results-Aware</span> SPARQL Embeddings</h1>
+    <p class="lede">Two SPARQL queries can look almost the same and return different answers, or look different and return the same answers.
+      We teach query encoders to place queries by <b>what they return</b>, not by how they are written, using answers collected once, offline.
+      At query time the encoder needs only the query text.</p>
+
+    <div class="claims">
+      <article class="claim">
+        <h3><span class="num">1</span> What we did</h3>
+        <p>Execute a query log once, label query pairs by the <b>Jaccard overlap of their answer sets</b>, and fine-tune any pretrained encoder with a contrastive loss on these labels. We release the labels as <b>SQuARE</b> (DBpedia + Wikidata).</p>
+      </article>
+      <article class="claim">
+        <h3><span class="num">2</span> Why it matters</h3>
+        <p>Query retrieval and approximate result caching need <b>answer overlap</b>, but text, code and SPARQL encoders are trained on how queries look. Fine-tuning improves retrieval for <b>all 10 encoders</b> on both graphs.</p>
+      </article>
+      <article class="claim">
+        <h3><span class="num">3</span> What is new</h3>
+        <p>To our knowledge, the first SPARQL query embeddings trained on <b>execution-derived answer overlap</b>, and the first SPARQL resource with query-pair supervision grounded in execution.</p>
+      </article>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#problem">1 · The problem</a>
+      <a href="#method">2 · How it works</a>
+      <a href="#retrieval">3 · Query retrieval</a>
+      <a href="#caching">4 · Result caching</a>
+      <a href="#novelty">5 · What is new</a>
+      <a href="#reproduce">6 · Reproduce</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- =============================== 1. PROBLEM =============================== -->
+<section id="problem" class="wrap">
+  <h2><span class="sec">1</span> The problem: looking alike is not returning alike</h2>
+  <p class="intro">Three DBpedia queries from the paper's Figure 1. Switch the encoder to see which query each one puts next to (a).</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="qcard qa"><span class="tag">a</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace dbr:Paris }</pre><span class="ans">136 answers</span></div>
+      <div class="qcard qb"><span class="tag">b</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       <mark class="mb">dbo:deathPlace</mark> dbr:Paris }</pre><span class="ans">94 answers · one predicate changed</span></div>
+      <div class="qcard qc"><span class="tag">c</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace <mark class="mc">?c</mark> .
+  <mark class="mc">FILTER(?c = dbr:Paris)</mark> }</pre><span class="ans">136 answers · same meaning, other form</span></div>
+
+      <table class="mini">
+        <thead><tr><th>Compared with (a)</th><th class="cb">(b)</th><th class="cc">(c)</th></tr></thead>
+        <tbody>
+          <tr><td>Token similarity</td><td class="cb"><b>0.92</b></td><td class="cc">0.77</td></tr>
+          <tr><td>Answer overlap <i>J</i></td><td class="cb">0.19</td><td class="cc"><b>1.00</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="seg" role="tablist" id="teaserSeg">
+        <button class="on" data-mode="text">Text-based encoder</button>
+        <button data-mode="ours">Results-aware encoder (ours)</button>
+      </div>
+      <svg id="teaserSvg" viewBox="0 0 420 260" class="teaser" role="img" aria-label="Embedding space sketch"></svg>
+      <div id="teaserMsg" class="verdict"></div>
+      <p class="note">Sketch for intuition (as in the paper's Figure 1, panels 2 and 3). Real measurements follow below.</p>
+    </div>
+  </div>
+
+  <div class="card wide">
+    <div class="cardhead">
+      <h3>On real data: text similarity vs. answer overlap</h3>
+      <div class="seg small" id="scatterSeg">
+        <button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button>
+      </div>
+    </div>
+    <div class="grid2 tight">
+      <svg id="scatterSvg" viewBox="0 0 480 330" role="img" aria-label="Scatter of TF-IDF cosine against answer Jaccard"></svg>
+      <div class="side">
+        <p>Each dot is a stored test pair of SQuARE: <b>x</b> = TF-IDF cosine of the two query strings, <b>y</b> = Jaccard overlap of their answers on the graph.</p>
+        <div class="stat warn"><span id="scA">–</span><small>of pairs that look alike (text cosine ≥ 0.5) share almost no answers (<i>J</i> ≤ 0.1)</small></div>
+        <div class="stat good"><span id="scB">–</span><small>of pairs with (nearly) the same answers (<i>J</i> ≥ 0.8) look quite different (text cosine &lt; 0.5)</small></div>
+        <p class="note" id="scNote"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 2. METHOD =============================== -->
+<section id="method" class="wrap">
+  <h2><span class="sec">2</span> How it works</h2>
+  <p class="intro">Answers need no human annotation: an endpoint computes them. We collect this evidence once, offline, and the encoder uses only the query text afterwards.</p>
+
+  <ol class="steps" id="steps">
+    <li class="on" data-step="0"><b>Execute once</b><small>cache each query's answers</small></li>
+    <li data-step="1"><b>Label by overlap</b><small>Jaccard <i>J</i> of answer sets</small></li>
+    <li data-step="2"><b>Split without leakage</b><small>by positive components</small></li>
+    <li data-step="3"><b>Fine-tune</b><small>InfoNCE + hard negatives</small></li>
+    <li data-step="4"><b>Use online</b><small>query text only</small></li>
+  </ol>
+
+  <div class="card step-panel" data-panel="0">
+    <h3>Step 1 · Execute each logged query once and cache its answers</h3>
+    <div class="flow">
+      <div class="fbox"><b>LSQ query log</b><small>DBpedia · Wikidata</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Local endpoint</b><small>DBpedia 2022-12 · Wikidata truthy 2025-01-22</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Cached answer sets</b><small>rows as sets of RDF terms</small></div>
+    </div>
+    <ul class="facts">
+      <li>Cost is small and paid once: <b>0.3 h</b> (DBpedia) and <b>10.9 h</b> (Wikidata) of total query time.</li>
+      <li>Labeling all pairs from the cache takes <b>26 s</b> and <b>10 min</b> on one CPU core (inverted index over answer rows).</li>
+      <li>Every label stays checkable: SQuARE ships the cached answer sets, so <i>J</i> can be recomputed without any endpoint.</li>
+    </ul>
+  </div>
+
+  <div class="card step-panel" data-panel="1" hidden>
+    <h3>Step 2 · Label query pairs by answer overlap</h3>
+    <div class="grid2 tight">
+      <div>
+        <svg id="vennSvg" viewBox="0 0 360 200" role="img" aria-label="Venn diagram of two answer sets"></svg>
+        <div class="sliders">
+          <label><span>|Ans(q<sub>i</sub>)|</span> <input type="range" id="vA" min="1" max="200" value="136"><output id="oA"></output></label>
+          <label><span>|Ans(q<sub>j</sub>)|</span> <input type="range" id="vB" min="1" max="200" value="94"><output id="oB"></output></label>
+          <label><span>shared rows</span> <input type="range" id="vI" min="0" max="200" value="37"><output id="oI"></output></label>
+        </div>
+        <div class="presets">
+          Try: <button data-p="136,94,37">(a) vs (b)</button><button data-p="136,136,136">(a) vs (c)</button><button data-p="100,95,92">near-duplicate</button><button data-p="50,200,50">containment</button>
+        </div>
+      </div>
+      <div class="side">
+        <div class="jbig"><i>J</i> = <span id="jVal">–</span></div>
+        <div id="jLabel" class="pill"></div>
+        <p class="formula"><i>J</i>(q<sub>i</sub>, q<sub>j</sub>) = |Ans(q<sub>i</sub>) ∩ Ans(q<sub>j</sub>)| / |Ans(q<sub>i</sub>) ∪ Ans(q<sub>j</sub>)|</p>
+        <div class="scale">
+          <div class="neg">negative<br><small>J ≤ 0.1</small></div>
+          <div class="mid">unlabeled<br><small>0.1 &lt; J &lt; 0.8</small></div>
+          <div class="pos">positive<br><small>J ≥ 0.8</small></div>
+          <div class="marker" id="jMarker"></div>
+        </div>
+        <p id="jGuarantee" class="note"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card step-panel" data-panel="2" hidden>
+    <h3>Step 3 · Split by connected components of positive pairs</h3>
+    <p>If an anchor is in the test split while its positive is in training, the pair is seen in training and scored again at test time. We avoid this by keeping each connected component of positive pairs in one split.</p>
+    <div class="seg small" id="splitSeg">
+      <button data-s="random">Random query split</button><button class="on" data-s="component">Component split (ours)</button>
+    </div>
+    <svg id="splitSvg" viewBox="0 0 640 210" role="img" aria-label="Positive-pair graph coloured by split"></svg>
+    <div class="legend"><span class="lg tr"></span>train <span class="lg va"></span>validation <span class="lg te"></span>test <span class="lg leak"></span>positive pair crossing splits (leak)</div>
+    <div id="splitMsg" class="verdict"></div>
+  </div>
+
+  <div class="card step-panel" data-panel="3" hidden>
+    <h3>Step 4 · Contrastive fine-tuning on answer-overlap labels</h3>
+    <div class="grid2 tight">
+      <div>
+        <svg id="toySvg" viewBox="0 0 420 300" role="img" aria-label="Toy embedding space during training"></svg>
+        <div class="controls">
+          <button id="toyPlay" class="primary">▶ Train</button>
+          <button id="toyReset">Reset</button>
+          <span class="ep">epoch <b id="toyEpoch">0</b> / 20</span>
+          <label class="chk"><input type="checkbox" id="toyHard" checked> hard-negative mining</label>
+        </div>
+      </div>
+      <div class="side">
+        <p>Colour = queries with the same answers. They start where <b>text</b> puts them: queries that differ in one constant or predicate sit together.</p>
+        <p>Each step applies the InfoNCE loss of the paper: pull an anchor toward one of its <b>positives</b>, push it away from its <b>negatives</b> and the other in-batch candidates (known positives are masked). From epoch 2, every two epochs, the current model's closest labeled negatives are mined (<span class="redtxt">red links</span>); they are execution-verified, so they can never be false negatives.</p>
+        <svg id="lossSvg" viewBox="0 0 480 150" role="img" aria-label="Training loss"></svg>
+        <p class="note">Toy demo: 12 free 2-D points trained live in your browser (distance-based similarity, so you can watch it). Real training updates all weights of a pretrained encoder, with cosine similarity and κ = 0.05.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card step-panel" data-panel="4" hidden>
+    <h3>Step 5 · Online: the frozen encoder sees only the query text</h3>
+    <div class="flow">
+      <div class="fbox"><b>New query</b><small>text only, never executed</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox ours"><b>Results-aware encoder</b><small>5–20 ms per query</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Nearest cached queries</b><small>&lt; 0.05 ms search</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Retrieval</b> or <b>reuse</b><small>Sections 3 and 4</small></div>
+    </div>
+    <p class="note">Timings from the paper (median, batch size 1, one A100; search over up to 968 cached queries).</p>
+  </div>
+</section>
+
+<!-- =============================== 3. RETRIEVAL =============================== -->
+<section id="retrieval" class="wrap">
+  <h2><span class="sec">3</span> Downstream task 1 · Query retrieval</h2>
+  <p class="intro">Given a new query, find earlier queries in the log that return (nearly) the same answers. Below: real SQuARE test queries, ranked against <b>all</b> other test queries.</p>
+
+  <div class="card wide">
+    <div class="cardhead">
+      <h3>Explorer: where does text similarity go wrong?</h3>
+      <div class="seg small" id="exSeg">
+        <button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button>
+      </div>
+    </div>
+    <div class="explorer">
+      <div class="exlist" id="exList"></div>
+      <div class="exmain">
+        <div class="anchor"><span class="tag ta">query</span><pre id="exAnchor"></pre><span id="exAnchorAns" class="ans"></span></div>
+        <div id="exVerdict" class="verdict"></div>
+        <table class="rank">
+          <thead><tr><th>TF-IDF rank</th><th>candidate query</th><th>answers</th><th>text cos</th><th>answer <i>J</i></th></tr></thead>
+          <tbody id="exRows"></tbody>
+        </table>
+        <p class="note">Ranking: TF-IDF (the strongest non-neural baseline in the paper), computed from the released files by <code>demo/scripts/build_demo_data.py</code>. <i>J</i> from the complete test labels; "partial" means 0.1 &lt; <i>J</i> &lt; 0.8. <span class="star">★</span> = the highest-overlap query in the collection, the one answer-overlap supervision rewards ranking first.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hits@1 with complete labels</h3>
+        <div class="seg small" id="fcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="fcSvg" viewBox="0 0 480 300" role="img" aria-label="Bar chart of Hits@1"></svg>
+      <p class="note">Share of test queries whose top-ranked query has <i>J</i> ≥ 0.8 (473 / 968 test queries). Encoder rows are means over ten encoders.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead">
+        <h3>Every encoder improves</h3>
+        <div class="seg small" id="dbSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="dumbSvg" viewBox="0 0 480 330" role="img" aria-label="Zero-shot vs fine-tuned Hits@1 per encoder"></svg>
+      <p class="note">Hits@1, stored labels; fine-tuned = mean of five seeds (std ≤ 0.02). Paired 95% intervals exclude zero for every encoder on both graphs. Dashed line: TF-IDF.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Is it the answers, or just fine-tuning on SPARQL?</h3>
+      <p>Matched control: the same encoders, seeds and protocol, but positives chosen by <b>syntax</b> (algebra similarity) instead of answers.</p>
+      <svg id="ctrlSvg" viewBox="0 0 480 190" role="img" aria-label="Syntax labels vs answer labels"></svg>
+      <p class="note">Mean Hits@1, complete labels, over E5-base-v2, Qwen3-Embedding and CodeBERT (3 seeds each). Only 13% (DBpedia) and 21% (Wikidata) of syntax positives are also answer positives.</p>
+    </div>
+    <div class="card">
+      <h3>Does it generalize beyond known query shapes?</h3>
+      <p>Wikidata test queries split by whether their <b>template</b> occurs in training.</p>
+      <svg id="suSvg" viewBox="0 0 480 190" role="img" aria-label="Seen vs unseen templates"></svg>
+      <p class="note">Mean Hits@1 (complete labels). Fine-tuning gains: seen 0.13 [0.11, 0.16], unseen 0.12 [0.10, 0.14]. On DBpedia 98% of test queries share a training template, so only Wikidata supports this test.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 4. CACHING =============================== -->
+<section id="caching" class="wrap">
+  <h2><span class="sec">4</span> Downstream task 2 · Approximate result caching</h2>
+  <p class="intro">For each incoming query, reuse the cached answers of its most similar cached query if cosine ≥ θ; otherwise execute it and add it to a FIFO cache (K = 128). A reuse is correct if <i>J</i> ≥ 0.8. Answers are used only to judge decisions, never to make them.</p>
+
+  <div class="card wide">
+    <h3>Walk through the cache</h3>
+    <div class="cachesim">
+      <div class="cs-stage" id="csStage"></div>
+      <div class="controls">
+        <button id="csNext" class="primary">Next query ▶</button>
+        <button id="csReset">Reset</button>
+        <div class="seg small" id="csSeg"><button class="on" data-m="text">text-based</button><button data-m="ours">results-aware</button></div>
+      </div>
+      <p class="note">Illustrative stream built from the Figure 1 queries (cosines are sketches; the answer counts and <i>J</i> are real). Measured results are below.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hit accuracy before and after fine-tuning (θ = 0.8)</h3>
+        <div class="seg small" id="caSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="caSvg" viewBox="0 0 480 330" role="img" aria-label="Cache hit accuracy per encoder"></svg>
+      <p class="note">Accuracy = correct hits / all hits, pooled over five seeds and five stream orders. Fine-tuning raises accuracy for all ten encoders on both graphs.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead">
+        <h3>Coverage vs. reliability: move θ</h3>
+        <div class="seg small" id="rcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="rcSvg" viewBox="0 0 480 300" role="img" aria-label="Accuracy vs hit rate as the threshold changes"></svg>
+      <label class="thr"><span>θ = <b id="thrVal">0.80</b></span><input type="range" id="thr" min="0" max="10" value="4"></label>
+      <div id="rcTable"></div>
+    </div>
+  </div>
+
+  <div class="card wide finding">
+    <h3>Finding: ranking and calibration are different problems</h3>
+    <p>Results-aware fine-tuning makes reuse decisions much better (DBpedia hit accuracy <b>0.15–0.33 → 0.59–0.79</b>). Still, a single cosine threshold does not make reuse <i>safe</i>: on Wikidata, most hits remain wrong for most encoders at any θ. SQuARE makes this gap measurable, and points to calibrated or verified reuse as the next step.</p>
+  </div>
+</section>
+
+<!-- =============================== 5. NOVELTY =============================== -->
+<section id="novelty" class="wrap">
+  <h2><span class="sec">5</span> What is new</h2>
+  <p class="intro">Prior work is <b>results-blind</b> (learns from how queries are written) or works with relations that are <b>exact but costly</b>. Ours learns graph-specific answer overlap and needs only text at inference.</p>
+  <div class="card wide scroll">
+    <table class="cmp" id="cmpTable"></table>
+    <p class="note">Based on the related-work discussion in the paper. "Partial": SQA compares execution results to assess a generated query against a reference, but does not train a query encoder.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>The SQuARE resource</h3>
+      <table class="mini stats" id="dsTable"></table>
+      <p class="note">SPARQL Query Answer Ranking Evaluation. Positives: J ≥ 0.8; negatives: J ≤ 0.1. Splits audited at query, pair, answer-set and normalized-algebra level.</p>
+    </div>
+    <div class="card">
+      <h3>Why reviewers can trust the labels</h3>
+      <ul class="facts">
+        <li><b>No human labels, no model labels:</b> every positive and negative is checked by execution.</li>
+        <li><b>No leakage:</b> no query string, positive pair or answer set is shared across splits.</li>
+        <li><b>Same universe:</b> zero-shot, fine-tuned and baselines rank the exact same candidates.</li>
+        <li><b>Model-agnostic:</b> one training protocol for ten encoders from four families (text, general LM, code, SPARQL).</li>
+        <li><b>Thresholds never tuned on test:</b> the cache threshold is chosen on validation only.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 6. REPRODUCE =============================== -->
+<section id="reproduce" class="wrap">
+  <h2><span class="sec">6</span> Reproduce</h2>
+  <div class="card wide">
+<pre class="code"># regenerate the real-data parts of this page from the released splits (no GPU, ~15 s)
+python demo/scripts/build_demo_data.py --repo . --out demo/data/demo_data.js
+
+# full benchmark: zero-shot + fine-tuning + retrieval + caching
+python scripts/run_experiment.py --models all --datasets dbpedia wikidata --seeds 42 43 44 45 46
+python scripts/aggregate_results.py &amp;&amp; python scripts/generate_tables.py</pre>
+    <p class="note">This page has no external dependencies: open <code>demo/index.html</code> in any browser, offline. Paper numbers live in <code>demo/data/paper_results.js</code>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap foot">Results-Aware SPARQL Embeddings · anonymous submission · demo page</footer>
+
+<script>
+// Numbers reported in the paper (current manuscript tables). Edit here if the tables change.
+// Encoder order is the same in every array.
+window.PAPER = {
+  encoders: ["MPNet", "E5-base-v2", "BGE-base", "GTE-base", "Qwen3-Embedding",
+             "Gemma-3-270M", "CodeBERT", "GraphCodeBERT", "Qwen2.5-Coder", "SPBERT"],
+  families: ["text", "text", "text", "text", "text", "general", "code", "code", "code", "sparql"],
+
+  // Table "Retrieval of high-overlap queries" (stored labels), Hits@1.
+  // zs + gain come from Tables/compact/gain_*.dat (fine-tuned = mean over five seeds).
+  retrievalStored: {
+    dbpedia: {
+      zs:   [0.368, 0.406, 0.348, 0.331, 0.402, 0.310, 0.338, 0.314, 0.269, 0.316],
+      gain: [0.189, 0.171, 0.210, 0.232, 0.173, 0.244, 0.180, 0.190, 0.289, 0.218],
+      baselines: { "Random": 0.02, "TF-IDF": 0.58, "BM25": 0.40, "Normalized match": 0.06,
+                   "Algebra similarity": 0.26, "Query-form features": 0.09 }
+    },
+    wikidata: {
+      zs:   [0.295, 0.333, 0.306, 0.279, 0.374, 0.261, 0.278, 0.316, 0.248, 0.317],
+      gain: [0.141, 0.098, 0.118, 0.145, 0.069, 0.169, 0.129, 0.100, 0.183, 0.098],
+      baselines: { "Random": 0.00, "TF-IDF": 0.37, "BM25": 0.37, "Normalized match": 0.04,
+                   "Algebra similarity": 0.29, "Query-form features": 0.17 }
+    }
+  },
+
+  // Table "Retrieval among all test queries with complete labels" (Hits@1, MRR, nDCG@10).
+  retrievalComplete: {
+    dbpedia: [
+      ["Random ranking", 0.07, 0.14, 0.07, "base"],
+      ["Query-form features", 0.23, 0.33, 0.27, "base"],
+      ["Algebra similarity", 0.39, 0.50, 0.44, "base"],
+      ["BM25", 0.53, 0.64, 0.57, "base"],
+      ["TF-IDF", 0.58, 0.66, 0.57, "base"],
+      ["Encoders, zero-shot (mean of 10)", 0.49, 0.58, 0.50, "zs"],
+      ["Encoders, results-aware fine-tuned (mean of 10)", 0.70, 0.77, 0.71, "ft"]
+    ],
+    wikidata: [
+      ["Random ranking", 0.00, 0.02, 0.01, "base"],
+      ["Query-form features", 0.17, 0.26, 0.23, "base"],
+      ["Algebra similarity", 0.29, 0.36, 0.34, "base"],
+      ["BM25", 0.37, 0.43, 0.41, "base"],
+      ["TF-IDF", 0.37, 0.41, 0.39, "base"],
+      ["Encoders, zero-shot (mean of 10)", 0.30, 0.38, 0.34, "zs"],
+      ["Encoders, results-aware fine-tuned (mean of 10)", 0.43, 0.49, 0.45, "ft"]
+    ]
+  },
+
+  // Matched control: same encoders (E5, Qwen3-Embedding, CodeBERT), seeds and protocol,
+  // trained on syntax labels instead of answer overlap. Mean Hits@1, complete labels.
+  syntaxControl: {
+    dbpedia:  { syntax: 0.52, answers: 0.72, diff: "0.20 [0.17, 0.23]" },
+    wikidata: { syntax: 0.36, answers: 0.43, diff: "0.06 [0.05, 0.08]" }
+  },
+
+  // Wikidata test anchors split by whether their template occurs in training.
+  seenUnseen: {
+    seen:   { n: 417, tfidf: 0.18, ft: 0.27, gain: "0.13 [0.11, 0.16]" },
+    unseen: { n: 425, tfidf: 0.55, ft: 0.58, gain: "0.12 [0.10, 0.14]" }
+  },
+
+  // Table "Approximate result caching" at theta = 0.8, K = 128.
+  caching: {
+    dbpedia: {
+      zsAcc: [0.28, 0.15, 0.21, 0.15, 0.33, 0.15, 0.15, 0.15, 0.15, 0.15],
+      ftAcc: [0.75, 0.79, 0.72, 0.71, 0.67, 0.70, 0.61, 0.61, 0.65, 0.59],
+      ftCHR: [0.21, 0.19, 0.29, 0.32, 0.28, 0.26, 0.37, 0.31, 0.29, 0.35],
+      ftFHR: [0.01, 0.00, 0.03, 0.04, 0.05, 0.04, 0.10, 0.07, 0.06, 0.11],
+      oracleCHR: 0.72, n: 473
+    },
+    wikidata: {
+      zsAcc: [0.06, 0.01, 0.01, 0.01, 0.10, 0.01, 0.01, 0.01, 0.01, 0.01],
+      ftAcc: [0.22, 0.21, 0.22, 0.21, 0.29, 0.27, 0.21, 0.22, 0.37, 0.21],
+      ftCHR: [0.14, 0.13, 0.14, 0.14, 0.08, 0.08, 0.13, 0.14, 0.06, 0.14],
+      ftFHR: [0.44, 0.44, 0.46, 0.46, 0.19, 0.22, 0.45, 0.45, 0.10, 0.44],
+      oracleCHR: 0.30, n: 968
+    }
+  },
+
+  // Risk-coverage points (Tables/appendix/riskcov.tex): [hit rate SHR, risk = 1 - accuracy]
+  // for thresholds 0.50 ... 0.99, fine-tuned, pooled over seeds and stream orders.
+  thresholds: [0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.97, 0.98, 0.99],
+  riskCoverage: {
+    dbpedia: {
+      "MPNet": [[0.8542,0.5707],[0.7488,0.4584],[0.5428,0.3426],[0.4156,0.3030],[0.2820,0.2489],[0.1625,0.1753],[0.0858,0.0365],[0.0476,0.0000],[0.0349,0.0000],[0.0300,0.0000],[0.0274,0.0000]],
+      "Qwen3-Embedding": [[0.9043,0.6363],[0.8155,0.5449],[0.6614,0.4540],[0.5477,0.4161],[0.4195,0.3323],[0.2669,0.2671],[0.1293,0.1629],[0.0573,0.0192],[0.0443,0.0000],[0.0364,0.0000],[0.0294,0.0000]],
+      "CodeBERT": [[0.9440,0.6976],[0.8917,0.6118],[0.8053,0.4877],[0.7353,0.4315],[0.6058,0.3881],[0.3984,0.3522],[0.1950,0.3148],[0.0787,0.0913],[0.0417,0.0162],[0.0325,0.0000],[0.0260,0.0000]]
+    },
+    wikidata: {
+      "MPNet": [[0.8138,0.8300],[0.7392,0.8029],[0.6867,0.7873],[0.6632,0.7761],[0.6438,0.7762],[0.6125,0.7863],[0.5424,0.8056],[0.3112,0.8035],[0.2129,0.7729],[0.1618,0.7614],[0.0841,0.7436]],
+      "Qwen3-Embedding": [[0.6159,0.7837],[0.4756,0.7519],[0.3586,0.7192],[0.3196,0.7161],[0.2752,0.7060],[0.2033,0.6763],[0.1332,0.6323],[0.0581,0.4776],[0.0321,0.3466],[0.0228,0.3158],[0.0095,0.0649]],
+      "CodeBERT": [[0.8359,0.8358],[0.7474,0.8106],[0.6878,0.7961],[0.6655,0.7883],[0.6471,0.7921],[0.6192,0.7983],[0.5867,0.8232],[0.5340,0.8616],[0.5032,0.8817],[0.4778,0.9013],[0.4178,0.9207]]
+    }
+  },
+
+  // RQ1 Spearman rho between cosine and J on stored held-out pairs (mean over encoders).
+  alignment: { dbpedia: { zs: 0.70, ft: 0.71 }, wikidata: { zs: 0.68, ft: 0.66 } },
+
+  dataset: {
+    dbpedia:  { queries: 4727, split: "3,781 / 473 / 473", anchors: "3,737 / 469 / 468", pos: 39430, neg: 93480, j1: "79%", templates: 121, seen: "98%" },
+    wikidata: { queries: 9679, split: "7,743 / 968 / 968", anchors: "6,734 / 842 / 842", pos: 37208, neg: 168360, j1: "79%", templates: 4989, seen: "50%" }
+  }
+};
+
+</script>
+<script>
+// Generated by demo/scripts/build_demo_data.py from the SQuARE test splits.
+window.DEMO_DATA = {"dbpedia":{"graph":"dbpedia","test_queries":473,"test_anchors":468,"stored_pairs":13133,"tfidf_hits1_complete":0.6,"tfidf_spearman":0.704,"scatter":[[0.108,0.0],[0.093,0.0],[0.074,0.0],[0.088,0.0],[0.338,1.0],[0.826,0.0],[0.174,0.097],[0.598,0.0],[0.117,0.0],[0.338,1.0],[0.074,0.0],[0.068,0.0],[0.121,0.091],[0.137,0.0],[0.042,0.0],[0.174,0.097],[0.057,0.0],[0.196,0.0],[0.338,1.0],[0.338,0.0],[0.088,0.0],[0.338,1.0],[0.136,0.0],[0.153,0.048],[0.127,0.0],[0.109,0.0],[0.176,0.812],[0.044,0.0],[0.111,0.0],[0.099,0.0],[0.077,0.0],[0.338,1.0],[0.338,1.0],[0.105,0.0],[0.153,0.081],[0.093,0.0],[0.338,1.0],[0.108,0.0],[0.338,1.0],[0.174,0.082],[0.071,0.0],[0.153,0.091],[0.117,0.0],[0.095,0.0],[0.174,0.077],[0.137,0.0],[0.12,0.0],[0.105,0.0],[0.077,0.0],[0.117,0.0],[0.153,0.077],[0.109,0.0],[0.171,0.0],[0.153,0.081],[0.338,1.0],[0.12,0.0],[0.136,0.0],[0.195,0.824],[0.153,0.098],[0.338,1.0],[0.05,0.0],[0.082,0.0],[0.175,0.0],[0.396,0.0],[0.112,0.0],[0.07,0.0],[0.338,1.0],[0.154,0.0],[0.338,1.0],[0.195,0.812],[0.185,0.083],[0.153,0.091],[0.115,0.0],[0.098,0.0],[0.109,0.0],[0.396,0.0],[0.109,0.0],[0.17,0.045],[0.338,1.0],[0.077,1.0],[0.153,1.0],[0.118,0.1],[0.064,0.0],[0.153,0.059],[0.338,1.0],[0.171,0.0],[0.111,0.0],[0.209,0.0],[0.136,0.0],[0.128,0.0],[0.117,0.0],[0.338,1.0],[0.338,1.0],[0.185,1.0],[0.17,0.067],[0.136,0.0],[0.176,0.0],[0.112,0.0],[0.505,1.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.338,0.0],[0.095,0.0],[0.12,0.0],[0.244,1.0],[0.338,1.0],[0.074,0.0],[0.109,0.0],[0.846,1.0],[0.338,1.0],[0.171,0.0],[0.338,1.0],[0.338,1.0],[0.244,0.833],[0.098,0.0],[0.153,0.045],[0.153,0.04],[0.194,0.0],[0.074,0.0],[0.086,0.0],[0.153,0.062],[0.153,0.091],[0.106,0.0],[0.171,0.0],[0.084,0.0],[0.106,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.106,0.0],[0.146,0.0],[0.338,1.0],[0.075,0.0],[0.12,0.0],[0.154,0.0],[0.153,0.098],[0.148,0.0],[0.175,0.0],[0.11,0.0],[0.096,0.0],[0.244,0.05],[0.338,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.479,1.0],[0.244,0.952],[0.12,0.0],[0.153,0.077],[0.153,0.079],[0.088,0.0],[0.154,0.045],[0.084,0.0],[0.338,1.0],[0.337,0.0],[0.12,0.0],[0.12,0.0],[0.104,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.223,1.0],[0.338,1.0],[0.171,0.0],[0.338,1.0],[0.131,0.0],[0.105,0.0],[0.154,0.0],[0.117,0.0],[0.077,0.0],[0.136,0.0],[0.175,0.0],[0.32,0.0],[0.153,0.812],[0.338,1.0],[0.07,0.0],[0.074,0.0],[0.074,0.0],[0.107,0.0],[0.17,0.077],[0.078,0.0],[0.338,1.0],[0.338,0.0],[0.069,0.0],[0.195,0.8],[0.338,1.0],[0.068,0.0],[0.11,0.0],[0.104,0.0],[0.338,1.0],[0.171,0.0],[0.105,0.0],[0.096,0.0],[0.154,0.045],[0.153,0.059],[0.161,1.0],[0.153,0.091],[0.338,0.0],[0.089,0.0],[0.338,1.0],[0.356,1.0],[0.153,0.812],[0.175,0.0],[0.338,1.0],[0.153,0.091],[0.304,0.0],[0.105,0.0],[0.073,0.0],[0.244,0.87],[0.338,1.0],[0.105,0.0],[0.117,0.0],[0.075,0.0],[0.338,0.0],[0.338,1.0],[0.153,0.088],[0.338,0.0],[0.07,0.0],[0.056,0.0],[0.117,0.0],[0.074,0.0],[0.106,0.0],[0.07,0.0],[0.338,1.0],[0.096,0.0],[0.105,0.0],[0.122,0.0],[0.127,0.0],[0.185,0.091],[0.17,0.086],[0.153,0.095],[0.338,1.0],[0.338,1.0],[0.153,0.095],[0.078,0.0],[0.17,0.081],[0.17,0.091],[0.175,0.0],[0.164,0.0],[0.153,0.053],[0.338,1.0],[0.136,0.0],[0.196,0.0],[0.338,0.0],[0.05,0.0],[0.356,1.0],[0.111,0.0],[0.092,0.0],[0.093,0.0],[0.115,0.0],[0.077,1.0],[0.338,1.0],[0.108,0.0],[0.176,0.083],[0.154,0.043],[0.071,0.0],[0.07,0.0],[0.338,1.0],[0.115,0.0],[0.099,0.0],[0.109,0.0],[0.338,1.0],[0.501,0.815],[0.108,0.0],[0.071,0.0],[0.356,1.0],[0.153,0.098],[0.195,0.84],[0.11,0.0],[0.105,0.0],[0.153,0.086],[0.105,0.0],[0.338,1.0],[0.338,1.0],[0.338,0.0],[0.074,0.0],[0.338,1.0],[0.193,0.091],[0.12,0.0],[0.109,0.0],[0.338,1.0],[0.244,1.0],[0.101,0.0],[0.176,0.0],[0.195,0.812],[0.101,0.0],[0.244,0.909],[0.17,0.098],[0.096,0.0],[0.175,0.0],[0.153,0.083],[0.338,0.0],[0.338,1.0],[0.088,0.0],[0.136,0.0],[0.338,1.0],[0.136,0.0],[0.185,0.083],[0.105,0.0],[0.244,1.0],[0.174,0.1],[0.153,0.045],[0.107,0.0],[0.338,1.0],[0.244,1.0],[0.338,1.0],[0.071,0.0],[0.338,1.0],[0.082,0.0],[0.154,0.0],[0.338,1.0],[0.338,1.0],[0.338,0.0],[0.088,0.0],[0.073,0.0],[0.338,1.0],[0.091,0.0],[0.338,1.0],[0.338,0.0],[0.154,0.043],[0.176,1.0],[0.106,0.0],[0.171,0.0],[0.07,0.0],[0.117,0.0],[0.185,0.077],[0.209,0.0],[0.338,0.0],[0.049,0.0],[0.136,0.0],[0.338,0.0],[0.05,0.0],[0.108,0.0],[0.338,0.0],[0.338,1.0],[0.338,1.0],[0.244,0.833],[0.175,0.0],[0.102,0.0],[0.108,0.0],[0.105,0.0],[0.338,1.0],[0.095,0.0],[0.068,0.0],[0.338,1.0],[0.131,0.0],[0.17,0.088],[0.091,0.0],[0.174,0.094],[0.338,1.0],[0.109,0.0],[0.338,1.0],[0.153,0.086],[0.136,0.0],[0.338,1.0],[0.12,0.0],[0.338,1.0],[0.136,0.0],[0.108,0.0],[0.109,0.0],[0.074,0.0],[0.153,0.095],[0.154,0.0],[0.161,1.0],[0.15,0.0],[0.072,0.0],[0.077,1.0],[0.096,0.0],[0.338,1.0],[0.338,1.0],[0.153,0.043],[0.153,0.097],[0.184,0.071],[0.154,0.048],[0.338,0.0],[0.153,0.094],[0.338,1.0],[0.115,0.0],[0.101,0.0],[0.154,0.0],[0.338,1.0],[0.085,0.0],[0.174,0.05],[0.117,0.0],[0.338,1.0],[0.17,0.091],[0.17,0.091],[0.131,0.0],[0.196,0.0],[0.106,0.0],[0.104,0.0],[0.17,0.029],[0.174,0.091],[0.091,0.0],[0.111,0.0],[0.108,0.0],[0.143,0.0],[0.136,0.0],[0.096,0.0],[0.338,1.0],[0.108,0.0],[0.153,0.086],[0.106,0.0],[0.338,0.0],[0.153,0.095],[0.164,0.0],[0.338,1.0],[0.136,0.0],[0.098,0.0],[0.338,0.0],[0.068,0.0],[0.154,0.045],[0.338,1.0],[0.338,1.0],[0.196,0.0],[0.792,1.0],[0.154,0.0],[0.338,1.0],[0.153,0.053],[0.19,0.1],[0.356,1.0],[0.338,1.0],[0.338,1.0],[0.084,0.0],[0.121,0.0],[0.175,0.0],[0.193,0.1],[0.089,0.0],[0.104,0.0],[0.109,0.0],[0.105,0.0],[0.338,1.0],[0.07,0.0],[0.244,0.1],[0.136,0.0],[0.338,1.0],[0.17,0.081],[0.09,0.0],[0.195,0.812],[0.338,0.0],[0.288,0.0],[0.176,0.0],[0.091,0.0],[0.338,1.0],[0.106,0.0],[0.338,0.0],[0.091,0.0],[0.244,0.074],[0.187,0.0],[0.19,0.1],[0.338,1.0],[0.338,0.0],[0.154,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.109,0.0],[0.338,1.0],[0.153,0.088],[0.338,1.0],[0.184,0.091],[0.338,1.0],[0.12,0.0],[0.11,0.0],[0.674,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.071,0.0],[0.109,0.0],[0.244,0.083],[0.338,1.0],[0.06,0.0],[0.105,0.0],[0.068,0.0],[0.344,0.0],[0.338,1.0],[0.108,0.0],[0.185,0.059],[0.175,0.0],[0.071,0.0],[0.338,1.0],[0.119,0.0],[0.109,0.0],[0.116,0.0],[0.244,0.909],[0.17,0.091],[0.926,1.0],[0.17,0.038],[0.073,0.0],[0.109,0.0],[0.338,1.0],[0.07,0.0],[0.153,0.088],[0.338,1.0],[0.12,0.0],[0.338,1.0],[0.065,0.0],[0.338,1.0],[0.153,0.094],[0.17,0.091],[0.338,0.0],[0.153,0.067],[0.196,0.0],[0.338,1.0],[0.338,0.0],[0.07,0.0],[0.965,1.0],[0.176,0.905],[0.083,0.0],[0.171,0.0],[0.356,1.0],[0.123,0.0],[0.338,1.0],[0.107,0.0],[0.338,1.0],[0.153,0.086],[0.338,1.0],[0.121,0.0],[0.073,0.0],[0.154,0.0],[0.338,1.0],[0.151,0.037],[0.356,1.0],[0.492,0.0],[0.115,0.0],[0.056,0.0],[0.153,0.088],[0.125,0.0],[0.111,0.0],[0.142,0.0],[0.171,0.0],[0.154,0.0],[0.338,1.0],[0.184,0.091],[0.06,0.0],[0.153,0.053],[0.176,0.0],[0.185,0.048],[0.338,1.0],[0.111,0.0],[0.338,1.0],[0.217,0.0],[0.338,1.0],[0.338,1.0],[0.174,0.086],[0.196,0.0],[0.12,0.0],[0.195,0.812],[0.136,0.0],[0.153,0.059],[0.058,0.0],[0.396,1.0],[0.338,1.0],[0.17,0.098],[0.153,0.05],[0.133,0.0],[0.098,0.0],[0.109,0.0],[0.338,1.0],[0.093,0.0],[0.338,0.0],[0.356,1.0],[0.338,1.0],[0.108,0.0],[0.338,0.0],[0.136,0.0],[0.109,0.0],[0.338,0.0],[0.105,0.0],[0.338,1.0],[0.153,0.062],[0.338,0.0],[0.338,1.0],[0.153,0.1],[0.064,0.0],[0.171,0.0],[0.109,0.0],[0.194,0.0],[0.338,1.0],[0.117,0.0],[0.053,0.0],[0.244,0.952],[0.112,0.0],[0.153,0.091],[0.244,1.0],[0.174,0.1],[0.154,0.05],[0.153,0.056],[0.338,1.0],[0.151,0.905],[0.096,0.0],[0.073,0.0],[0.175,0.0],[0.338,1.0],[0.997,1.0],[0.338,0.0],[0.099,0.0],[0.338,0.0],[0.196,0.048],[0.111,0.0],[0.088,0.0],[0.338,1.0],[0.153,0.062],[0.132,0.04],[0.976,1.0],[0.338,1.0],[0.153,0.048],[0.174,0.1],[0.99,1.0],[0.175,0.0],[0.071,0.0],[0.195,0.875],[0.132,0.037],[0.096,0.0],[0.096,0.0],[0.043,0.0],[0.356,1.0],[0.194,0.0],[0.068,0.0],[0.153,0.043],[0.185,0.095],[0.17,0.045],[0.194,0.0],[0.153,0.094],[0.161,1.0],[0.117,0.0],[0.106,0.0],[0.154,0.0],[0.338,1.0],[0.136,0.0],[0.118,0.0],[0.153,0.091],[0.108,0.0],[0.338,1.0],[0.088,0.0],[0.175,0.0],[0.338,1.0],[0.153,0.091],[0.117,0.0],[0.151,0.0],[0.05,0.0],[0.338,1.0],[0.068,0.0],[0.088,0.0],[0.154,0.043],[0.244,0.097],[0.153,0.091],[0.087,0.0],[0.338,1.0],[0.175,0.0],[0.153,0.098],[0.117,0.0],[0.338,1.0],[0.153,0.056],[0.12,0.0],[0.154,0.0],[0.401,1.0],[0.338,1.0],[0.099,0.0],[0.244,1.0],[0.117,0.0],[0.105,0.0],[0.117,0.0],[0.185,0.095],[0.153,0.088],[0.136,0.0],[0.176,0.1],[0.123,0.0],[0.075,0.0],[0.196,0.0],[0.194,0.0],[0.244,0.083],[0.196,1.0],[0.149,0.0],[0.136,0.0],[0.338,1.0],[0.093,0.0],[0.818,0.995],[0.244,0.909],[0.153,0.086],[0.074,0.0],[0.338,1.0],[0.08,0.0],[0.17,0.078],[0.098,0.0],[0.07,0.0],[0.074,0.0],[0.338,1.0],[0.338,1.0],[0.153,0.1],[0.088,0.0],[0.338,0.0],[0.196,0.0],[0.112,0.0],[0.17,0.867],[0.185,0.077],[0.073,0.0],[0.338,1.0],[0.105,0.0],[0.093,0.0],[0.115,0.0],[0.154,0.0],[0.105,0.0],[0.077,0.0],[0.096,0.0],[0.479,1.0],[0.338,1.0],[0.338,1.0],[0.171,0.0],[0.196,1.0],[0.136,0.0],[0.073,0.0],[0.153,0.077],[0.108,0.0],[0.195,0.81],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.154,0.053],[0.174,0.097],[0.833,1.0],[0.105,0.0],[0.068,0.0],[0.105,0.0],[0.136,0.0],[0.171,0.0],[0.112,0.0],[0.338,1.0],[0.109,0.0],[0.338,1.0],[0.244,0.87],[0.148,0.0],[0.396,0.0],[0.154,0.0],[0.151,0.043],[0.153,0.045],[0.175,0.0],[0.151,0.833],[0.153,0.086],[0.151,0.857],[0.846,1.0],[0.044,0.0],[0.154,0.048],[0.175,0.0],[0.079,0.0],[0.244,0.909],[0.151,0.905],[0.089,0.0],[0.338,1.0],[0.338,1.0],[0.196,0.048],[0.06,0.0],[0.153,1.0],[0.078,0.0],[0.175,0.0],[0.338,1.0],[0.153,0.05],[0.194,0.0],[0.338,1.0],[0.103,0.0],[0.101,0.0],[0.153,0.077],[0.153,0.094],[0.338,0.0],[0.175,0.0],[0.171,0.0],[0.338,1.0],[0.111,0.0],[0.185,0.08],[0.185,0.095],[0.244,0.074],[0.338,1.0],[0.136,0.0],[0.338,1.0],[0.792,1.0],[0.517,0.0],[0.091,0.0],[0.153,0.083],[0.338,1.0],[0.338,0.0],[0.151,0.864],[0.105,0.0],[0.06,0.0],[0.244,1.0],[0.12,0.0],[0.244,1.0],[0.171,0.0],[0.115,0.0],[0.109,0.0],[0.136,0.0],[0.46,1.0],[0.338,1.0],[0.153,0.088],[0.115,0.0],[0.153,0.091],[0.338,1.0],[0.338,1.0],[0.101,0.0],[0.115,0.0],[0.338,1.0],[0.338,1.0],[0.153,0.098],[0.195,0.867],[0.12,0.0],[0.162,0.0],[0.151,0.826],[0.184,0.091],[0.244,0.833],[0.144,0.0],[0.097,0.0],[0.11,0.0],[0.151,0.864],[0.338,1.0],[0.338,1.0],[0.17,0.088],[0.115,0.0],[0.068,0.0],[0.338,1.0],[0.194,0.0],[0.338,1.0],[0.096,0.0],[0.093,0.0],[0.108,0.0],[0.058,0.0],[0.07,0.0],[0.338,1.0],[0.244,0.083],[0.196,0.0],[0.175,0.0],[0.148,0.0],[0.338,0.0],[0.153,0.094],[0.17,0.088],[0.338,1.0],[0.338,1.0],[0.151,0.808],[0.108,0.0],[0.075,0.0],[0.08,0.0],[0.176,0.917],[0.068,0.0],[0.091,0.0],[0.059,0.0],[0.17,0.091],[0.153,0.091],[0.105,0.0],[0.338,1.0],[0.338,0.0],[0.098,0.0],[0.154,0.0],[0.244,0.909],[0.143,0.0],[0.071,0.0],[0.105,0.0],[0.205,0.062],[0.075,0.0],[0.338,1.0],[0.105,0.0],[0.356,1.0],[0.153,0.095],[0.338,1.0],[0.154,0.0],[0.117,0.0],[0.153,0.1],[0.105,0.0],[0.338,1.0],[0.338,0.0],[0.17,0.1],[0.074,0.0],[0.089,0.0],[0.174,0.082],[0.338,0.0],[0.108,0.0],[0.154,0.0],[0.109,0.0],[0.338,0.0],[0.176,0.812],[0.071,0.0],[0.338,0.0],[0.12,0.0],[0.184,0.091],[0.154,0.045],[0.244,0.05],[0.338,1.0],[0.071,0.0],[0.153,0.05],[0.338,1.0],[0.153,0.05],[0.097,0.0],[0.175,0.0],[0.338,1.0],[0.086,0.0],[0.114,0.0],[0.348,0.0],[0.338,1.0],[0.105,0.0],[0.338,1.0],[0.17,0.05],[0.244,0.833],[0.17,0.1],[0.153,0.095],[0.153,0.083],[0.17,0.091],[0.17,0.094],[0.11,0.0],[0.086,0.0],[0.338,1.0],[0.109,0.0],[0.105,0.0],[0.154,0.0],[0.088,0.0],[0.111,0.0],[0.338,0.0],[0.338,1.0],[0.153,0.062],[0.115,0.0],[0.136,0.0],[0.308,0.0],[0.846,1.0],[0.123,0.0],[0.153,0.053],[0.338,1.0],[0.642,0.0],[0.07,0.0],[0.171,0.0],[0.136,0.0],[0.338,1.0],[0.154,0.0],[0.195,0.944],[0.194,0.0],[0.088,0.0],[0.244,0.094],[0.193,0.083],[0.338,1.0],[0.194,0.0],[0.17,0.091],[0.356,1.0],[0.154,0.0],[0.338,1.0],[0.11,0.0],[0.153,0.091],[0.115,0.0],[0.185,0.077],[0.176,1.0],[0.338,1.0],[0.07,0.0],[0.074,0.0],[0.17,0.091],[0.154,0.0],[0.338,1.0],[0.07,0.0],[0.103,0.0],[0.338,0.0],[0.175,0.0],[0.338,1.0],[0.338,1.0],[0.069,0.0],[0.338,1.0],[0.338,1.0],[0.103,0.0],[0.184,0.091],[0.075,0.0],[0.153,0.088],[0.123,0.0],[0.068,0.0],[0.356,1.0],[0.105,0.0],[0.153,0.095],[0.193,0.056],[0.31,0.0],[0.96,1.0],[0.153,0.094],[0.073,0.0],[0.338,1.0],[0.338,1.0],[0.106,0.0],[0.338,0.0],[0.12,0.1],[0.154,0.045],[0.074,0.0],[0.115,0.0],[0.338,1.0],[0.338,1.0],[0.095,0.0],[0.108,0.0],[0.338,1.0],[0.136,0.0],[0.154,0.0],[0.136,0.0],[0.106,0.0],[0.338,1.0],[0.105,0.0],[0.338,0.0],[0.338,1.0],[0.121,0.091],[0.105,0.0],[0.153,0.098],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.153,0.1],[0.17,0.038],[0.079,0.0],[0.121,0.0],[0.338,1.0],[0.112,0.0],[0.12,0.0],[0.109,0.0],[0.193,0.067],[0.136,0.0],[0.12,0.0],[0.153,0.045],[0.115,0.0],[0.096,0.0],[0.12,0.0],[0.127,0.0],[0.153,0.083],[0.308,0.0],[0.338,1.0],[0.356,1.0],[0.136,0.0],[0.033,0.0],[0.153,0.043],[0.109,0.0],[0.068,0.0],[0.109,0.0],[0.111,0.0],[0.244,1.0],[0.153,0.091],[0.338,1.0],[0.154,0.043],[0.338,1.0],[0.115,0.0],[0.101,0.0],[0.105,0.0],[0.12,0.0],[0.068,0.0],[0.338,1.0],[0.338,1.0],[0.338,0.0],[0.175,0.0],[0.106,0.0],[0.112,0.0],[0.338,1.0],[0.338,1.0],[0.154,0.045],[0.338,1.0],[0.338,1.0],[0.14,0.0],[0.244,1.0],[0.074,0.0],[0.136,0.0],[0.338,0.0],[0.153,0.094],[0.108,0.0],[0.07,0.0],[0.115,0.0],[0.115,0.0],[0.106,0.0],[0.085,0.0],[0.153,0.087],[0.093,0.0],[0.154,0.048],[0.153,0.062],[0.153,0.067],[0.17,0.091],[0.338,1.0],[0.396,1.0],[0.077,0.0],[0.105,0.0],[0.105,0.0],[0.17,0.088],[0.154,0.0],[0.153,0.05],[0.338,1.0],[0.338,1.0],[0.123,0.0],[0.338,1.0],[0.656,1.0],[0.114,0.0],[0.151,0.864],[0.154,0.0],[0.153,0.088],[0.216,0.812],[0.107,0.0],[0.338,1.0],[0.096,0.0],[0.848,0.0],[0.161,0.1],[0.136,0.0],[0.083,0.0],[0.338,1.0],[0.792,1.0],[0.338,1.0],[0.338,1.0],[0.335,0.0],[0.109,0.0],[0.11,0.0],[0.338,0.0],[0.115,0.0],[0.153,0.053],[0.136,0.0],[0.338,1.0],[0.082,0.0],[0.174,0.1],[0.338,1.0],[0.338,1.0],[0.154,0.0],[0.153,0.091],[0.153,0.078],[0.105,0.0],[0.108,0.0],[0.072,0.0],[0.106,0.0],[0.111,0.0],[0.196,0.05],[0.091,0.0],[0.338,1.0],[0.068,0.0],[0.154,0.045],[0.244,1.0],[0.154,0.053],[0.136,0.0],[0.338,1.0],[0.12,0.0],[0.17,0.094],[0.141,0.0],[0.338,0.0],[0.095,0.0],[0.338,1.0],[0.073,0.0],[0.338,1.0],[0.244,0.952],[0.088,0.0],[0.12,0.0],[0.107,0.0],[0.108,0.0],[0.338,1.0],[0.338,1.0],[0.196,0.0],[0.371,0.0],[0.07,0.0],[0.338,1.0],[0.356,1.0],[0.115,0.0],[0.141,0.0],[0.338,1.0],[0.153,0.056],[0.136,0.0],[0.127,0.0],[0.17,0.097],[0.338,1.0],[0.338,1.0],[0.338,0.0],[0.356,1.0],[0.338,1.0],[0.338,1.0],[0.115,0.0],[0.105,0.0],[0.174,0.098],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.122,0.0],[0.356,1.0],[0.338,1.0],[0.338,1.0],[0.112,0.0],[0.186,0.0],[0.338,1.0],[0.153,0.053],[0.105,0.0],[0.338,0.0],[0.244,0.864],[0.244,0.05],[0.067,0.0],[0.244,0.8],[0.121,0.083],[0.338,0.0],[0.338,0.0],[0.17,0.091],[0.171,0.0],[0.17,0.053],[0.078,0.0],[0.205,0.067],[0.134,0.0],[0.17,0.079],[0.101,0.0],[0.049,0.0],[0.153,0.095],[0.077,1.0],[0.244,0.87],[0.338,1.0],[0.175,0.0],[0.071,0.0],[0.136,0.0],[0.174,0.1],[0.071,0.0],[0.073,0.0],[0.338,0.0],[0.338,1.0],[0.114,0.0],[0.338,1.0],[0.175,0.0],[0.161,1.0],[0.088,0.0],[0.209,0.0],[0.05,0.0],[0.115,0.0],[0.051,0.0],[0.109,0.0],[0.07,0.0],[0.106,0.0],[0.194,0.0],[0.053,0.0],[0.153,0.095],[0.195,0.091],[0.07,0.0],[0.153,0.091],[0.171,0.0],[0.106,0.0],[0.073,0.0],[0.338,0.0],[0.151,0.826],[0.338,1.0],[0.356,0.0],[0.153,0.867],[0.175,0.0],[0.104,0.0],[0.244,0.913],[0.356,1.0],[0.154,0.0],[0.216,0.8],[0.338,0.0],[0.584,0.0],[0.095,0.0],[0.13,0.0],[0.153,0.091],[0.153,0.08],[0.338,1.0],[0.338,1.0],[0.176,0.0],[0.174,0.1],[0.338,0.0],[0.338,0.0],[0.338,1.0],[0.338,0.0],[0.185,0.091],[0.136,0.0],[0.338,0.0],[0.244,0.826],[0.153,0.1],[0.075,0.0],[0.185,0.077],[0.338,1.0],[0.338,1.0],[0.154,0.0],[0.244,1.0],[0.338,1.0],[0.12,0.0],[0.105,0.0],[0.17,0.091],[0.104,0.0],[0.153,0.091],[0.105,0.0],[0.17,0.1],[0.175,0.0],[0.07,0.0],[0.065,0.0],[0.153,0.097],[0.109,0.0],[0.091,0.0],[0.069,0.0],[0.338,1.0],[0.175,0.0],[0.14,0.0],[0.108,0.0],[0.194,0.0],[0.194,0.0],[0.101,0.0],[0.125,0.0],[0.105,0.0],[0.17,0.091],[0.244,0.1],[0.338,1.0],[0.153,0.059],[0.195,0.8],[0.338,1.0],[0.112,0.0],[0.338,0.0],[0.338,0.0],[0.109,0.0],[0.104,0.0],[0.171,0.0],[0.104,0.0],[0.108,0.0],[0.176,0.867],[0.071,0.0],[0.068,0.0],[0.081,0.0],[0.128,0.0],[0.153,0.043],[0.153,0.082],[0.151,0.1],[0.338,1.0],[0.338,1.0],[0.17,0.081],[0.244,0.833],[0.338,1.0],[0.154,0.0],[0.106,0.0],[0.103,0.0],[0.151,0.864],[0.338,1.0],[0.321,0.0],[0.17,0.1],[0.106,0.0],[0.154,0.045],[0.109,0.0],[0.154,0.045],[0.338,1.0],[0.097,0.0],[0.124,0.0],[0.244,0.955],[0.176,0.812],[0.153,0.062],[0.338,1.0],[0.194,0.0],[0.338,1.0],[0.105,0.0],[0.338,1.0],[0.338,1.0],[0.073,0.0],[0.12,0.0],[0.56,0.0],[0.154,0.045],[0.338,1.0],[0.338,1.0],[0.082,0.0],[0.175,0.0],[0.338,0.0],[0.115,0.0],[0.185,0.1],[0.174,0.094],[0.096,0.0],[0.153,0.05],[0.338,1.0],[0.127,0.0],[0.381,0.0],[0.153,0.094],[0.128,0.0],[0.12,0.0],[0.109,0.0],[0.105,0.0],[0.338,1.0],[0.079,0.0],[0.769,1.0],[0.154,0.045],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.153,0.053],[0.17,0.094],[0.117,0.0],[0.338,1.0],[0.174,0.056],[0.193,0.094],[0.175,0.0],[0.338,1.0],[0.105,0.0],[0.107,0.0],[0.195,0.812],[0.099,0.0],[0.124,0.0],[0.091,0.0],[0.092,0.0],[0.338,1.0],[0.338,1.0],[0.12,0.0],[0.338,1.0],[0.396,1.0],[0.074,0.0],[0.12,0.0],[0.175,0.0],[0.205,0.087],[0.338,1.0],[0.073,0.0],[0.734,1.0],[0.12,0.0],[0.107,0.0],[0.338,1.0],[0.067,0.0],[0.338,1.0],[0.067,0.0],[0.082,0.0],[0.098,0.0],[0.17,0.094],[0.12,0.0],[0.108,0.0],[0.338,1.0],[0.17,0.098],[0.153,0.094],[0.338,1.0],[0.194,0.0],[0.338,1.0],[0.153,0.812],[0.075,0.0],[0.338,1.0],[0.338,1.0],[0.115,0.0],[0.1,0.0],[0.154,0.0],[0.117,0.0],[0.109,0.0],[0.136,0.0],[0.196,0.0],[0.338,1.0],[0.17,0.042],[0.101,0.0],[0.11,0.0],[0.926,1.0],[0.338,1.0],[0.396,1.0],[0.338,1.0],[0.175,0.0],[0.121,0.091],[0.057,0.0],[0.338,1.0],[0.194,0.0],[0.148,0.0],[0.153,0.1],[0.099,0.0],[0.244,1.0],[0.134,0.0],[0.151,0.8],[0.12,0.1],[0.071,0.0],[0.364,1.0],[0.117,0.0],[0.338,1.0],[0.338,1.0],[0.064,0.0],[0.195,0.867],[0.338,1.0],[0.136,0.0],[0.338,0.0],[0.338,0.0],[0.153,0.097],[0.106,0.0],[0.115,0.0],[0.116,0.037],[0.338,1.0],[0.154,0.0],[0.338,1.0],[0.338,1.0],[0.338,1.0],[0.154,0.048],[0.338,1.0],[0.469,0.0],[0.105,0.0],[0.11,0.0],[0.338,1.0],[0.154,0.053],[0.105,0.0],[0.117,0.0],[0.112,0.0],[0.792,1.0],[0.175,0.0],[0.108,0.0],[0.154,0.0],[0.174,0.094],[0.17,0.091],[0.153,0.095],[0.136,0.0],[0.058,0.0],[0.16,0.0],[0.338,1.0],[0.244,0.833],[0.089,0.0],[0.153,0.1],[0.108,0.0],[0.105,0.0],[0.54,0.0],[0.123,0.0],[0.338,1.0],[0.082,0.0],[0.174,0.094],[0.161,0.083],[0.109,0.0],[0.154,0.0],[0.46,1.0],[0.154,0.0],[0.338,1.0],[0.112,0.0],[0.106,0.0],[0.048,0.0],[0.07,0.0],[0.098,0.0],[0.105,0.0],[0.17,0.094],[0.089,0.0],[0.193,0.1],[0.151,0.905],[0.175,0.0],[0.338,1.0],[0.244,0.048],[0.338,1.0],[0.093,0.0],[0.194,0.0],[0.153,0.088],[0.105,0.0],[0.205,0.091],[0.071,0.0],[0.338,1.0],[0.17,0.083],[0.154,0.0],[0.338,1.0],[0.09,0.0],[0.194,0.0],[0.151,0.905],[0.338,1.0],[0.153,0.053],[0.101,0.0],[0.244,0.048],[0.17,0.08],[0.109,0.0],[0.195,0.85],[0.338,1.0],[0.053,0.0],[0.196,0.0],[0.17,0.1],[0.088,0.0],[0.672,0.0],[0.127,0.0],[0.098,0.0],[0.244,0.094],[0.093,0.0],[0.151,1.0],[0.12,0.0],[0.109,0.0],[0.338,1.0],[0.195,0.842],[0.111,0.0],[0.153,0.094],[0.338,1.0],[0.109,0.0],[0.205,0.1],[0.153,0.094],[0.384,1.0],[0.12,0.0],[0.109,0.0],[0.136,0.0],[0.053,0.0],[0.498,1.0],[0.338,1.0],[0.338,0.0],[0.176,0.917],[0.107,0.0],[0.091,0.0],[0.088,0.0],[0.111,0.0],[0.108,0.0],[0.144,0.0],[0.153,0.1],[0.185,0.062],[0.338,0.0],[0.111,0.0],[0.194,0.0],[0.091,0.0],[1.0,1.0],[0.171,0.0],[0.108,0.0],[0.154,0.0],[0.17,0.1],[0.07,0.0],[0.244,0.875],[0.338,0.0],[0.338,1.0],[0.076,0.0],[0.338,1.0],[0.244,0.8],[0.136,0.0],[0.174,0.1],[0.12,0.0],[0.244,0.87],[0.244,0.094],[0.096,0.0],[0.117,0.0],[0.196,0.0],[0.209,0.0],[0.174,0.1],[0.17,0.094],[0.338,1.0],[0.151,1.0],[0.338,1.0],[0.154,0.0]],"examples":[{"anchor":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdf:type  ?field\n  }","anchor_answers":14,"text_rank_of_first_match":3,"n_relevant":13,"candidates":[{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              dbpo:abstract  ?field\n  }","tfidf":0.881,"J":0.0,"rank":1,"answers":4,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdfs:comment  ?field\n  }","tfidf":0.851,"J":0.0,"rank":2,"answers":4,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Martin_Dimitrov\n              rdf:type  ?field\n  }","tfidf":0.195,"J":0.812,"rank":3,"answers":15,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Ewa_Klamt\n              rdf:type  ?field\n  }","tfidf":0.195,"J":null,"rank":4,"answers":22,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Marcello_Vernola\n              rdf:type  ?field\n  }","tfidf":0.195,"J":null,"rank":5,"answers":19,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Panayiotis_Demetriou\n              rdf:type  ?field\n  }","tfidf":0.195,"J":0.867,"rank":10,"answers":14,"best":true}]},{"anchor":"SELECT  ?rng\nWHERE\n  { dbpo:militaryBranch\n              rdfs:range  ?rng\n  }","anchor_answers":1,"text_rank_of_first_match":222,"n_relevant":13,"candidates":[{"q":"SELECT  ?field\nWHERE\n  { dbpr:Benedetto_Della_Vedova\n              rdfs:comment  ?field\n  }","tfidf":0.189,"J":0.0,"rank":1,"answers":6,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Leonardo_Domenici\n              rdfs:comment  ?field\n  }","tfidf":0.189,"J":0.0,"rank":2,"answers":6,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Dan_J\u00f8rgensen\n              rdfs:comment  ?field\n  }","tfidf":0.189,"J":0.0,"rank":3,"answers":9,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Maurice_Ponga\n              rdfs:comment  ?field\n  }","tfidf":0.189,"J":0.0,"rank":4,"answers":4,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Army  rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.077,"J":1.0,"rank":222,"answers":1,"best":true}]},{"anchor":"SELECT  ?t\nWHERE\n  { :Siberia  rdf:type  ?t }","anchor_answers":19,"text_rank_of_first_match":272,"n_relevant":1,"candidates":[{"q":"SELECT  ?t\nWHERE\n  { :Nobility  rdf:type  ?t }","tfidf":0.244,"J":0.05,"rank":1,"answers":2,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Kim_Min-jong\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.077,"rank":2,"answers":37,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :South_Jeolla_Province\n              rdf:type  ?t\n  }","tfidf":0.244,"J":null,"rank":3,"answers":22,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Deokjin-gu  rdf:type  ?t }","tfidf":0.244,"J":null,"rank":4,"answers":21,"best":false},{"q":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Inahuaya_District\n              rdf:type  ?type\n  }","tfidf":0.151,"J":0.81,"rank":272,"answers":19,"best":true}]},{"anchor":"SELECT  ?t\nWHERE\n  { :Maggie_Wu  rdf:type  ?t }","anchor_answers":11,"text_rank_of_first_match":239,"n_relevant":3,"candidates":[{"q":"SELECT  ?t\nWHERE\n  { :Deokjin-gu  rdf:type  ?t }","tfidf":0.244,"J":null,"rank":1,"answers":21,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :South_Chungcheong_Province\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.1,"rank":2,"answers":22,"best":false},{"q":"SELECT  ?t\nWHERE\n  { <http://dbpedia.org/resource/Conductor_(music)>\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.0,"rank":3,"answers":2,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Sasang_District\n              rdf:type  ?t\n  }","tfidf":0.244,"J":null,"rank":4,"answers":21,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Nikolaos_Salavrakos\n              rdf:type  ?field\n  }","tfidf":0.153,"J":1.0,"rank":239,"answers":11,"best":true}]},{"anchor":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              dbpo:abstract  ?field\n  }","anchor_answers":4,"text_rank_of_first_match":2,"n_relevant":1,"candidates":[{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdf:type  ?field\n  }","tfidf":0.881,"J":0.0,"rank":1,"answers":14,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdfs:comment  ?field\n  }","tfidf":0.792,"J":1.0,"rank":2,"answers":4,"best":true},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Dan_J\u00f8rgensen\n              dbpo:abstract  ?field\n  }","tfidf":0.304,"J":0.0,"rank":3,"answers":9,"best":false},{"q":"SELECT  ?field\nWHERE\n  { <http://dbpedia.org/resource/Giuseppe_Castiglione_(politician)>\n              dbpo:abstract  ?field\n  }","tfidf":0.304,"J":0.0,"rank":4,"answers":4,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Maurice_Ponga\n              dbpo:abstract  ?field\n  }","tfidf":0.304,"J":0.0,"rank":5,"answers":4,"best":false}]},{"anchor":"SELECT  ?t\nWHERE\n  { :Lee_Jae-oh  rdf:type  ?t }","anchor_answers":14,"text_rank_of_first_match":46,"n_relevant":13,"candidates":[{"q":"SELECT  ?t\nWHERE\n  { <http://dbpedia.org/resource/Doom_(1993_video_game)>\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.0,"rank":1,"answers":8,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Philosopher  rdf:type  ?t }","tfidf":0.244,"J":0.0,"rank":2,"answers":2,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Jongno_District\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.091,"rank":3,"answers":22,"best":false},{"q":"SELECT  ?t\nWHERE\n  { <http://dbpedia.org/resource/Sansei_Kawaii!>\n              rdf:type  ?t\n  }","tfidf":0.244,"J":0.0,"rank":4,"answers":20,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Panayiotis_Demetriou\n              rdf:type  ?field\n  }","tfidf":0.17,"J":0.867,"rank":46,"answers":14,"best":true}]},{"anchor":"SELECT  ?p ?o\nWHERE\n  { dbpr:Smartphone\n              ?p  ?o\n  }","anchor_answers":1058,"text_rank_of_first_match":370,"n_relevant":2,"candidates":[{"q":"SELECT  ?s ?p ?o\nWHERE\n  { dbpr:The_Shawshank_Redemption\n              ?p  ?o\n  }","tfidf":0.184,"J":0.0,"rank":1,"answers":617,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Georg_Jarzembowski\n              rdf:type  ?field\n  }","tfidf":0.168,"J":0.0,"rank":2,"answers":22,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Kurt_Joachim_Lauk\n              rdf:type  ?field\n  }","tfidf":0.168,"J":0.0,"rank":3,"answers":17,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Joachim_Zeller\n              rdf:type  ?field\n  }","tfidf":0.168,"J":0.0,"rank":4,"answers":33,"best":false},{"q":"SELECT  *\nWHERE\n  { :Smartphone  ?r  ?p }","tfidf":0.121,"J":1.0,"rank":370,"answers":1058,"best":true}]},{"anchor":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdfs:comment  ?field\n  }","anchor_answers":4,"text_rank_of_first_match":2,"n_relevant":1,"candidates":[{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              rdf:type  ?field\n  }","tfidf":0.851,"J":0.0,"rank":1,"answers":14,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Hella_Ranner\n              dbpo:abstract  ?field\n  }","tfidf":0.792,"J":1.0,"rank":2,"answers":4,"best":true},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Leonardo_Domenici\n              rdfs:comment  ?field\n  }","tfidf":0.353,"J":0.0,"rank":3,"answers":6,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Dan_J\u00f8rgensen\n              rdfs:comment  ?field\n  }","tfidf":0.353,"J":0.0,"rank":4,"answers":9,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Maurice_Ponga\n              rdfs:comment  ?field\n  }","tfidf":0.353,"J":0.0,"rank":5,"answers":4,"best":false}]},{"anchor":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Bilecik_Province\n              rdf:type  ?type\n  }","anchor_answers":24,"text_rank_of_first_match":235,"n_relevant":14,"candidates":[{"q":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Kindness\n              rdf:type  ?type\n  }","tfidf":0.21,"J":0.04,"rank":1,"answers":2,"best":false},{"q":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Boy  rdf:type  ?type }","tfidf":0.21,"J":0.04,"rank":2,"answers":2,"best":false},{"q":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Girl  rdf:type  ?type }","tfidf":0.21,"J":0.04,"rank":3,"answers":2,"best":false},{"q":"SELECT DISTINCT  ?type\nWHERE\n  { dbpr:Woman  rdf:type  ?type }","tfidf":0.21,"J":0.038,"rank":4,"answers":3,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Jungwon-gu  rdf:type  ?t }","tfidf":0.151,"J":0.8,"rank":235,"answers":21,"best":false},{"q":"SELECT  ?t\nWHERE\n  { :Seodaemun_District\n              rdf:type  ?t\n  }","tfidf":0.151,"J":0.875,"rank":246,"answers":21,"best":true}]},{"anchor":"SELECT  ?field\nWHERE\n  { dbpr:Francisco_Assis\n              dbprop:profession  ?field\n  }","anchor_answers":1,"text_rank_of_first_match":4,"n_relevant":3,"candidates":[{"q":"SELECT  ?field\nWHERE\n  { dbpr:Roberta_Angelilli\n              dbprop:profession  ?field\n  }","tfidf":0.526,"J":0.0,"rank":1,"answers":1,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Marco_Rizzo\n              dbprop:profession  ?field\n  }","tfidf":0.519,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Andrey_Kovatchev\n              dbprop:profession  ?field\n  }","tfidf":0.498,"J":0.0,"rank":3,"answers":1,"best":false},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Anne_Ferreira\n              dbprop:profession  ?field\n  }","tfidf":0.479,"J":1.0,"rank":4,"answers":1,"best":true},{"q":"SELECT  ?field\nWHERE\n  { dbpr:Edite_Estrela\n              dbprop:profession  ?field\n  }","tfidf":0.479,"J":1.0,"rank":5,"answers":1,"best":false}]},{"anchor":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Computer_cluster\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","anchor_answers":1,"text_rank_of_first_match":1,"n_relevant":114,"candidates":[{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Entertainment\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.356,"J":1.0,"rank":1,"answers":1,"best":true},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:New_Edge\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Computer_architecture\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":1.0,"rank":3,"answers":1,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Aircraft_engine\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":0.0,"rank":4,"answers":1,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Future  rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":1.0,"rank":5,"answers":1,"best":false}]},{"anchor":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Electricity\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","anchor_answers":1,"text_rank_of_first_match":1,"n_relevant":114,"candidates":[{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Entertainment\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.356,"J":1.0,"rank":1,"answers":1,"best":true},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Skill  rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":null,"rank":2,"answers":2,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Data_compression\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":1.0,"rank":3,"answers":1,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Cyberpunk\n              rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":1.0,"rank":4,"answers":1,"best":false},{"q":"SELECT DISTINCT  *\nWHERE\n  { dbpr:Sabbath  rdf:type  ?owl .\n    ?owl      rdf:type  owl:Class\n  }","tfidf":0.338,"J":0.0,"rank":5,"answers":1,"best":false}]}]},"wikidata":{"graph":"wikidata","test_queries":968,"test_anchors":842,"stored_pairs":20333,"tfidf_hits1_complete":0.365,"tfidf_spearman":0.607,"scatter":[[0.399,0.045],[0.063,0.0],[0.072,0.0],[0.993,1.0],[0.399,0.083],[0.725,1.0],[0.119,0.0],[0.068,0.0],[0.132,0.0],[0.108,0.0],[0.399,0.1],[0.205,0.091],[0.399,0.044],[0.091,0.0],[0.055,0.0],[0.073,0.0],[0.064,0.0],[0.053,0.0],[0.11,0.0],[0.093,0.0],[0.106,0.0],[0.115,1.0],[0.054,0.0],[0.117,1.0],[0.044,0.001],[0.296,0.0],[0.146,0.0],[0.939,1.0],[0.09,0.0],[0.118,1.0],[0.088,0.0],[0.21,0.0],[0.041,0.0],[0.216,1.0],[0.4,0.0],[0.399,0.077],[0.399,0.075],[0.119,1.0],[0.121,1.0],[0.12,0.0],[0.399,0.844],[0.071,0.0],[0.166,0.0],[0.111,0.0],[0.166,0.857],[0.123,0.0],[0.121,0.0],[0.061,0.0],[0.011,0.0],[0.175,0.0],[0.069,0.0],[0.113,1.0],[0.034,0.0],[0.192,0.038],[0.056,0.0],[0.062,0.0],[0.318,0.0],[0.399,0.032],[0.104,0.0],[0.062,0.0],[0.262,0.0],[0.067,0.0],[0.106,0.0],[0.122,0.0],[0.23,0.0],[0.062,0.0],[0.33,0.0],[0.047,0.0],[0.725,1.0],[0.244,1.0],[0.119,0.0],[0.072,0.0],[0.052,0.0],[0.064,0.0],[0.073,0.0],[0.068,0.0],[0.317,0.0],[0.113,0.0],[0.47,0.045],[0.072,0.0],[0.119,0.0],[0.126,0.0],[0.085,0.0],[0.067,0.0],[0.083,0.0],[0.399,0.061],[0.174,0.0],[0.125,0.0],[0.116,1.0],[0.064,0.0],[0.399,0.814],[0.399,0.088],[0.399,0.083],[0.158,0.0],[0.107,0.0],[0.399,0.038],[0.12,0.0],[0.47,0.044],[0.127,0.0],[0.123,1.0],[0.083,0.0],[0.121,0.0],[0.111,0.0],[0.923,1.0],[0.132,0.0],[0.07,0.0],[0.029,0.0],[0.688,1.0],[0.027,0.0],[0.081,0.0],[0.119,0.0],[0.061,0.0],[0.209,0.0],[0.399,0.091],[0.027,0.0],[0.158,0.0],[0.058,0.0],[0.047,0.0],[0.25,0.0],[0.063,0.0],[0.427,0.078],[0.399,0.848],[0.05,0.0],[0.073,0.0],[0.115,0.0],[0.114,0.0],[0.07,0.0],[0.117,0.0],[0.1,0.0],[0.174,0.0],[0.131,0.0],[0.115,1.0],[0.436,0.0],[0.097,0.0],[0.061,0.0],[0.174,0.0],[0.16,0.0],[0.071,0.0],[0.969,1.0],[0.337,0.0],[0.029,0.0],[0.399,0.091],[0.075,0.0],[0.22,0.0],[0.108,0.0],[0.399,0.096],[0.107,0.0],[0.05,0.0],[0.799,0.024],[0.108,0.0],[0.094,0.0],[0.399,0.8],[0.065,0.0],[0.46,0.062],[0.092,0.0],[0.126,0.0],[0.636,0.0],[0.094,0.0],[0.077,0.0],[0.192,0.0],[1.0,1.0],[0.115,0.0],[0.11,0.0],[0.057,0.0],[0.043,0.0],[0.028,0.0],[0.399,0.875],[0.399,0.066],[0.417,0.089],[0.072,0.0],[0.093,0.0],[0.333,0.0],[0.125,0.0],[0.399,0.094],[0.071,0.0],[0.112,0.0],[0.122,0.0],[0.084,0.0],[0.123,0.0],[0.064,0.0],[0.217,0.0],[0.725,1.0],[0.399,0.867],[0.071,0.0],[0.399,0.033],[0.063,0.0],[0.115,0.0],[0.063,0.0],[0.113,1.0],[0.399,0.073],[0.099,0.0],[0.993,1.0],[0.122,0.0],[0.399,0.058],[0.113,0.0],[0.11,1.0],[0.055,0.0],[0.09,0.0],[0.03,0.0],[0.115,0.0],[0.115,0.0],[0.044,0.0],[0.058,0.0],[0.323,0.0],[0.067,0.0],[0.49,0.062],[0.725,1.0],[0.273,0.0],[0.148,0.0],[0.609,1.0],[0.399,0.8],[0.344,0.0],[0.069,0.0],[0.399,0.083],[0.104,0.0],[0.06,0.0],[0.121,0.0],[0.112,1.0],[0.064,0.0],[0.113,0.0],[0.094,0.0],[0.216,0.0],[0.056,0.0],[0.124,0.0],[0.126,0.0],[0.064,0.0],[0.048,0.0],[0.092,0.0],[0.073,0.0],[0.399,0.037],[0.085,0.0],[0.05,0.0],[0.06,0.0],[0.317,0.0],[0.399,0.071],[0.435,0.088],[0.759,0.048],[0.399,0.1],[0.897,0.019],[0.043,0.0],[0.064,0.0],[0.091,0.0],[0.055,0.0],[0.106,1.0],[0.11,0.0],[0.427,0.09],[0.1,0.0],[0.067,0.0],[0.318,0.0],[0.143,0.0],[0.164,0.0],[0.725,1.0],[0.033,0.0],[0.399,0.049],[0.068,0.0],[0.156,0.0],[0.082,0.0],[0.417,0.059],[0.399,0.086],[0.065,0.0],[0.124,0.0],[0.132,0.0],[0.073,0.0],[0.103,0.0],[0.071,0.0],[0.027,0.0],[0.08,0.0],[0.117,0.0],[0.399,0.093],[0.049,0.0],[0.103,0.0],[0.078,0.0],[0.034,0.0],[0.089,0.0],[0.105,0.0],[0.036,0.0],[0.399,0.083],[0.067,0.0],[0.163,0.0],[0.033,0.0],[0.124,1.0],[0.059,0.0],[0.088,0.0],[0.085,0.0],[0.104,0.0],[0.078,0.0],[0.117,0.0],[0.07,0.0],[0.101,0.0],[0.167,0.0],[0.113,0.0],[0.105,0.0],[0.435,0.044],[0.047,0.0],[0.399,0.829],[0.243,0.0],[0.939,0.019],[0.082,0.0],[0.399,0.857],[0.147,0.0],[0.417,0.08],[0.399,0.091],[0.109,1.0],[0.069,0.0],[0.725,1.0],[0.055,0.0],[0.975,1.0],[0.399,0.095],[0.399,0.057],[0.264,0.0],[0.11,0.0],[0.985,1.0],[0.147,0.0],[0.116,0.0],[0.112,0.0],[0.475,0.808],[0.091,0.0],[0.105,0.0],[0.063,0.0],[0.062,0.0],[0.068,0.0],[0.119,0.0],[0.5,0.0],[0.272,0.0],[0.469,0.0],[0.399,0.093],[0.111,1.0],[0.148,0.0],[0.905,0.019],[0.113,0.0],[0.055,0.0],[0.399,0.08],[0.032,0.0],[0.634,0.995],[0.109,1.0],[0.435,0.057],[0.114,0.0],[0.111,0.0],[0.055,0.0],[0.121,1.0],[0.092,0.0],[0.108,0.0],[0.399,0.094],[0.065,0.0],[0.109,1.0],[0.399,0.082],[0.098,0.0],[0.399,0.03],[0.417,0.048],[0.192,0.037],[0.041,0.0],[0.123,0.0],[0.062,0.0],[0.122,0.0],[0.045,0.0],[0.024,0.0],[0.082,0.0],[0.085,0.0],[0.47,0.81],[0.166,1.0],[0.068,0.0],[0.399,0.074],[0.119,0.0],[0.199,0.0],[0.113,0.0],[0.044,0.0],[0.12,0.0],[0.072,0.0],[0.117,0.0],[0.036,0.0],[0.47,0.048],[0.399,0.093],[0.082,0.0],[0.417,0.087],[0.399,0.077],[0.399,0.047],[0.243,1.0],[0.796,0.826],[0.253,0.0],[0.112,1.0],[0.048,0.0],[0.465,0.068],[0.069,0.0],[0.136,0.0],[0.042,0.0],[0.112,0.0],[0.092,0.0],[0.427,0.097],[0.086,0.0],[0.399,0.045],[0.154,0.0],[0.719,0.885],[0.114,0.0],[0.099,0.0],[0.068,0.0],[0.037,0.0],[0.057,0.0],[0.109,0.0],[0.116,0.0],[0.095,0.0],[0.067,0.0],[0.921,0.019],[0.098,0.0],[0.051,0.0],[0.23,0.0],[0.143,0.0],[0.151,0.0],[0.085,0.0],[0.725,1.0],[0.092,0.0],[0.299,0.0],[0.399,0.043],[0.91,0.019],[0.166,0.857],[0.115,0.0],[0.056,0.0],[0.156,0.0],[0.132,0.0],[0.044,0.0],[0.047,0.0],[0.435,0.044],[0.117,0.0],[0.113,0.0],[0.082,0.0],[0.087,0.0],[0.308,0.0],[0.399,0.875],[0.064,0.0],[0.115,0.0],[0.399,0.095],[0.556,0.0],[0.118,1.0],[0.019,0.0],[0.057,0.0],[0.399,0.092],[0.124,0.0],[0.195,0.001],[0.321,0.0],[0.113,1.0],[0.026,0.0],[0.399,0.04],[0.399,0.871],[0.061,0.0],[0.072,0.0],[0.114,0.0],[0.136,0.0],[0.399,0.075],[0.087,0.0],[0.072,0.0],[0.082,0.0],[0.141,0.0],[0.116,0.0],[0.105,0.0],[0.113,0.0],[0.068,0.0],[0.153,0.0],[0.078,0.0],[0.07,0.0],[0.025,0.0],[0.111,1.0],[0.035,0.0],[0.056,0.0],[0.054,0.0],[0.084,0.0],[0.078,0.0],[0.141,0.0],[0.08,0.0],[0.241,0.0],[0.064,0.0],[0.115,0.0],[0.958,0.812],[0.053,0.0],[0.04,0.0],[0.1,0.0],[0.114,0.0],[0.399,0.097],[0.075,0.0],[0.062,0.0],[0.117,0.0],[0.066,0.0],[0.196,0.0],[0.067,0.0],[0.05,0.0],[0.107,1.0],[0.121,0.0],[0.099,0.0],[0.07,0.0],[0.113,1.0],[0.104,0.0],[0.238,0.0],[0.725,1.0],[0.072,0.0],[0.061,0.0],[0.078,0.0],[0.124,0.0],[0.078,0.0],[0.116,1.0],[0.123,0.0],[0.083,0.0],[0.357,0.0],[0.055,0.0],[0.11,0.0],[0.033,0.0],[0.417,0.093],[0.399,0.853],[0.399,0.071],[0.111,1.0],[0.839,0.878],[0.058,0.0],[0.107,0.0],[0.046,0.0],[0.117,0.0],[0.181,0.0],[0.119,0.0],[0.113,0.0],[0.427,0.094],[0.071,0.0],[0.083,0.0],[0.059,0.0],[0.373,0.0],[0.066,0.0],[0.064,0.0],[0.095,0.0],[0.112,0.0],[0.12,0.0],[0.067,0.0],[0.101,0.0],[0.124,1.0],[0.399,0.044],[0.07,0.0],[0.109,1.0],[0.163,0.0],[0.399,0.078],[0.239,0.0],[0.107,0.0],[0.052,0.0],[0.061,0.0],[0.086,0.0],[0.109,0.0],[0.155,0.0],[0.399,0.848],[0.115,0.0],[0.063,0.0],[0.07,0.0],[0.072,0.0],[0.131,0.0],[0.082,0.0],[0.341,0.0],[0.071,0.0],[0.725,1.0],[0.07,0.0],[0.399,0.099],[0.118,1.0],[0.114,0.0],[0.083,0.0],[0.063,0.0],[0.117,1.0],[0.107,0.0],[0.065,0.0],[0.163,0.0],[0.137,0.0],[0.07,0.0],[0.417,0.055],[0.399,0.881],[0.083,0.0],[0.074,0.0],[0.399,0.043],[0.176,0.0],[0.085,0.0],[0.19,0.0],[0.089,0.0],[0.098,0.0],[0.252,0.0],[0.064,0.0],[0.054,0.0],[0.317,0.0],[0.072,0.0],[0.399,0.091],[0.399,0.078],[0.111,0.0],[0.219,0.0],[0.058,0.0],[0.031,0.0],[0.051,0.0],[0.016,0.0],[0.399,0.073],[0.779,1.0],[0.144,0.0],[0.065,0.0],[0.054,0.0],[0.071,0.0],[0.057,0.0],[0.091,0.0],[0.161,0.0],[0.069,0.0],[0.272,0.0],[0.399,0.879],[0.104,0.0],[0.465,0.068],[0.087,0.0],[0.166,0.875],[0.068,0.0],[0.038,0.0],[0.399,0.9],[0.087,0.0],[0.138,0.0],[0.068,0.0],[0.072,0.0],[0.399,0.048],[0.435,0.917],[0.097,0.0],[0.115,0.0],[0.399,0.871],[0.399,0.05],[0.07,0.0],[0.074,0.001],[0.097,0.0],[0.087,0.0],[0.099,0.0],[0.066,0.0],[0.985,1.0],[0.06,0.0],[0.46,1.0],[0.212,0.0],[0.166,0.857],[0.435,0.04],[0.657,0.0],[0.088,0.0],[0.435,0.821],[0.172,0.0],[0.088,0.0],[0.8,0.983],[0.113,0.0],[0.399,0.853],[0.725,1.0],[0.399,0.09],[0.071,0.0],[0.122,0.0],[0.066,0.0],[0.072,0.0],[0.114,0.0],[0.072,0.0],[0.127,0.0],[0.174,0.0],[0.084,0.0],[0.119,0.0],[0.399,0.06],[0.055,0.0],[0.08,0.0],[0.054,0.0],[0.203,0.0],[0.044,0.0],[0.09,0.0],[0.1,0.0],[0.155,0.0],[0.124,1.0],[0.317,0.0],[0.187,0.0],[0.725,0.0],[0.188,0.0],[0.063,0.0],[0.068,0.0],[0.061,0.0],[0.122,1.0],[0.247,0.0],[0.084,0.0],[0.05,0.0],[0.399,0.083],[0.15,1.0],[0.399,0.097],[0.077,0.0],[0.108,0.0],[0.399,0.077],[0.119,0.0],[0.399,0.044],[0.072,0.0],[0.021,0.0],[0.079,0.0],[0.044,0.001],[0.088,0.0],[0.097,0.0],[0.399,0.078],[0.104,0.0],[0.079,0.0],[0.071,0.0],[0.839,0.837],[0.211,0.0],[0.068,0.0],[0.06,0.0],[0.065,0.0],[0.105,0.059],[0.05,0.0],[0.063,0.0],[0.117,0.0],[0.084,0.0],[0.08,0.0],[0.104,0.0],[0.112,0.0],[0.068,0.0],[0.083,0.0],[0.063,0.0],[0.111,1.0],[0.087,0.0],[0.166,1.0],[0.061,0.0],[0.1,0.0],[0.475,0.087],[0.096,0.0],[0.194,0.0],[0.099,0.0],[0.035,0.0],[0.399,0.083],[0.417,0.055],[0.015,0.0],[0.107,1.0],[0.074,0.0],[0.113,0.0],[0.096,0.0],[0.099,0.0],[0.399,0.074],[0.317,0.0],[0.725,1.0],[0.107,1.0],[0.129,0.0],[0.034,0.0],[0.095,0.0],[0.056,0.0],[0.077,0.0],[0.227,0.0],[0.054,0.0],[0.109,1.0],[1.0,1.0],[0.071,0.0],[0.14,0.0],[0.166,0.0],[0.118,1.0],[0.078,0.0],[0.104,1.0],[0.102,0.0],[0.118,0.0],[0.417,0.094],[0.068,0.0],[0.107,0.062],[0.106,0.0],[0.417,0.093],[0.055,0.0],[0.095,0.0],[0.115,0.0],[0.122,0.0],[0.158,0.0],[0.116,1.0],[0.399,0.045],[0.035,0.0],[0.074,0.0],[0.399,0.094],[0.132,0.0],[0.653,1.0],[0.12,1.0],[0.896,0.019],[0.061,0.0],[0.081,0.0],[0.475,0.089],[0.109,1.0],[0.399,0.054],[0.038,0.0],[0.123,0.0],[0.19,0.0],[0.399,0.085],[0.062,0.0],[0.963,1.0],[0.15,0.0],[0.399,0.875],[0.071,0.0],[0.085,0.0],[0.052,0.0],[0.107,0.0],[0.131,0.0],[0.108,0.0],[0.039,0.0],[0.156,0.0],[0.045,0.0],[0.435,0.075],[0.071,0.0],[0.066,0.0],[0.072,0.0],[0.063,0.0],[0.152,0.0],[0.122,0.0],[0.232,0.0],[0.725,1.0],[0.082,0.0],[0.399,0.093],[0.032,0.0],[0.055,0.0],[0.092,0.0],[0.992,1.0],[0.133,0.0],[0.06,0.0],[0.309,0.0],[0.042,0.0],[0.121,1.0],[0.226,0.0],[0.114,0.0],[0.058,0.0],[0.107,0.0],[0.317,0.0],[0.079,0.0],[0.107,0.0],[0.119,1.0],[0.112,0.0],[0.32,0.0],[0.124,1.0],[0.064,0.0],[0.092,0.0],[0.063,0.0],[0.066,0.0],[0.126,0.0],[0.157,0.0],[0.061,0.0],[0.246,0.0],[0.302,0.0],[0.069,0.0],[0.251,0.0],[0.399,0.818],[0.399,0.812],[0.059,0.0],[0.066,0.0],[0.062,0.0],[0.399,0.075],[0.217,0.0],[0.399,0.087],[0.096,0.0],[0.069,0.0],[0.166,0.0],[0.131,0.0],[0.137,0.0],[0.029,0.0],[0.91,0.019],[0.095,0.0],[0.427,0.048],[0.22,0.0],[0.064,0.0],[0.081,0.0],[0.046,0.0],[0.065,0.0],[0.103,0.0],[0.133,0.0],[0.634,0.995],[0.399,0.906],[0.427,0.081],[0.05,0.0],[0.041,0.0],[0.069,0.0],[0.07,0.0],[0.06,0.0],[0.074,0.0],[0.114,1.0],[0.078,0.0],[0.101,0.0],[0.217,0.0],[0.399,0.854],[0.072,0.0],[0.097,0.0],[1.0,1.0],[0.399,0.085],[0.017,0.0],[0.133,0.0],[0.09,0.0],[0.122,0.0],[0.094,0.0],[0.47,0.049],[0.056,0.0],[0.109,0.0],[0.127,0.0],[0.109,0.0],[0.074,0.0],[0.062,0.0],[0.089,0.0],[0.124,0.0],[0.118,0.0],[0.116,1.0],[0.118,1.0],[0.084,0.0],[0.399,0.087],[0.057,0.0],[0.399,0.931],[0.238,0.0],[0.068,0.0],[0.087,0.0],[0.345,0.0],[0.124,1.0],[0.399,0.087],[0.323,0.0],[0.103,0.0],[0.089,0.0],[0.772,0.881],[0.16,0.0],[0.114,0.0],[0.083,0.0],[0.111,1.0],[0.112,1.0],[0.256,0.0],[0.696,1.0],[0.066,0.0],[0.029,0.0],[0.958,1.0],[0.428,0.904],[0.097,0.0],[0.333,0.0],[0.114,1.0],[0.109,0.0],[0.105,0.0],[0.059,0.0],[0.078,0.0],[0.399,0.083],[0.096,0.0],[0.051,0.0],[0.029,0.0],[0.102,0.0],[0.399,0.094],[0.11,1.0],[0.252,0.0],[0.068,0.0],[0.06,0.0],[0.121,0.0],[0.069,0.0],[0.399,0.844],[0.064,0.0],[0.106,0.0],[0.399,0.879],[0.085,0.0],[0.124,1.0],[0.11,0.0],[0.067,0.0],[0.399,0.906],[0.067,0.0],[0.107,0.0],[0.112,1.0],[0.725,1.0],[0.093,0.0],[0.078,0.0],[0.045,0.0],[0.117,1.0],[0.286,0.0],[0.087,0.0],[0.068,0.0],[0.022,0.0],[0.031,0.0],[0.095,0.0],[0.106,0.0],[0.095,0.0],[0.399,0.075],[0.145,0.0],[0.101,1.0],[0.07,0.0],[0.399,0.089],[0.065,0.0],[0.072,0.0],[0.399,0.07],[0.023,0.0],[0.399,0.078],[0.121,1.0],[0.089,0.0],[0.072,0.0],[0.103,0.0],[0.725,1.0],[0.079,0.0],[0.102,0.0],[0.399,0.812],[0.982,1.0],[0.116,1.0],[0.071,0.0],[0.04,0.0],[0.399,0.878],[0.068,0.0],[0.066,0.0],[0.153,0.0],[0.013,0.0],[0.12,0.0],[0.399,0.087],[0.399,0.875],[0.119,0.0],[0.09,0.0],[0.018,0.0],[0.399,0.085],[0.192,0.034],[0.399,0.077],[0.061,0.0],[0.106,1.0],[0.051,0.0],[0.065,0.0],[0.111,0.0],[0.725,0.0],[0.113,1.0],[0.435,0.957],[0.07,0.0],[0.117,0.0],[0.105,0.0],[0.399,0.06],[0.206,0.0],[0.077,0.0],[0.069,0.0],[0.184,0.0],[0.399,0.848],[0.117,0.0],[0.032,0.0],[0.09,0.0],[0.165,0.0],[0.114,0.0],[0.067,0.0],[0.399,0.093],[0.04,0.0],[0.822,0.0],[0.118,0.0],[0.274,0.0],[0.06,0.0],[0.086,0.0],[0.607,1.0],[0.126,0.0],[0.07,0.0],[0.119,1.0],[0.633,0.0],[0.067,0.0],[0.12,0.0],[0.399,0.875],[0.378,0.0],[0.171,0.0],[0.094,0.0],[0.969,1.0],[0.399,0.091],[0.399,0.087],[0.067,0.0],[0.104,0.0],[0.121,1.0],[0.117,1.0],[0.044,0.0],[0.399,0.871],[0.169,0.0],[0.068,0.0],[0.09,0.0],[0.029,0.0],[0.097,0.0],[0.069,0.0],[0.12,0.0],[0.069,0.0],[0.09,0.0],[0.117,0.0],[0.067,0.0],[0.27,0.0],[0.079,0.0],[0.229,0.0],[0.399,0.818],[0.399,0.099],[0.399,0.935],[0.094,0.0],[0.052,0.0],[0.902,0.019],[0.101,0.0],[0.089,0.0],[0.045,0.0],[0.185,1.0],[0.119,1.0],[0.399,0.067],[0.108,1.0],[0.096,0.0],[0.884,0.019],[0.122,0.0],[0.041,0.0],[0.435,0.085],[0.119,1.0],[0.053,0.0],[0.064,0.0],[0.079,0.0],[0.399,0.9],[0.038,0.0],[0.08,0.0],[0.114,1.0],[0.019,0.0],[0.142,0.0],[0.07,0.0],[0.037,0.0],[0.02,0.0],[0.089,0.0],[0.047,0.0],[0.102,0.0],[0.193,0.0],[0.102,0.0],[0.399,0.091],[0.111,1.0],[0.399,0.871],[0.041,0.0],[0.508,0.0],[0.067,0.0],[0.054,0.0],[0.399,0.848],[0.142,0.0],[0.399,0.083],[0.154,0.062],[0.089,0.0],[0.06,0.0],[0.399,0.839],[0.089,0.0],[0.48,0.056],[0.399,0.037],[0.19,0.0],[0.719,0.885],[0.147,0.0],[0.08,0.0],[0.117,0.0],[0.725,1.0],[0.105,0.0],[0.062,0.0],[0.065,0.0],[0.077,0.0],[0.055,0.0],[0.047,0.0],[0.118,0.0],[0.166,0.875],[0.107,1.0],[0.042,0.0],[0.399,0.095],[0.119,1.0],[0.105,1.0],[0.071,0.0],[0.261,0.0],[0.122,0.0],[0.113,0.0],[0.073,0.0],[0.045,0.0],[0.399,0.08],[0.132,0.0],[0.117,0.0],[0.608,1.0],[0.15,0.0],[0.115,1.0],[0.399,0.067],[0.114,0.0],[0.081,0.0],[0.399,0.095],[0.274,0.053],[0.967,1.0],[0.1,0.0],[0.088,0.0],[0.417,0.088],[0.725,1.0],[0.064,0.0],[0.108,0.0],[0.907,0.019],[0.08,0.0],[0.399,0.048],[0.071,0.0],[0.085,0.0],[0.122,1.0],[0.817,1.0],[0.079,0.0],[0.399,0.073],[0.035,0.0],[0.141,0.0],[0.399,0.931],[0.532,0.0],[0.112,0.0],[0.195,0.0],[0.141,0.0],[0.725,1.0],[0.345,0.0],[0.389,0.0],[0.399,0.061],[0.399,0.906],[0.068,0.0],[0.113,1.0],[0.056,0.0],[0.115,0.0],[0.112,0.0],[0.139,0.0],[0.118,0.0],[0.157,0.0],[0.069,0.0],[0.076,0.0],[0.023,0.0],[0.874,0.998],[0.062,0.0],[0.609,1.0],[0.118,0.0],[0.399,0.039],[0.118,1.0],[0.081,0.0],[0.3,0.0],[0.264,0.0],[0.107,0.0],[0.044,0.0],[0.399,0.043],[0.049,0.0],[0.088,0.0],[0.028,0.0],[0.145,0.0],[0.106,0.0],[0.399,0.857],[0.062,0.0],[0.399,0.099],[0.118,0.0],[0.109,0.0],[0.014,0.0],[0.725,1.0],[0.224,0.0],[0.085,0.0],[0.069,0.0],[0.059,0.0],[0.121,0.0],[0.085,0.0],[0.078,0.0],[0.191,0.0],[0.115,1.0],[0.109,0.0],[0.039,0.0],[0.399,0.039],[0.065,0.0],[0.91,0.019],[0.196,0.0],[0.127,0.0],[0.399,0.089],[0.399,0.889],[0.399,0.096],[0.249,0.0],[0.119,0.0],[0.955,1.0],[0.12,0.0],[0.399,0.811],[0.249,0.0],[0.118,1.0],[0.249,0.0],[0.062,0.0],[0.162,0.0],[0.12,0.0],[0.105,1.0],[0.475,0.094],[0.399,0.818],[0.399,0.085],[0.061,0.0],[0.064,0.0],[0.423,0.0],[0.058,0.0],[0.085,0.0],[0.081,0.0],[0.289,0.0],[0.152,0.0],[0.111,0.0],[0.031,0.0],[0.064,0.0],[0.759,0.882],[0.475,0.085],[0.107,0.0],[0.084,0.0],[0.07,0.0],[0.262,0.0],[0.067,0.0],[0.126,0.0],[0.098,0.0],[0.064,0.0],[0.11,1.0],[0.415,0.0],[0.064,0.0],[0.048,0.0],[0.204,0.0],[0.399,0.812],[0.799,0.062],[0.072,0.0],[0.067,0.0],[0.115,0.0],[0.346,0.0],[0.085,0.0],[0.399,0.043],[0.086,0.0],[0.399,0.039],[0.09,0.0],[0.114,0.0],[0.072,0.0],[0.158,0.0],[0.947,1.0],[0.399,0.04],[0.064,0.0],[0.118,1.0],[0.124,0.0],[0.156,0.0],[0.121,0.0],[0.399,0.048],[0.056,0.0],[0.122,0.0],[0.068,0.0],[0.038,0.0],[0.106,1.0],[0.228,0.0],[0.096,0.0],[0.065,0.0],[0.073,0.0],[0.099,0.0],[0.092,0.0],[0.094,0.0],[0.117,0.0],[0.095,0.0],[0.046,0.0],[0.135,0.0],[0.032,0.0],[0.399,0.093],[0.288,0.0],[0.939,1.0],[0.084,0.0],[0.121,0.0],[0.116,1.0],[0.067,0.0],[0.399,0.098],[0.316,1.0],[0.072,0.0],[0.63,1.0],[0.111,0.0],[0.399,0.066],[0.099,0.0],[0.399,0.095],[0.071,0.0],[0.06,0.0],[0.073,0.0],[0.101,0.0],[0.399,0.844],[0.06,0.0],[0.12,1.0],[0.069,0.0],[0.105,0.0],[0.634,0.952],[0.235,0.0],[0.399,0.853],[0.725,1.0],[0.126,0.0],[0.117,1.0],[0.111,0.0],[0.325,0.0],[0.207,0.0],[0.399,0.057],[0.053,0.0],[0.946,1.0],[0.065,0.0],[0.129,0.0],[0.307,0.0],[0.041,0.0],[0.034,0.0],[0.166,0.857],[0.208,1.0],[0.304,0.0],[0.209,0.0],[0.121,1.0],[0.115,1.0],[0.066,0.0],[0.899,0.019],[0.236,0.0],[0.839,0.804],[0.53,0.0],[0.399,0.095],[0.033,0.0],[0.16,0.0],[0.399,0.097],[0.071,0.0],[0.058,0.0],[0.058,0.0],[0.1,0.0],[0.111,1.0],[0.06,0.0],[0.069,0.0],[0.066,0.0],[0.272,0.0],[0.189,0.0],[0.252,0.0],[0.081,0.0],[0.162,0.0],[0.07,0.0],[0.078,0.0],[0.985,1.0],[0.051,0.0],[0.272,0.0],[0.121,1.0],[0.107,0.0],[0.1,0.0],[0.522,0.0],[0.094,0.0],[0.09,0.0],[0.093,0.0],[0.068,0.0],[0.067,0.0],[0.049,0.0],[0.177,0.0],[0.18,0.0],[0.063,0.0],[0.083,0.0],[0.126,0.0],[0.07,0.0],[0.111,1.0],[0.067,0.0],[0.115,0.0],[0.063,0.0],[0.022,0.0],[0.399,0.848],[0.696,1.0],[0.399,0.043],[0.083,0.0],[0.399,0.085],[0.965,1.0],[0.103,0.0],[0.038,0.0],[0.114,0.0],[0.061,0.0],[0.109,0.0],[0.317,0.0],[0.399,0.091],[0.274,0.053],[0.082,0.0],[0.465,0.894],[0.091,0.0],[0.122,0.0],[0.06,0.0],[0.121,0.0],[0.21,0.0],[0.032,0.0],[0.958,1.0],[0.119,0.0],[0.068,0.0],[0.139,0.0],[0.725,1.0],[0.995,1.0],[0.427,0.085],[0.609,1.0],[0.148,0.0],[0.995,1.0],[0.399,0.848],[0.071,0.0],[0.068,0.0],[0.254,0.0],[0.165,0.0],[0.055,0.0],[0.073,0.0],[0.103,0.0],[0.117,0.0],[0.03,0.0],[0.399,0.939],[0.123,0.0],[0.725,1.0],[0.084,0.0],[0.033,0.0],[0.108,0.0],[0.12,0.0],[0.167,0.062],[0.725,1.0],[0.264,0.0],[0.113,0.0],[0.208,0.0],[0.089,0.0],[0.069,0.0],[0.117,0.0],[0.769,1.0],[0.062,0.0],[0.399,0.824],[0.098,0.0],[0.058,0.0],[0.08,0.0],[0.108,0.0],[0.475,0.089],[0.399,0.061],[0.107,0.0],[0.06,0.0],[0.068,0.0],[0.047,0.0],[0.087,0.0],[0.09,0.0],[0.074,0.0],[0.103,1.0],[0.122,0.0],[0.119,0.0],[0.115,0.0],[0.634,0.934],[0.057,0.0],[0.113,1.0],[0.116,1.0],[0.399,0.067],[0.323,0.0],[0.06,0.0],[0.137,1.0],[0.103,0.0],[0.211,0.0],[0.199,0.0],[0.064,0.0],[0.067,0.0],[0.109,1.0],[0.12,0.0],[0.063,0.0],[0.065,0.0],[0.134,0.0],[0.059,0.0],[0.077,0.0],[0.103,0.0],[0.912,0.019],[0.399,0.087],[0.067,0.0],[0.199,0.0],[0.047,0.0],[0.313,0.0],[0.399,0.099],[0.162,1.0],[0.128,0.0],[0.104,0.0],[0.117,0.0],[0.015,0.0],[0.025,0.0],[0.427,0.073],[0.096,0.0],[0.171,0.0],[0.026,0.0],[0.031,0.0],[0.057,0.0],[0.102,0.0],[0.066,0.0],[0.053,0.0],[0.041,0.0],[0.725,1.0],[0.257,0.0],[0.095,0.0],[0.113,0.0],[0.141,0.0],[0.168,0.0],[0.031,0.0],[0.725,1.0],[0.066,0.0],[0.066,0.0],[0.116,0.0],[0.324,0.0],[0.081,0.0],[0.221,1.0],[0.022,0.0],[0.253,0.0],[1.0,1.0],[0.109,1.0],[0.126,0.0],[0.148,0.0],[0.075,0.0],[0.1,0.0],[0.427,0.04],[0.759,0.818],[0.08,0.0],[0.117,1.0],[0.417,0.068],[0.399,0.885],[0.058,0.0],[0.399,0.829],[0.052,0.0],[0.065,0.0],[0.123,0.0],[0.109,0.0],[0.181,0.0],[0.049,0.0],[0.399,0.077],[0.399,0.953],[0.086,0.0],[0.058,0.0],[0.12,0.0],[0.114,1.0],[0.058,0.0],[0.12,0.0],[0.117,0.0],[0.06,0.0],[0.119,0.0],[0.118,0.0],[0.083,0.0],[0.399,0.077],[0.166,1.0],[0.066,0.0],[0.884,1.0],[0.117,0.0],[0.113,0.0],[0.18,0.0],[0.117,0.0],[0.105,1.0],[0.057,0.0],[0.053,0.0],[0.102,0.0],[0.054,0.0],[0.056,0.0],[0.066,0.0],[0.085,0.0],[0.084,0.0],[0.068,0.0],[0.093,0.0],[0.083,0.0],[0.089,0.0],[0.122,0.0],[0.128,0.0],[0.475,0.089],[0.065,0.0],[0.839,0.804],[0.109,0.0],[0.162,0.0],[0.399,0.083],[0.117,1.0],[0.066,0.0],[0.085,0.0],[0.112,1.0]],"examples":[{"anchor":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P2631  \"85494\" }","anchor_answers":1,"text_rank_of_first_match":94,"n_relevant":7,"candidates":[{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P3138  \"85494\" }","tfidf":0.775,"J":0.0,"rank":1,"answers":1,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P2631  \"533183\" }","tfidf":0.353,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P2631  \"650387\" }","tfidf":0.353,"J":0.0,"rank":3,"answers":1,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P2631  \"649417\" }","tfidf":0.353,"J":0.0,"rank":4,"answers":1,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P3143  \"102829\" }","tfidf":0.117,"J":1.0,"rank":94,"answers":1,"best":true}]},{"anchor":"SELECT  ?var1\nWHERE\n  { wde:Q8877  wdt:P31  ?var1 }","anchor_answers":1,"text_rank_of_first_match":11,"n_relevant":9,"candidates":[{"q":"SELECT  ?var1\nWHERE\n  { wde:Q8877  wdt:P31   ?var2 .\n    ?var2     wdt:P1963  ?var1\n  }","tfidf":0.794,"J":0.0,"rank":1,"answers":99,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { wde:Q8877  wdt:P31   ?var2 .\n    ?var2     wdt:P1963  ?var1\n    OPTIONAL\n      { ?var1  wdt:P1647  ?var3 }\n  }","tfidf":0.668,"J":0.0,"rank":2,"answers":99,"best":false},{"q":"SELECT  ?var1 ?var1Label\nWHERE\n  { ?var1  wdt:P31  wde:Q11266439 }","tfidf":0.267,"J":0.0,"rank":3,"answers":821725,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P31  wde:Q17633526 }","tfidf":0.263,"J":0.0,"rank":4,"answers":294101,"best":false},{"q":"SELECT  ?var1Label\nWHERE\n  { wde:Q76  wdt:P31  ?var1Label }","tfidf":0.233,"J":1.0,"rank":11,"answers":1,"best":true}]},{"anchor":"SELECT  *\nWHERE\n  { ?var1  wdt:P31    wde:Q6256 ;\n           wdt:P1566  \"2661886\"\n  }","anchor_answers":1,"text_rank_of_first_match":132,"n_relevant":2,"candidates":[{"q":"SELECT  *\nWHERE\n  { ?var1  wdt:P31    wde:Q6256 ;\n           wdt:P1566  \"1814991\"\n  }","tfidf":0.527,"J":0.0,"rank":1,"answers":1,"best":false},{"q":"SELECT DISTINCT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P1566  \"6940571\" }","tfidf":0.32,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  ?var1 ?var1Label ?var2 ?var3\nWHERE\n  { ?var1  wdt:P31  wde:Q146 ;\n           ?var2    ?var3\n  }","tfidf":0.224,"J":0.0,"rank":3,"answers":13018,"best":false},{"q":"SELECT  *\nWHERE\n  {   { ?var1  wdt:P30  wde:Q51 }\n    UNION\n      { ?var1  wdt:P804  _:b0 }\n    OPTIONAL\n      { ?var1  wdt:P1566  ?var2 }\n    OPTIONAL\n      { ?var1  wdt:P804  ?var3 }\n  }","tfidf":0.219,"J":0.0,"rank":4,"answers":21162,"best":false},{"q":"SELECT  *\nWHERE\n  { wde:Q26152  wdt:P17  ?var1 }","tfidf":0.131,"J":1.0,"rank":132,"answers":1,"best":true}]},{"anchor":"SELECT  ?var1\nWHERE\n  { VALUES ?var1 { wde:Q5 }\n    wde:Q5 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","anchor_answers":1,"text_rank_of_first_match":200,"n_relevant":9,"candidates":[{"q":"SELECT DISTINCT  *\nWHERE\n  { wde:Q5  rdfs:label  ?var1Label\n    FILTER langMatches(lang(?var1Label), \"en\")\n  }","tfidf":0.509,"J":0.0,"rank":1,"answers":4,"best":false},{"q":"SELECT  ?var1Label\nWHERE\n  { wde:Q5  rdfs:label  ?var1Label\n    FILTER langMatches(lang(?var1Label), \"en\")\n  }","tfidf":0.487,"J":0.0,"rank":2,"answers":4,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { VALUES ?var2 { wde:Q571 }\n    ?var1 (<http://www.wikidata.org/prop/direct/P279>)* ?var2\n  }","tfidf":0.481,"J":0.0,"rank":3,"answers":740,"best":false},{"q":"SELECT  ?var1 ?var1Label\nWHERE\n  { ?var1  wdt:P31   wde:Q5 ;\n           wdt:P106  wde:Q33999\n  }","tfidf":0.441,"J":0.0,"rank":4,"answers":335133,"best":false},{"q":"SELECT  *\nWHERE\n  { wde:Q239328  wdt:P31  ?var1 }","tfidf":0.209,"J":1.0,"rank":200,"answers":1,"best":true}]},{"anchor":"SELECT  ?var1 ?var1Label\nWHERE\n  { ?var1  wdt:P31  wde:Q146\n    OPTIONAL\n      { ?var1  wdt:P18  ?var2 }\n  }","anchor_answers":219,"text_rank_of_first_match":2,"n_relevant":1,"candidates":[{"q":"SELECT  ?var1 ?var1Label ?var2 ?var3\nWHERE\n  { ?var1  wdt:P31  wde:Q146 ;\n           ?var2    ?var3\n  }","tfidf":0.854,"J":0.0,"rank":1,"answers":13018,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P31  wde:Q146\n      { BIND(?var2 AS ?var1) }\n    UNION\n      { BIND(?var2 AS ?var1) }\n  }","tfidf":0.66,"J":1.0,"rank":2,"answers":219,"best":true},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P31  wde:Q4167836\n    OPTIONAL\n      { ?var1  wdt:P279  ?var2 }\n  }","tfidf":0.378,"J":0.0,"rank":3,"answers":5563493,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P31   wde:Q24354 ;\n           wdt:P131  wde:Q1781\n    MINUS\n      { ?var1  wdt:P18  _:b0 }\n    OPTIONAL\n      { ?var1  wdt:P18  ?var2 }\n  }","tfidf":0.357,"J":0.0,"rank":4,"answers":7,"best":false},{"q":"SELECT  ?var1Label ?var2 ?var3 ?var4\nWHERE\n  { ?var5  wdt:P276    ?var2 ;\n           rdfs:label  ?var1Label ;\n           wdt:P31     wde:Q2860456\n    FILTER ( lang(?var1Label) = \"fr\" )\n    OPTIONAL\n      { ?var5  wdt:P18  ?var4 }\n  }","tfidf":0.327,"J":0.0,"rank":5,"answers":7,"best":false}]},{"anchor":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"afpfr\" \"string1\" }\n  }","anchor_answers":1,"text_rank_of_first_match":19,"n_relevant":1,"candidates":[{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"wikidata\" \"string1\" }\n  }","tfidf":0.487,"J":0.0,"rank":1,"answers":2,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"gadelmaleh\" \"string1\" }\n  }","tfidf":0.429,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"gadelmaleh\" \"string1\" \"string2\" }\n  }","tfidf":0.41,"J":0.0,"rank":3,"answers":1,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"string1\" \"string2\" \"Jardiland\" }\n  }","tfidf":0.41,"J":0.0,"rank":4,"answers":1,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"string1\" \"string2\" \"string3\" \"JohnnyRea4\" \"string4\" \"DonPomba\" \"willzo\" \"string5\" \"salmashake\" \"ellayellay\" \"string6\" \"Mickthe\" \"wooshy90\" \"string7\" \"string8\" \"afpfr\" \"string9\" \"dalehay\" \"string10\" \"NLinnane\" \"edwin_peek\" \"Weerplaza\" \"itfcjxke\" }\n  }","tfidf":0.298,"J":1.0,"rank":19,"answers":1,"best":true}]},{"anchor":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q7075 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","anchor_answers":23,"text_rank_of_first_match":25,"n_relevant":2,"candidates":[{"q":"SELECT DISTINCT  ?var1 ?var1Label ?var2 ?var3\nWHERE\n  { ?var1 wdt:P31/(wdt:P279)* wde:Q7075 .\n    ?var1  ?var3     wde:Q1212 ;\n           wdt:P625  ?var2\n  }","tfidf":0.585,"J":0.0,"rank":1,"answers":107,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q811979 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.517,"J":null,"rank":2,"answers":21,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q215627 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.511,"J":null,"rank":3,"answers":15,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q2066131 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.511,"J":null,"rank":4,"answers":17,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q1546583 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.435,"J":0.821,"rank":25,"answers":28,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q1030034 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.435,"J":0.957,"rank":114,"answers":22,"best":true}]},{"anchor":"SELECT DISTINCT  ?var1\nWHERE\n  {   { wde:Q200334  wdt:P31  ?var2 .\n        ?var2 (wdt:P279)* ?var1\n      }\n    UNION\n      { wde:Q200334 (wdt:P279)* ?var1 }\n  }","anchor_answers":28,"text_rank_of_first_match":62,"n_relevant":1,"candidates":[{"q":"SELECT  ?var1 ?var2\nWHERE\n  { VALUES ?var3 { wde:Q7184903 }\n    ?var1 (wdt:P279)* ?var3\n    OPTIONAL\n      { ?var1  wdt:P279  ?var2 }\n  }","tfidf":0.349,"J":0.0,"rank":1,"answers":1,"best":false},{"q":"SELECT DISTINCT  ?var1 ?var1Label ?var2\nWHERE\n  { ?var1  wdt:P625  ?var2 .\n    ?var1 wdt:P31/(wdt:P279)* wde:Q1248784\n  }","tfidf":0.345,"J":0.0,"rank":2,"answers":30531,"best":false},{"q":"SELECT  ?var1 ?var1Label ?var2\nWHERE\n  { ?var1 wdt:P31/(wdt:P279)* wde:Q515 .\n    ?var1  wdt:P1082  ?var2\n  }","tfidf":0.314,"J":0.0,"rank":3,"answers":25318,"best":false},{"q":"SELECT  ?var1 ?var1Label ?var2\nWHERE\n  { ?var1  wdt:P1082  ?var2 .\n    ?var1 wdt:P31/(wdt:P279)* wde:Q515 .\n    ?var1  wdt:P17  ?var3\n  }","tfidf":0.31,"J":0.0,"rank":4,"answers":25312,"best":false},{"q":"SELECT DISTINCT  ?var1\nWHERE\n  { BIND(wde:Q12518 AS ?var2)\n    ?var2 (<http://www.wikidata.org/prop/direct/P279>)* ?var1\n  }","tfidf":0.2,"J":0.821,"rank":62,"answers":23,"best":true}]},{"anchor":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"string1\" \"Wikimedia\" \"string2\" \"gpciczar\" \"PoulpyWP\" \"string3\" }\n  }","anchor_answers":2,"text_rank_of_first_match":8,"n_relevant":1,"candidates":[{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"Ludovic_P_\" \"alphosWP\" \"PoulpyWP\" \"string1\" \"string2\" \"string3\" }\n  }","tfidf":0.612,"J":null,"rank":1,"answers":2,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"Lyoko6\" \"PoulpyWP\" \"string1\" \"string2\" \"PremiereFR\" \"string3\" }\n  }","tfidf":0.597,"J":null,"rank":2,"answers":2,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"string1\" \"string2\" \"Lyoko6\" \"PoulpyWP\" \"string3\" \"PremiereFR\" \"string4\" }\n  }","tfidf":0.574,"J":null,"rank":3,"answers":2,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"Gallorum\" \"wikidata\" \"string1\" \"string2\" \"string3\" }\n  }","tfidf":0.558,"J":null,"rank":4,"answers":2,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P2002  ?var2\n    VALUES ?var2 { \"envlh\" \"junelaw_\" \"hdactech\" \"string1\" \"Wikimedia\" }\n  }","tfidf":0.498,"J":1.0,"rank":8,"answers":2,"best":true}]},{"anchor":"SELECT  ?var1\nWHERE\n  { ?var2  wdt:P3430  \"w6v1266v\"\n    OPTIONAL\n      { ?var2  wdt:P18  ?var1 }\n  }","anchor_answers":1,"text_rank_of_first_match":6,"n_relevant":1,"candidates":[{"q":"SELECT  ?var1 ?var1Label\nWHERE\n  { ?var1  wdt:P31  wde:Q146\n    OPTIONAL\n      { ?var1  wdt:P18  ?var2 }\n  }","tfidf":0.289,"J":0.0,"rank":1,"answers":219,"best":false},{"q":"SELECT  ?var1 ?var2\nWHERE\n  { ?var1  wdt:P31   wde:Q24354 ;\n           wdt:P131  wde:Q1781\n    MINUS\n      { ?var1  wdt:P18  _:b0 }\n    OPTIONAL\n      { ?var1  wdt:P18  ?var2 }\n  }","tfidf":0.21,"J":0.0,"rank":2,"answers":7,"best":false},{"q":"SELECT  ?var1Label ?var2 ?var3 ?var4\nWHERE\n  { ?var5  wdt:P276    ?var2 ;\n           rdfs:label  ?var1Label ;\n           wdt:P31     wde:Q2860456\n    FILTER ( lang(?var1Label) = \"fr\" )\n    OPTIONAL\n      { ?var5  wdt:P18  ?var4 }\n  }","tfidf":0.203,"J":0.0,"rank":3,"answers":7,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P31  wde:Q4167836\n    OPTIONAL\n      { ?var1  wdt:P279  ?var2 }\n  }","tfidf":0.188,"J":0.0,"rank":4,"answers":5563493,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { wde:Q132537  wdt:P18  ?var1 }","tfidf":0.184,"J":1.0,"rank":6,"answers":1,"best":true}]},{"anchor":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q33036917 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","anchor_answers":1,"text_rank_of_first_match":1,"n_relevant":11,"candidates":[{"q":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q28362096 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","tfidf":0.725,"J":1.0,"rank":1,"answers":1,"best":true},{"q":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q27990296 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","tfidf":0.725,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q27044165 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","tfidf":0.725,"J":1.0,"rank":3,"answers":1,"best":false},{"q":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q24568350 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","tfidf":0.725,"J":0.0,"rank":4,"answers":1,"best":false},{"q":"SELECT  ?var1 (COUNT(DISTINCT ?var2) AS ?var3) ?var4\nWHERE\n  { BIND(wde:Q33036897 AS ?var5)\n    BIND(str(year(?var6)) AS ?var1)\n    ?var2  wdt:P2860  ?var5 ;\n           wdt:P577   ?var6\n  }\nGROUP BY ?var1 ?var4\nORDER BY DESC(?var1)","tfidf":0.725,"J":0.0,"rank":5,"answers":1,"best":false}]},{"anchor":"SELECT  *\nWHERE\n  { ?var1  wdt:P31  wde:Q26703203 }","anchor_answers":26726,"text_rank_of_first_match":1,"n_relevant":1,"candidates":[{"q":"SELECT  *\nWHERE\n  { ?var1  wdt:P31  wde:Q26703203 .\n    ?var1 (wdt:P131)* wde:Q183\n  }","tfidf":0.787,"J":0.961,"rank":1,"answers":25683,"best":true},{"q":"SELECT  *\nWHERE\n  { wde:Q239328  wdt:P31  ?var1 }","tfidf":0.269,"J":0.0,"rank":2,"answers":1,"best":false},{"q":"SELECT  *\nWHERE\n  { wde:Q76  wdt:P31  ?var1Label }","tfidf":0.259,"J":0.0,"rank":3,"answers":1,"best":false},{"q":"SELECT  ?var1 ?var1Label\nWHERE\n  { ?var1  wdt:P31  wde:Q11266439 }","tfidf":0.247,"J":0.0,"rank":4,"answers":821725,"best":false},{"q":"SELECT  ?var1\nWHERE\n  { ?var1  wdt:P31  wde:Q17633526 }","tfidf":0.247,"J":0.0,"rank":5,"answers":294101,"best":false}]}]}};
+
+</script>
+<script>
+/* Results-Aware SPARQL Embeddings: interactive demo. No dependencies. */
+(function () {
+  "use strict";
+  const P = window.PAPER;
+  const D = window.DEMO_DATA;
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const cv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = (x, d = 2) => (x == null ? "–" : Number(x).toFixed(d));
+  const pct = (x) => Math.round(x * 100) + "%";
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function s(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs || {}) {
+      if (k === "text") e.textContent = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+  function segment(id, cb) {
+    const seg = document.getElementById(id);
+    seg.addEventListener("click", (ev) => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      $$("button", seg).forEach((x) => x.classList.toggle("on", x === b));
+      cb(b.dataset);
+    });
+  }
+  function rng(seed) {
+    let t = seed >>> 0;
+    return () => {
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const redrawers = [];
+  const onTheme = (fn) => { redrawers.push(fn); fn(); };
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => redrawers.forEach((f) => f()));
+
+  /* ------------------------------------------------------------------ KPIs */
+  (function kpis() {
+    const fc = P.retrievalComplete;
+    const get = (g, kind) => fc[g].find((r) => r[4] === kind)[1];
+    const tf = (g) => fc[g].find((r) => r[0] === "TF-IDF")[1];
+    const items = [
+      [`10<span class="arrow">/</span>10`, "encoders improve query retrieval after results-aware fine-tuning, on both graphs"],
+      [`${fmt(get("dbpedia", "zs"))}<span class="arrow">→</span><span class="to">${fmt(get("dbpedia", "ft"))}</span>`, `DBpedia Hits@1, mean of 10 encoders (TF-IDF: ${fmt(tf("dbpedia"))})`],
+      [`${fmt(get("wikidata", "zs"))}<span class="arrow">→</span><span class="to">${fmt(get("wikidata", "ft"))}</span>`, `Wikidata Hits@1, mean of 10 encoders (TF-IDF: ${fmt(tf("wikidata"))})`],
+      [`${fmt(Math.max(...P.caching.dbpedia.zsAcc))}<span class="arrow">→</span><span class="to">${fmt(Math.max(...P.caching.dbpedia.ftAcc))}</span>`, "best cache hit accuracy on DBpedia, zero-shot → fine-tuned (θ = 0.8)"],
+    ];
+    $("#kpis").innerHTML = items.map(([v, t]) => `<div class="kpi"><div class="v">${v}</div><small>${t}</small></div>`).join("");
+  })();
+
+  /* ------------------------------------------------------------------ 1. teaser */
+  (function teaser() {
+    const svg = $("#teaserSvg");
+    const layouts = {
+      text: { a: [120, 150], b: [168, 122], c: [330, 205] },
+      ours: { a: [120, 150], c: [165, 128], b: [325, 60] },
+    };
+    let mode = "text";
+    let cur = JSON.parse(JSON.stringify(layouts.text));
+    let anim = null;
+    function draw() {
+      clear(svg);
+      const near = mode === "text" ? "b" : "c";
+      const far = near === "b" ? "c" : "b";
+      const col = { a: cv("--qa"), b: cv("--qb"), c: cv("--qc") };
+      const soft = mode === "text" ? cv("--qb-soft") : cv("--qc-soft");
+      const mx = (cur.a[0] + cur[near][0]) / 2, my = (cur.a[1] + cur[near][1]) / 2;
+      s("ellipse", { cx: mx, cy: my, rx: 62, ry: 40, fill: soft, opacity: 0.85 }, svg);
+      s("line", { x1: cur.a[0], y1: cur.a[1], x2: cur[far][0], y2: cur[far][1], stroke: col[far], "stroke-width": 1.5, "stroke-dasharray": "5 4", opacity: 0.7 }, svg);
+      s("line", { x1: cur.a[0], y1: cur.a[1], x2: cur[near][0], y2: cur[near][1], stroke: col[near], "stroke-width": 3 }, svg);
+      for (const k of ["a", "b", "c"]) {
+        s("circle", { cx: cur[k][0], cy: cur[k][1], r: 11, fill: col[k] }, svg);
+        s("text", { x: cur[k][0], y: cur[k][1] + 4.5, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#fff", text: k }, svg).style.fill = "#fff";
+      }
+      s("text", { x: 12, y: 20, "font-size": 12, text: mode === "text" ? "close = queries look alike" : "close = answers overlap" }, svg);
+    }
+    function go(m) {
+      mode = m;
+      const from = JSON.parse(JSON.stringify(cur)), to = layouts[m];
+      const t0 = performance.now();
+      cancelAnimationFrame(anim);
+      const step = (t) => {
+        const u = Math.min(1, (t - t0) / 650), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+        for (const k in to) cur[k] = [from[k][0] + (to[k][0] - from[k][0]) * e, from[k][1] + (to[k][1] - from[k][1]) * e];
+        draw();
+        if (u < 1) anim = requestAnimationFrame(step);
+      };
+      anim = requestAnimationFrame(step);
+      const msg = $("#teaserMsg");
+      if (m === "text") {
+        msg.className = "verdict bad";
+        msg.innerHTML = `Top match for (a): <b style="color:var(--qb)">(b)</b>, which shares only 37 answers (<i>J</i> = 0.19). A <b>poor</b> candidate for reuse.`;
+      } else {
+        msg.className = "verdict good";
+        msg.innerHTML = `Top match for (a): <b style="color:var(--qc)">(c)</b>, which returns the same 136 answers (<i>J</i> = 1.00). A <b>safe</b> candidate for reuse.`;
+      }
+    }
+    segment("teaserSeg", (d) => go(d.mode));
+    onTheme(draw);
+    go("text");
+  })();
+
+  /* ------------------------------------------------------------------ 1b. scatter */
+  (function scatter() {
+    const svg = $("#scatterSvg");
+    let g = "dbpedia";
+    const W = 480, H = 330, m = { l: 46, r: 12, t: 12, b: 40 };
+    const X = (x) => m.l + x * (W - m.l - m.r), Y = (y) => H - m.b - y * (H - m.t - m.b);
+    function draw() {
+      clear(svg);
+      const data = D[g].scatter;
+      s("rect", { x: X(0), y: Y(1), width: X(0.5) - X(0), height: Y(0.8) - Y(1), fill: cv("--good-soft") }, svg);
+      s("rect", { x: X(0.5), y: Y(0.1), width: X(1) - X(0.5), height: Y(0) - Y(0.1), fill: cv("--bad-soft") }, svg);
+      for (let i = 0; i <= 5; i++) {
+        const v = i / 5;
+        s("line", { x1: X(0), x2: X(1), y1: Y(v), y2: Y(v), stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+        s("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 10, text: v.toFixed(1) }, svg);
+        s("text", { x: X(v), y: H - m.b + 15, "text-anchor": "middle", "font-size": 10, text: v.toFixed(1) }, svg);
+      }
+      s("text", { x: (X(0) + X(1)) / 2, y: H - 6, "text-anchor": "middle", "font-size": 11, text: "text similarity (TF-IDF cosine)" }, svg);
+      s("text", { x: 12, y: (Y(0) + Y(1)) / 2, "text-anchor": "middle", "font-size": 11, transform: `rotate(-90 12 ${(Y(0) + Y(1)) / 2})`, text: "answer overlap J" }, svg);
+      const cg = cv("--good"), cb = cv("--bad"), cm = cv("--mid");
+      const r = rng(3);
+      for (const [x, y] of data) {
+        const jx = (r() - 0.5) * 0.006, jy = (r() - 0.5) * 0.012;
+        s("circle", { cx: X(Math.min(1, Math.max(0, x + jx))), cy: Y(Math.min(1, Math.max(0, y + jy))), r: 2.3, fill: y >= 0.8 ? cg : y <= 0.1 ? cb : cm, opacity: 0.5 }, svg);
+      }
+      s("text", { x: X(0.02), y: Y(0.97), "font-size": 10.5, "font-weight": 600, text: "same answers, different text" }, svg).style.fill = cg;
+      s("text", { x: X(0.98), y: Y(0.03) - 4, "text-anchor": "end", "font-size": 10.5, "font-weight": 600, text: "similar text, different answers" }, svg).style.fill = cb;
+      const hi = data.filter((p) => p[0] >= 0.5), pos = data.filter((p) => p[1] >= 0.8);
+      $("#scA").textContent = hi.length ? pct(hi.filter((p) => p[1] <= 0.1).length / hi.length) : "–";
+      $("#scB").textContent = pos.length ? pct(pos.filter((p) => p[0] < 0.5).length / pos.length) : "–";
+      $("#scNote").innerHTML = `Random sample of ${data.length.toLocaleString()} of the ${D[g].stored_pairs.toLocaleString()} stored ${g === "dbpedia" ? "DBpedia" : "Wikidata"} test pairs. Pooled Spearman ρ of TF-IDF with <i>J</i> over all pairs is ${fmt(D[g].tfidf_spearman)}, similar to zero-shot encoders (${fmt(P.alignment[g].zs)}): a good overall correlation still hides many wrong top matches.`;
+    }
+    segment("scatterSeg", (d) => { g = d.g; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 2. steps */
+  (function steps() {
+    const items = $$("#steps li");
+    items.forEach((li) => li.addEventListener("click", () => {
+      items.forEach((x) => x.classList.toggle("on", x === li));
+      $$(".step-panel").forEach((p) => (p.hidden = p.dataset.panel !== li.dataset.step));
+      if (li.dataset.step === "3") window.dispatchEvent(new Event("toyshow"));
+    }));
+  })();
+
+  /* ------------------------------------------------------------------ 2b. Jaccard / Venn */
+  (function venn() {
+    const svg = $("#vennSvg");
+    const a = $("#vA"), b = $("#vB"), i = $("#vI");
+    function lensArea(r1, r2, d) {
+      if (d >= r1 + r2) return 0;
+      if (d <= Math.abs(r1 - r2)) return Math.PI * Math.min(r1, r2) ** 2;
+      const a1 = r1 * r1 * Math.acos((d * d + r1 * r1 - r2 * r2) / (2 * d * r1));
+      const a2 = r2 * r2 * Math.acos((d * d + r2 * r2 - r1 * r1) / (2 * d * r2));
+      return a1 + a2 - 0.5 * Math.sqrt((-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2));
+    }
+    function update(ev) {
+      let A = +a.value, B = +b.value, I = +i.value;
+      I = Math.min(I, A, B);
+      i.value = I;
+      $("#oA").textContent = A; $("#oB").textContent = B; $("#oI").textContent = I;
+      const U = A + B - I, J = U ? I / U : 0;
+      const k = 70 / Math.sqrt(200 / Math.PI);
+      const r1 = Math.sqrt(A / Math.PI) * k, r2 = Math.sqrt(B / Math.PI) * k;
+      const want = I * k * k; // circle area is proportional to the number of rows
+      let lo = Math.abs(r1 - r2), hi = r1 + r2;
+      for (let t = 0; t < 40; t++) { const mid = (lo + hi) / 2; if (lensArea(r1, r2, mid) > want) lo = mid; else hi = mid; }
+      const d = I === 0 ? r1 + r2 + 8 : (lo + hi) / 2;
+      clear(svg);
+      const cx = 180 - d / 2 + (r1 - r2) / 4;
+      s("circle", { cx: cx, cy: 100, r: r1, fill: cv("--qa"), opacity: 0.28, stroke: cv("--qa"), "stroke-width": 2 }, svg);
+      s("circle", { cx: cx + d, cy: 100, r: r2, fill: cv("--qb"), opacity: 0.28, stroke: cv("--qb"), "stroke-width": 2 }, svg);
+      s("text", { x: cx - r1 * 0.45, y: 104, "text-anchor": "middle", "font-size": 12, "font-weight": 600, text: A - I }, svg);
+      s("text", { x: cx + d + r2 * 0.45, y: 104, "text-anchor": "middle", "font-size": 12, "font-weight": 600, text: B - I }, svg);
+      if (I > 0) s("text", { x: cx + (d + r1 - r2) / 2, y: 104, "text-anchor": "middle", "font-size": 12, "font-weight": 700, text: I }, svg);
+      s("text", { x: 10, y: 190, "font-size": 11, text: "Ans(qᵢ)" }, svg).style.fill = cv("--qa");
+      s("text", { x: 350, y: 190, "text-anchor": "end", "font-size": 11, text: "Ans(qⱼ)" }, svg).style.fill = cv("--qb");
+      $("#jVal").textContent = J.toFixed(2);
+      const lab = $("#jLabel");
+      if (J >= 0.8) { lab.className = "pill pos"; lab.textContent = "positive pair: pull together"; }
+      else if (J <= 0.1) { lab.className = "pill neg"; lab.textContent = "negative pair: push apart"; }
+      else { lab.className = "pill mid"; lab.textContent = "unlabeled: not used in training"; }
+      $("#jMarker").style.left = `calc(${J * 100}% - 1.5px)`;
+      const prec = B ? I / B : 0, rec = A ? I / A : 0;
+      $("#jGuarantee").innerHTML = `If q<sub>j</sub>'s cached answers were reused for q<sub>i</sub>: <b>${pct(prec)}</b> of returned rows are correct and <b>${pct(rec)}</b> of the needed rows are returned. Both are always ≥ <i>J</i>, so a positive (<i>J</i> ≥ 0.8) guarantees at least 80% of each.`;
+    }
+    [a, b, i].forEach((x) => x.addEventListener("input", update));
+    $$(".presets button").forEach((btn) => btn.addEventListener("click", () => {
+      const [A, B, I] = btn.dataset.p.split(",").map(Number);
+      a.value = A; b.value = B; i.value = I; update();
+    }));
+    onTheme(update);
+  })();
+
+  /* ------------------------------------------------------------------ 2c. split */
+  (function split() {
+    const svg = $("#splitSvg");
+    const comps = [5, 3, 4, 2, 3, 2, 4, 2, 3, 2];
+    const nodes = [], edges = [];
+    let x0 = 30;
+    comps.forEach((size, ci) => {
+      const cx = x0 + 22, cy = 115, R = size <= 2 ? 16 : 26;
+      const ids = [];
+      for (let k = 0; k < size; k++) {
+        const ang = (k / size) * Math.PI * 2 - Math.PI / 2 + ci;
+        nodes.push({ x: cx + R * Math.cos(ang), y: cy + R * Math.sin(ang) * 1.6, c: ci });
+        ids.push(nodes.length - 1);
+      }
+      for (let k = 1; k < ids.length; k++) edges.push([ids[k - 1], ids[k]]);
+      if (ids.length >= 4) edges.push([ids[0], ids[ids.length - 1]]);
+      x0 += 2 * R + 30;
+    });
+    const scale = 600 / x0;
+    nodes.forEach((n) => { n.x = 20 + (n.x - 20) * scale; });
+    const compSplit = ["tr", "tr", "te", "tr", "tr", "va", "tr", "tr", "tr", "tr"];
+    let mode = "component";
+    function draw() {
+      clear(svg);
+      let assign;
+      if (mode === "component") assign = nodes.map((n) => compSplit[n.c]);
+      else {
+        const r = rng(11);
+        assign = nodes.map(() => { const u = r(); return u < 0.6 ? "tr" : u < 0.8 ? "va" : "te"; });
+      }
+      const col = { tr: cv("--tr"), va: cv("--va"), te: cv("--te") };
+      let leaks = 0;
+      for (const [p, q] of edges) {
+        const leak = assign[p] !== assign[q];
+        if (leak) leaks++;
+        s("line", { x1: nodes[p].x, y1: nodes[p].y, x2: nodes[q].x, y2: nodes[q].y, stroke: leak ? cv("--bad") : cv("--ink-3"), "stroke-width": leak ? 3 : 1.6, "stroke-dasharray": leak ? "5 3" : "" }, svg);
+      }
+      nodes.forEach((n, k) => s("circle", { cx: n.x, cy: n.y, r: 8, fill: col[assign[k]], stroke: cv("--surface"), "stroke-width": 2 }, svg));
+      s("text", { x: 10, y: 18, "font-size": 10, text: "nodes = queries · edges = positive pairs (J ≥ 0.8) · each cluster = one connected component" }, svg);
+      const msg = $("#splitMsg");
+      if (leaks) { msg.className = "verdict bad"; msg.innerHTML = `<b>${leaks} of ${edges.length}</b> positive pairs cross splits: the model would be tested on relations it saw in training.`; }
+      else { msg.className = "verdict good"; msg.innerHTML = `<b>0 of ${edges.length}</b> positive pairs cross splits. SQuARE has 1,156 (DBpedia) and 3,846 (Wikidata) such components, split 80/10/10.`; }
+    }
+    segment("splitSeg", (d) => { mode = d.s; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 2d. toy contrastive training */
+  (function toy() {
+    const svg = $("#toySvg"), lossSvg = $("#lossSvg");
+    const Q = [
+      // group 0: actors born in Paris (same answers)
+      ["?p a Actor ; birthPlace Paris", 0, [-0.35, 0.10]],
+      ["?p birthPlace ?c FILTER(?c=Paris)", 0, [0.30, -0.45]],
+      ["?p birthPlace Paris . ?p a Actor", 0, [-0.25, 0.25]],
+      // group 1: actors who died in Paris
+      ["?p a Actor ; deathPlace Paris", 1, [-0.20, 0.05]],
+      ["?p deathPlace ?c FILTER(?c=Paris)", 1, [0.40, -0.35]],
+      ["?p deathPlace Paris . ?p a Actor", 1, [-0.10, 0.22]],
+      // group 2: actors born in Berlin
+      ["?p a Actor ; birthPlace Berlin", 2, [-0.40, -0.05]],
+      ["?p birthPlace ?c FILTER(?c=Berlin)", 2, [0.25, -0.55]],
+      ["?p birthPlace Berlin . ?p a Actor", 2, [-0.30, 0.35]],
+      // group 3: films directed by Varda
+      ["?f director Agnès_Varda", 3, [0.55, 0.40]],
+      ["?f a Film ; director Agnès_Varda", 3, [0.10, 0.50]],
+      ["?f director ?d FILTER(?d=Varda)", 3, [0.45, -0.20]],
+    ];
+    const groupCol = () => [cv("--qa"), cv("--qb"), cv("--qc"), cv("--te")];
+    let Z, epoch, losses, hardPool, mined, playing = false, raf = null, stepInEpoch = 0, R;
+    const STEPS = 14, TAU = 0.35, LR = 0.035, M = 3;
+    function reset() {
+      Z = Q.map((q) => q[2].slice());
+      epoch = 0; losses = []; hardPool = null; mined = []; stepInEpoch = 0; R = rng(5);
+      playing = false; $("#toyPlay").textContent = "▶ Train";
+      cancelAnimationFrame(raf);
+      draw();
+    }
+    const sim = (i, j) => -((Z[i][0] - Z[j][0]) ** 2 + (Z[i][1] - Z[j][1]) ** 2);
+    function mine() {
+      hardPool = Q.map((q, i) => Q.map((_, j) => j).filter((j) => Q[j][1] !== q[1]).sort((x, y) => sim(i, y) - sim(i, x)).slice(0, 3));
+      mined = [];
+      hardPool.forEach((pool, i) => mined.push([i, pool[0]]));
+    }
+    function trainStep() {
+      const n = Q.length, G = Z.map(() => [0, 0]);
+      let L = 0;
+      const pos = [], negs = [];
+      for (let i = 0; i < n; i++) {
+        const ps = Q.map((_, j) => j).filter((j) => j !== i && Q[j][1] === Q[i][1]);
+        pos.push(ps[Math.floor(R() * ps.length)]);
+        const all = Q.map((_, j) => j).filter((j) => Q[j][1] !== Q[i][1]);
+        let chosen = [];
+        if (hardPool && $("#toyHard").checked) {
+          const h = hardPool[i].slice().sort(() => R() - 0.5).slice(0, 2);
+          chosen = h;
+        }
+        const rest = all.filter((j) => !chosen.includes(j)).sort(() => R() - 0.5);
+        while (chosen.length < M) chosen.push(rest.pop());
+        negs.push(chosen);
+      }
+      for (let i = 0; i < n; i++) {
+        // candidates: all positives in the batch + all explicit negatives; mask known positives of i
+        const cand = new Set([...pos, ...negs.flat()]);
+        cand.delete(i);
+        const list = [...cand].filter((c) => c === pos[i] || Q[c][1] !== Q[i][1]);
+        const logits = list.map((c) => sim(i, c) / TAU);
+        const mx = Math.max(...logits);
+        const ex = logits.map((v) => Math.exp(v - mx)), Zs = ex.reduce((a, b) => a + b, 0);
+        const w = ex.map((v) => v / Zs);
+        const pi = list.indexOf(pos[i]);
+        L += -Math.log(w[pi] + 1e-12);
+        list.forEach((c, k) => {
+          const coef = (w[k] - (k === pi ? 1 : 0)) / TAU; // dL/dlogit * dlogit/dsim
+          const dx = Z[i][0] - Z[c][0], dy = Z[i][1] - Z[c][1];
+          // sim = -(dx^2+dy^2): dsim/dZi = -2d, dsim/dZc = +2d
+          G[i][0] += coef * -2 * dx; G[i][1] += coef * -2 * dy;
+          G[c][0] += coef * 2 * dx; G[c][1] += coef * 2 * dy;
+        });
+      }
+      for (let i = 0; i < n; i++) {
+        Z[i][0] -= LR * (G[i][0] / n + 0.02 * Z[i][0]);
+        Z[i][1] -= LR * (G[i][1] / n + 0.02 * Z[i][1]);
+      }
+      return L / n;
+    }
+    function draw() {
+      clear(svg);
+      const W = 420, H = 300;
+      let xs = Z.map((z) => z[0]), ys = Z.map((z) => z[1]);
+      const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+      const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 0.6);
+      const k = 230 / span;
+      const px = (z) => [W / 2 + (z[0] - cx) * k, H / 2 + (z[1] - cy) * k * 0.95];
+      s("rect", { x: 0, y: 0, width: W, height: H, rx: 10, fill: cv("--surface-2") }, svg);
+      const col = groupCol();
+      if (epoch > 0 && mined.length && $("#toyHard").checked) {
+        for (const [i, j] of mined) {
+          const a = px(Z[i]), b = px(Z[j]);
+          s("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: cv("--bad"), "stroke-width": 1.2, "stroke-dasharray": "3 3", opacity: 0.75 }, svg);
+        }
+      }
+      Z.forEach((z, i) => {
+        const [x, y] = px(z);
+        const c = s("circle", { cx: x, cy: y, r: 7.5, fill: col[Q[i][1]], stroke: cv("--surface"), "stroke-width": 1.5 }, svg);
+        const t = s("title", {}, c); t.textContent = Q[i][0];
+      });
+      if (epoch === 0) {
+        Z.forEach((z, i) => {
+          if (i % 3 !== 0) return;
+          const [x, y] = px(z);
+          s("text", { x: x + 10, y: y + 4, "font-size": 9.5, text: Q[i][0] }, svg);
+        });
+      }
+      if (epoch >= 6) {
+        const names = ["actors born in Paris", "actors died in Paris", "actors born in Berlin", "films by Varda"];
+        for (let gi = 0; gi < 4; gi++) {
+          const pts = Z.filter((_, i) => Q[i][1] === gi).map(px);
+          const mx = pts.reduce((a, p) => a + p[0], 0) / pts.length, my = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+          const left = mx > W / 2;
+          s("text", { x: mx + (left ? -14 : 14), y: my + 4, "text-anchor": left ? "end" : "start", "font-size": 11, "font-weight": 600, text: names[gi] }, svg).style.fill = col[gi];
+        }
+      }
+      s("text", { x: 10, y: H - 10, "font-size": 10.5, text: epoch === 0 ? "start: text-based layout (hover a dot for its query)" : "colour = same answer set" }, svg);
+      $("#toyEpoch").textContent = epoch;
+      // loss
+      clear(lossSvg);
+      const lw = 480, lh = 150, ml = 34, mb = 20;
+      s("text", { x: 0, y: 12, "font-size": 12, text: "training loss (InfoNCE)" }, lossSvg);
+      s("line", { x1: ml, x2: lw, y1: lh - mb, y2: lh - mb, stroke: cv("--line") }, lossSvg);
+      if (losses.length > 1) {
+        const mxL = Math.max(...losses), mnL = 0;
+        const pts = losses.map((v, j) => `${ml + (j / 20) * (lw - ml)},${lh - mb - ((v - mnL) / (mxL - mnL || 1)) * (lh - mb - 16)}`).join(" ");
+        s("polyline", { points: pts, fill: "none", stroke: cv("--accent"), "stroke-width": 2 }, lossSvg);
+        s("text", { x: ml - 4, y: 26, "text-anchor": "end", "font-size": 11, text: mxL.toFixed(1) }, lossSvg);
+      }
+      s("text", { x: lw, y: lh - 4, "text-anchor": "end", "font-size": 11, text: "epoch 20" }, lossSvg);
+    }
+    function frame() {
+      if (!playing) return;
+      if (stepInEpoch === 0) {
+        epoch++;
+        if (epoch >= 2 && (epoch - 2) % 2 === 0) mine();
+      }
+      const L = trainStep();
+      stepInEpoch++;
+      if (stepInEpoch >= STEPS) { losses.push(L); stepInEpoch = 0; }
+      draw();
+      if (epoch >= 20 && stepInEpoch === 0) { playing = false; $("#toyPlay").textContent = "✓ Done"; return; }
+      raf = requestAnimationFrame(frame);
+    }
+    $("#toyPlay").addEventListener("click", () => {
+      if (epoch >= 20) reset();
+      playing = !playing;
+      $("#toyPlay").textContent = playing ? "❚❚ Pause" : "▶ Train";
+      if (playing) raf = requestAnimationFrame(frame);
+    });
+    $("#toyReset").addEventListener("click", reset);
+    $("#toyHard").addEventListener("change", draw);
+    reset();
+    redrawers.push(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 3. explorer */
+  (function explorer() {
+    let g = "dbpedia", idx = 0;
+    const jBadge = (J) => J == null ? `<span class="jb mid">partial</span>` : J >= 0.8 ? `<span class="jb pos">${fmt(J)} ✓</span>` : J <= 0.1 ? `<span class="jb neg">${fmt(J)} ✗</span>` : `<span class="jb mid">${fmt(J)}</span>`;
+    function list() {
+      const ex = D[g].examples;
+      $("#exList").innerHTML = ex.map((e, k) => {
+        const r = e.text_rank_of_first_match;
+        const first = e.anchor.split("\n").slice(1).join(" ").replace(/\s+/g, " ").replace(/^WHERE\s*/, "").slice(0, 70);
+        return `<button class="exitem${k === idx ? " on" : ""}" data-k="${k}"><span class="r ${r === 1 ? "good" : "bad"}">${r === 1 ? "rank 1" : "rank " + r}</span>${esc(first)}</button>`;
+      }).join("");
+    }
+    function show() {
+      const e = D[g].examples[idx];
+      $("#exAnchor").textContent = e.anchor;
+      $("#exAnchorAns").textContent = `${(e.anchor_answers || 0).toLocaleString()} answer row${e.anchor_answers === 1 ? "" : "s"} · ${e.n_relevant} high-overlap quer${e.n_relevant === 1 ? "y" : "ies"} among the ${(D[g].test_queries - 1).toLocaleString()} other test queries`;
+      const r = e.text_rank_of_first_match;
+      const v = $("#exVerdict");
+      if (r === 1) { v.className = "verdict good"; v.innerHTML = `Here text similarity works: its top match has high answer overlap. Such cases are common on DBpedia, where 98% of test queries share a template with training.`; }
+      else { v.className = "verdict bad"; v.innerHTML = `Text similarity ranks the first high-overlap query at <b>rank ${r}</b>. Its top match${r > 2 ? "es look" : " looks"} closer but return${r > 2 ? "" : "s"} different answers. Results-aware training targets exactly this ordering.`; }
+      const rows = [];
+      let last = 0;
+      for (const c of e.candidates.slice().sort((x, y) => x.rank - y.rank)) {
+        if (c.rank > last + 1) rows.push(`<tr class="gap"><td colspan="5">⋯ ${c.rank - last - 1} more ⋯</td></tr>`);
+        last = c.rank;
+        rows.push(`<tr class="${c.best ? "best" : ""}"><td>${c.rank}${c.best ? ' <span class="star">★</span>' : ""}</td><td class="q">${esc(c.q.replace(/\s+/g, " "))}</td><td>${(c.answers || 0).toLocaleString()}</td><td>${fmt(c.tfidf)}</td><td>${jBadge(c.J)}</td></tr>`);
+      }
+      $("#exRows").innerHTML = rows.join("");
+    }
+    $("#exList").addEventListener("click", (ev) => {
+      const b = ev.target.closest(".exitem"); if (!b) return;
+      idx = +b.dataset.k; list(); show();
+    });
+    segment("exSeg", (d) => { g = d.g; idx = 0; list(); show(); });
+    list(); show();
+  })();
+
+  /* ------------------------------------------------------------------ charts helpers */
+  function hbars(svg, rows, opt) {
+    // rows: [label, value, kind]
+    clear(svg);
+    const W = 480, rowH = opt.rowH || 34, ml = opt.ml || 190, mr = 46, top = 8;
+    const H = top + rows.length * rowH + 22;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const X = (v) => ml + v * (W - ml - mr);
+    for (let i = 0; i <= 4; i++) {
+      const v = i / 4 * (opt.max || 1);
+      s("line", { x1: X(v / (opt.max || 1)), x2: X(v / (opt.max || 1)), y1: top, y2: H - 20, stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+      s("text", { x: X(v / (opt.max || 1)), y: H - 6, "text-anchor": "middle", "font-size": 10, text: v.toFixed(2) }, svg);
+    }
+    const kindCol = { base: cv("--mid"), zs: cv("--qa"), ft: cv("--qc"), syn: cv("--mid"), ans: cv("--qc"), tf: cv("--mid") };
+    rows.forEach(([lab, v, kind], i) => {
+      const y = top + i * rowH;
+      s("text", { x: ml - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "font-size": 11.5, "font-weight": kind === "ft" || kind === "ans" ? 700 : 400, text: lab }, svg);
+      const bw = Math.max(1, X(v / (opt.max || 1)) - ml);
+      s("rect", { x: ml, y: y + 6, width: bw, height: rowH - 12, rx: 4, fill: kindCol[kind] || cv("--mid"), opacity: kind === "base" || kind === "tf" || kind === "syn" ? 0.55 : 1 }, svg);
+      s("text", { x: ml + bw + 6, y: y + rowH / 2 + 4, "font-size": 11.5, "font-weight": 600, text: fmt(v) }, svg);
+    });
+  }
+
+  /* ------------------------------------------------------------------ 3b. complete-label bars */
+  (function fullCollection() {
+    let g = "dbpedia";
+    const draw = () => hbars($("#fcSvg"), P.retrievalComplete[g].map((r) => [r[0].replace(" (mean of 10)", ""), r[1], r[4]]), { ml: 200, rowH: 36 });
+    segment("fcSeg", (d) => { g = d.g; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 3c. dumbbell */
+  (function dumbbell() {
+    const svg = $("#dumbSvg");
+    let g = "dbpedia";
+    function draw() {
+      clear(svg);
+      const R = P.retrievalStored[g];
+      const W = 480, rowH = 29, ml = 130, mr = 20, top = 22;
+      const H = top + P.encoders.length * rowH + 26;
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const max = 0.7;
+      const X = (v) => ml + (v / max) * (W - ml - mr);
+      for (let v = 0; v <= max + 1e-9; v += 0.1) {
+        s("line", { x1: X(v), x2: X(v), y1: top - 6, y2: H - 22, stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+        s("text", { x: X(v), y: H - 8, "text-anchor": "middle", "font-size": 10, text: v.toFixed(1) }, svg);
+      }
+      const tf = R.baselines["TF-IDF"];
+      s("line", { x1: X(tf), x2: X(tf), y1: top - 10, y2: H - 22, stroke: cv("--ink-3"), "stroke-dasharray": "4 3", "stroke-width": 1.2 }, svg);
+      s("text", { x: X(tf), y: 10, "text-anchor": "middle", "font-size": 10, text: "TF-IDF " + fmt(tf) }, svg);
+      P.encoders.forEach((name, i) => {
+        const y = top + i * rowH + rowH / 2;
+        const zs = R.zs[i], ft = zs + R.gain[i];
+        s("text", { x: ml - 8, y: y + 4, "text-anchor": "end", "font-size": 11.5, text: name }, svg);
+        s("line", { x1: X(zs), x2: X(ft), y1: y, y2: y, stroke: cv("--qc"), "stroke-width": 3, opacity: 0.45 }, svg);
+        s("circle", { cx: X(zs), cy: y, r: 5.5, fill: cv("--surface"), stroke: cv("--qa"), "stroke-width": 2 }, svg);
+        s("circle", { cx: X(ft), cy: y, r: 6, fill: cv("--qc") }, svg);
+        s("text", { x: X(ft) + 9, y: y + 4, "font-size": 10.5, "font-weight": 600, text: "+" + fmt(R.gain[i]) }, svg).style.fill = cv("--good");
+      });
+      const ly = 8, lx = 14;
+      s("circle", { cx: lx, cy: ly, r: 5, fill: cv("--surface"), stroke: cv("--qa"), "stroke-width": 2 }, svg);
+      s("text", { x: lx + 9, y: ly + 4, "font-size": 10.5, text: "zero-shot" }, svg);
+      s("circle", { cx: lx + 80, cy: ly, r: 5, fill: cv("--qc") }, svg);
+      s("text", { x: lx + 89, y: ly + 4, "font-size": 10.5, text: "fine-tuned" }, svg);
+    }
+    segment("dbSeg", (d) => { g = d.g; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 3d. syntax control + seen/unseen */
+  function pairedBars(svg, groups) {
+    // groups: [{label, bars:[[name, value, kind]]}]
+    clear(svg);
+    const W = 480, H = 190, ml = 10, top = 14, bottom = 40;
+    const gw = (W - ml) / groups.length;
+    const Y = (v) => H - bottom - v * (H - top - bottom) / 0.8;
+    for (let v = 0; v <= 0.8 + 1e-9; v += 0.2) {
+      s("line", { x1: ml, x2: W, y1: Y(v), y2: Y(v), stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+    }
+    const col = { syn: cv("--mid"), ans: cv("--qc"), tf: cv("--mid"), ft: cv("--qc") };
+    groups.forEach((gr, gi) => {
+      const x0 = ml + gi * gw;
+      const bw = Math.min(70, (gw - 40) / gr.bars.length);
+      gr.bars.forEach(([name, v, kind], bi) => {
+        const x = x0 + (gw - bw * gr.bars.length - 10) / 2 + bi * (bw + 10);
+        s("rect", { x, y: Y(v), width: bw, height: Y(0) - Y(v), rx: 4, fill: col[kind], opacity: kind === "syn" || kind === "tf" ? 0.55 : 1 }, svg);
+        s("text", { x: x + bw / 2, y: Y(v) - 5, "text-anchor": "middle", "font-size": 11.5, "font-weight": 700, text: fmt(v) }, svg);
+        s("text", { x: x + bw / 2, y: Y(0) + 13, "text-anchor": "middle", "font-size": 10, text: name }, svg);
+      });
+      s("text", { x: x0 + gw / 2, y: H - 6, "text-anchor": "middle", "font-size": 11.5, "font-weight": 600, text: gr.label }, svg);
+    });
+  }
+  onTheme(() => {
+    const sc = P.syntaxControl;
+    pairedBars($("#ctrlSvg"), [
+      { label: "DBpedia  (+" + sc.dbpedia.diff.split(" ")[0] + ")", bars: [["syntax labels", sc.dbpedia.syntax, "syn"], ["answer labels", sc.dbpedia.answers, "ans"]] },
+      { label: "Wikidata  (+" + sc.wikidata.diff.split(" ")[0] + ")", bars: [["syntax labels", sc.wikidata.syntax, "syn"], ["answer labels", sc.wikidata.answers, "ans"]] },
+    ]);
+    const su = P.seenUnseen;
+    pairedBars($("#suSvg"), [
+      { label: `seen templates (n = ${su.seen.n})`, bars: [["TF-IDF", su.seen.tfidf, "tf"], ["fine-tuned", su.seen.ft, "ft"]] },
+      { label: `unseen templates (n = ${su.unseen.n})`, bars: [["TF-IDF", su.unseen.tfidf, "tf"], ["fine-tuned", su.unseen.ft, "ft"]] },
+    ]);
+  });
+
+  /* ------------------------------------------------------------------ 4. cache walk-through */
+  (function cacheSim() {
+    const Qs = {
+      a: { k: "qa", t: "?p a dbo:Actor ; dbo:birthPlace dbr:Paris", n: 136 },
+      b: { k: "qb", t: "?p a dbo:Actor ; dbo:deathPlace dbr:Paris", n: 94 },
+      c: { k: "qc", t: "?p a dbo:Actor ; dbo:birthPlace ?c .\nFILTER(?c = dbr:Paris)", n: 136 },
+      d: { k: "qd", t: "?p a dbo:Actor ; dbo:birthPlace dbr:Berlin", n: null },
+    };
+    // stream: [incoming, nearest cached, cos(text), cos(ours), J(incoming, nearest)]
+    const stream = [
+      ["a", null, 0, 0, null],
+      ["b", "a", 0.93, 0.41, 0.19],
+      ["c", "a", 0.74, 0.94, 1.0],
+      ["d", "a", 0.95, 0.38, 0.0],
+    ];
+    const theta = 0.8;
+    let mode = "text", pos = 0, cache = [], tally;
+    const card = (id, extra = "") => `<div class="cs-q ${Qs[id].k} ${extra}"><b>(${id})</b> ${esc(Qs[id].t)}</div>`;
+    function reset() { pos = 0; cache = []; tally = { hits: 0, ok: 0, bad: 0, exec: 0 }; render(null); $("#csNext").disabled = false; $("#csNext").textContent = "Next query ▶"; }
+    function render(ev) {
+      let inc = "<h4>incoming query</h4>", dec = "<h4>decision (θ = 0.8)</h4>";
+      if (!ev) { inc += `<p class="note">Press “Next query”.</p>`; dec += ""; }
+      else {
+        const [id, near, ct, co, J] = ev;
+        inc += card(id, "new");
+        if (!near) {
+          dec += `<div class="cs-dec"><div class="big ex">cache empty → execute</div>store (${id}) and its answers</div>`;
+        } else {
+          const c = mode === "text" ? ct : co;
+          dec += `<div class="cs-dec">nearest cached: <b>(${near})</b>, cosine <b>${fmt(c)}</b>`;
+          if (c >= theta) {
+            const ok = J >= 0.8;
+            dec += `<div class="big ${ok ? "ok" : "ko"}">${ok ? "✓ reuse, correct" : "✗ reuse, wrong answers"}</div>J((${id}),(${near})) = ${fmt(J)}${J === 0 ? " (different people)" : ""}`;
+          } else {
+            dec += `<div class="big ex">below θ → execute</div>${J >= 0.8 ? `missed a safe reuse (J = ${fmt(J)})` : `correctly avoided a bad reuse (J = ${fmt(J)})`}`;
+          }
+          dec += `</div>`;
+        }
+      }
+      dec += `<div class="tally"><span>hits ${tally.hits}</span><span style="color:var(--good)">correct ${tally.ok}</span><span style="color:var(--bad)">wrong ${tally.bad}</span><span>executed ${tally.exec}</span></div>`;
+      const cch = `<h4>cache (FIFO, K = 128)</h4>` + (cache.length ? cache.map((id) => card(id)).join("") : `<p class="note">empty</p>`);
+      $("#csStage").innerHTML = `<div class="cs-col">${inc}</div><div class="cs-col">${dec}</div><div class="cs-col">${cch}</div>`;
+    }
+    function next() {
+      if (pos >= stream.length) return;
+      const ev = stream[pos++];
+      const [id, near, ct, co, J] = ev;
+      const c = mode === "text" ? ct : co;
+      if (near && c >= theta) { tally.hits++; if (J >= 0.8) tally.ok++; else tally.bad++; }
+      else { tally.exec++; cache.push(id); }
+      render(ev);
+      if (pos >= stream.length) { $("#csNext").disabled = true; $("#csNext").textContent = "End of stream"; }
+    }
+    $("#csNext").addEventListener("click", next);
+    $("#csReset").addEventListener("click", reset);
+    segment("csSeg", (d) => { mode = d.m; reset(); });
+    reset();
+  })();
+
+  /* ------------------------------------------------------------------ 4b. cache accuracy bars */
+  (function cacheAcc() {
+    const svg = $("#caSvg");
+    let g = "dbpedia";
+    function draw() {
+      clear(svg);
+      const C = P.caching[g];
+      const W = 480, rowH = 29, ml = 130, mr = 40, top = 22;
+      const H = top + P.encoders.length * rowH + 26;
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const X = (v) => ml + v * (W - ml - mr);
+      for (let v = 0; v <= 1.0001; v += 0.2) {
+        s("line", { x1: X(v), x2: X(v), y1: top - 6, y2: H - 22, stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+        s("text", { x: X(v), y: H - 8, "text-anchor": "middle", "font-size": 10, text: v.toFixed(1) }, svg);
+      }
+      P.encoders.forEach((name, i) => {
+        const y = top + i * rowH;
+        s("text", { x: ml - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "font-size": 11.5, text: name }, svg);
+        s("rect", { x: ml, y: y + 5, width: Math.max(1, X(C.ftAcc[i]) - ml), height: rowH - 10, rx: 4, fill: cv("--qc") }, svg);
+        s("rect", { x: ml, y: y + 9, width: Math.max(1, X(C.zsAcc[i]) - ml), height: rowH - 18, rx: 3, fill: cv("--qa"), opacity: 0.85 }, svg);
+        s("text", { x: X(C.ftAcc[i]) + 6, y: y + rowH / 2 + 4, "font-size": 10.5, "font-weight": 600, text: fmt(C.ftAcc[i]) }, svg);
+      });
+      s("rect", { x: W - 190, y: 2, width: 12, height: 10, rx: 2, fill: cv("--qa") }, svg);
+      s("text", { x: W - 174, y: 11, "font-size": 10.5, text: "zero-shot" }, svg);
+      s("rect", { x: W - 110, y: 2, width: 12, height: 10, rx: 2, fill: cv("--qc") }, svg);
+      s("text", { x: W - 94, y: 11, "font-size": 10.5, text: "fine-tuned" }, svg);
+    }
+    segment("caSeg", (d) => { g = d.g; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 4c. risk-coverage with theta slider */
+  (function riskCov() {
+    const svg = $("#rcSvg"), slider = $("#thr");
+    let g = "dbpedia";
+    const names = ["MPNet", "Qwen3-Embedding", "CodeBERT"];
+    const colors = () => [cv("--qa"), cv("--qb"), cv("--qc")];
+    function draw() {
+      clear(svg);
+      const ti = +slider.value;
+      $("#thrVal").textContent = P.thresholds[ti].toFixed(2);
+      const W = 480, H = 300, m = { l: 46, r: 14, t: 14, b: 40 };
+      const X = (v) => m.l + v * (W - m.l - m.r), Y = (v) => H - m.b - v * (H - m.t - m.b);
+      s("rect", { x: X(0), y: Y(1), width: X(1) - X(0), height: Y(0.9) - Y(1), fill: cv("--good-soft") }, svg);
+      for (let i = 0; i <= 5; i++) {
+        const v = i / 5;
+        s("line", { x1: X(0), x2: X(1), y1: Y(v), y2: Y(v), stroke: cv("--line"), "stroke-width": 0.6 }, svg);
+        s("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 10, text: v.toFixed(1) }, svg);
+        s("text", { x: X(v), y: H - m.b + 15, "text-anchor": "middle", "font-size": 10, text: v.toFixed(1) }, svg);
+      }
+      s("text", { x: X(0.99), y: Y(0.95) + 4, "text-anchor": "end", "font-size": 10, text: "reliable zone: accuracy ≥ 0.9" }, svg).style.fill = cv("--good");
+      s("text", { x: (X(0) + X(1)) / 2, y: H - 6, "text-anchor": "middle", "font-size": 11, text: "hit rate (share of queries answered from cache)" }, svg);
+      s("text", { x: 12, y: (Y(0) + Y(1)) / 2, "text-anchor": "middle", "font-size": 11, transform: `rotate(-90 12 ${(Y(0) + Y(1)) / 2})`, text: "hit accuracy" }, svg);
+      const col = colors();
+      const rows = [];
+      names.forEach((n, k) => {
+        const pts = P.riskCoverage[g][n];
+        s("polyline", { points: pts.map(([shr, risk]) => `${X(shr)},${Y(1 - risk)}`).join(" "), fill: "none", stroke: col[k], "stroke-width": 2, opacity: 0.8 }, svg);
+        pts.forEach(([shr, risk]) => s("circle", { cx: X(shr), cy: Y(1 - risk), r: 2.4, fill: col[k] }, svg));
+        const [shr, risk] = pts[ti];
+        s("circle", { cx: X(shr), cy: Y(1 - risk), r: 7, fill: col[k], stroke: cv("--surface"), "stroke-width": 2 }, svg);
+        rows.push([n, shr, 1 - risk, shr * (1 - risk), col[k]]);
+      });
+      $("#rcTable").innerHTML = `<table class="mini"><thead><tr><th>fine-tuned encoder</th><th>hit rate</th><th>hit accuracy</th><th>correct hit rate</th></tr></thead><tbody>` +
+        rows.map(([n, shr, acc, chr, c]) => `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:6px"></span>${n}</td><td>${fmt(shr)}</td><td style="color:${acc >= 0.9 ? "var(--good)" : "inherit"};font-weight:${acc >= 0.9 ? 700 : 400}">${fmt(acc)}</td><td>${fmt(chr)}</td></tr>`).join("") +
+        `</tbody></table><p class="note">Raising θ trades coverage for reliability. On DBpedia high θ reaches the reliable zone; on Wikidata most encoders never do (CodeBERT even gets <i>less</i> accurate as θ rises). Test streams, K = 128, pooled over 5 seeds × 5 orders.</p>`;
+    }
+    slider.addEventListener("input", draw);
+    segment("rcSeg", (d) => { g = d.g; draw(); });
+    onTheme(draw);
+  })();
+
+  /* ------------------------------------------------------------------ 5. comparison + dataset */
+  (function novelty() {
+    const Y = '<span class="yes">✓</span>', N = '<span class="no">✗</span>', Pp = (t) => `<span class="part">${t}</span>`;
+    const rows = [
+      ["Query2Vec, Querc (SQL workloads)", Y, N, N, Y],
+      ["SPBERT (pretrained on SPARQL logs)", Y, N, N, Y],
+      ["Text and code encoders (E5, BGE, CodeBERT, …)", Y, N, N, Y],
+      ["Containment / equivalence checking", N, N, Pp("holds on every graph"), Pp("yes, but costly")],
+      ["SQA (execution-based query assessment)", N, Pp("partial"), Y, N],
+      ["Embedding-based semantic caches (GPTCache-style)", Y, N, N, Y],
+      ["Structural SPARQL caches, template prefetching", N, N, N, Y],
+      ["<b>Results-aware embeddings + SQuARE (ours)</b>", Y, Y, Y, Y],
+    ];
+    $("#cmpTable").innerHTML = `<thead><tr><th>Approach</th><th>Learns a query<br>embedding</th><th>Trained on<br>query answers</th><th>Relatedness on<br>the target graph</th><th>Query text only<br>at inference</th></tr></thead><tbody>` +
+      rows.map((r, i) => `<tr class="${i === rows.length - 1 ? "ours" : ""}">${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") + "</tbody>";
+    const d = P.dataset;
+    const n = (x) => x.toLocaleString();
+    $("#dsTable").innerHTML = `<thead><tr><th></th><th>DBpedia</th><th>Wikidata</th></tr></thead><tbody>
+      <tr><td>Unique queries</td><td>${n(d.dbpedia.queries)}</td><td>${n(d.wikidata.queries)}</td></tr>
+      <tr><td>Queries (train / valid / test)</td><td>${d.dbpedia.split}</td><td>${d.wikidata.split}</td></tr>
+      <tr><td>Positive pairs (J ≥ 0.8)</td><td>${n(d.dbpedia.pos)}</td><td>${n(d.wikidata.pos)}</td></tr>
+      <tr><td>Negative pairs (J ≤ 0.1)</td><td>${n(d.dbpedia.neg)}</td><td>${n(d.wikidata.neg)}</td></tr>
+      <tr><td>Positives with J = 1</td><td>${d.dbpedia.j1}</td><td>${d.wikidata.j1}</td></tr>
+      <tr><td>Query templates</td><td>${n(d.dbpedia.templates)}</td><td>${n(d.wikidata.templates)}</td></tr>
+      <tr><td>Test anchors with a training template</td><td>${d.dbpedia.seen}</td><td>${d.wikidata.seen}</td></tr></tbody>`;
+  })();
+})();
+
+</script>
+</body>
+</html>
