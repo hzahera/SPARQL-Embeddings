@@ -320,22 +320,10 @@
     <p class="note">Based on the related-work discussion in the paper. "Partial": SQA compares execution results to assess a generated query against a reference, but does not train a query encoder.</p>
   </div>
 
-  <div class="grid2">
-    <div class="card">
+  <div class="card wide">
       <h3>The SQuARE resource</h3>
       <table class="mini stats" id="dsTable"></table>
       <p class="note">SPARQL Query Answer Ranking Evaluation. Positives: J ≥ 0.8; negatives: J ≤ 0.1. Splits audited at query, pair, answer-set and normalized-algebra level.</p>
-    </div>
-    <div class="card">
-      <h3>Why reviewers can trust the labels</h3>
-      <ul class="facts">
-        <li><b>No human labels, no model labels:</b> every positive and negative is checked by execution.</li>
-        <li><b>No leakage:</b> no query string, positive pair or answer set is shared across splits.</li>
-        <li><b>Same universe:</b> zero-shot, fine-tuned and baselines rank the exact same candidates.</li>
-        <li><b>Model-agnostic:</b> one training protocol for ten encoders from four families (text, general LM, code, SPARQL).</li>
-        <li><b>Thresholds never tuned on test:</b> the cache threshold is chosen on validation only.</li>
-      </ul>
-    </div>
   </div>
 </section>
 
