@@ -237,3 +237,52 @@ pre.code { background: var(--surface-2); padding: 12px 14px; border-radius: 10px
   .card { padding: 14px; }
   .rank th:nth-child(3), .rank td:nth-child(3) { display: none; }
 }
+
+/* ---------- multi-page layout ---------- */
+.topnav { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topnav .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; padding-bottom: 8px; }
+.topnav a { white-space: nowrap; text-decoration: none; color: var(--ink-2); padding: 6px 12px; border-radius: 8px; font-size: .9rem; }
+.topnav a:hover { color: var(--ink); background: var(--surface-2); }
+.topnav a.on { color: var(--ink); background: var(--surface-2); font-weight: 650; }
+section.first { padding-top: 28px; }
+.ptitle { font-size: clamp(1.5rem, 3.4vw, 2.1rem); margin-bottom: .3em; }
+h2 { margin-top: 10px; }
+.demos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 6px 0 14px; }
+.democard { display: block; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow); transition: border-color .15s, transform .15s; }
+.democard:hover { border-color: var(--accent); transform: translateY(-2px); }
+.democard h2 { margin: 6px 0 8px; font-size: 1.3rem; }
+.democard p { color: var(--ink-2); margin: 0 0 12px; }
+.dnum { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.go { color: var(--accent); font-weight: 650; }
+.next { margin: 14px 0 0; }
+.next a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.howto { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.hstep { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.hstep p { margin: 6px 0 0; color: var(--ink-2); font-size: .92rem; }
+.hstep.ours { border-color: var(--qc); background: var(--qc-soft); }
+.pillbtn, .linkbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 5px 12px; border-radius: 999px; font-size: .86rem; }
+.pillbtn:hover { border-color: var(--accent); color: var(--accent); }
+.linkbtn { border: 0; padding: 4px 0; color: var(--accent); background: none; margin-top: 6px; }
+
+/* ---------- embedding map ---------- */
+#embMap { position: relative; }
+.embgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.embpanel { min-width: 0; }
+.embpanel select { width: 100%; margin-bottom: 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .92rem; font-weight: 600; }
+.embstat { margin-top: 8px; font-size: .88rem; padding: 7px 10px; border-radius: 8px; background: var(--bad-soft); }
+.embstat.good { background: var(--good-soft); }
+.embinfo { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; min-height: 120px; }
+.embinfo h4 { margin: 10px 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.selq { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.selq .tag { position: static; display: inline-grid; align-self: flex-start; }
+.selq code, .nnrow code { font-size: .8rem; background: var(--surface-2); padding: 6px 8px; border-radius: 6px; word-break: break-all; display: block; }
+.selq small { color: var(--ink-3); }
+.nnrow { display: grid; grid-template-columns: 210px 1fr auto; gap: 10px; align-items: center; margin-bottom: 6px; }
+.nnlab { font-size: .84rem; font-weight: 600; color: var(--ink-2); }
+.tip { position: absolute; z-index: 5; max-width: 300px; pointer-events: none; background: var(--ink); color: var(--bg); font: .74rem/1.35 var(--mono); padding: 6px 8px; border-radius: 6px; word-break: break-all; }
+@media (max-width: 900px) {
+  .demos, .embgrid { grid-template-columns: 1fr; }
+  .howto { grid-template-columns: 1fr 1fr; }
+  .nnrow { grid-template-columns: 1fr; gap: 4px; }
+}
+@media (max-width: 520px) { .howto { grid-template-columns: 1fr; } }

@@ -45,6 +45,7 @@
 
   /* ------------------------------------------------------------------ KPIs */
   (function kpis() {
+    if (!$("#kpis")) return;
     const fc = P.retrievalComplete;
     const get = (g, kind) => fc[g].find((r) => r[4] === kind)[1];
     const tf = (g) => fc[g].find((r) => r[0] === "TF-IDF")[1];
@@ -59,6 +60,7 @@
 
   /* ------------------------------------------------------------------ 1. teaser */
   (function teaser() {
+    if (!$("#teaserSvg")) return;
     const svg = $("#teaserSvg");
     const layouts = {
       text: { a: [120, 150], b: [168, 122], c: [330, 205] },
@@ -111,6 +113,7 @@
 
   /* ------------------------------------------------------------------ 1b. scatter */
   (function scatter() {
+    if (!$("#scatterSvg")) return;
     const svg = $("#scatterSvg");
     let g = "dbpedia";
     const W = 480, H = 330, m = { l: 46, r: 12, t: 12, b: 40 };
@@ -147,6 +150,7 @@
 
   /* ------------------------------------------------------------------ 2. steps */
   (function steps() {
+    if (!$("#steps")) return;
     const items = $$("#steps li");
     items.forEach((li) => li.addEventListener("click", () => {
       items.forEach((x) => x.classList.toggle("on", x === li));
@@ -157,6 +161,7 @@
 
   /* ------------------------------------------------------------------ 2b. Jaccard / Venn */
   (function venn() {
+    if (!$("#vennSvg")) return;
     const svg = $("#vennSvg");
     const a = $("#vA"), b = $("#vB"), i = $("#vI");
     function lensArea(r1, r2, d) {
@@ -206,6 +211,7 @@
 
   /* ------------------------------------------------------------------ 2c. split */
   (function split() {
+    if (!$("#splitSvg")) return;
     const svg = $("#splitSvg");
     const comps = [5, 3, 4, 2, 3, 2, 4, 2, 3, 2];
     const nodes = [], edges = [];
@@ -253,6 +259,7 @@
 
   /* ------------------------------------------------------------------ 2d. toy contrastive training */
   (function toy() {
+    if (!$("#toySvg")) return;
     const svg = $("#toySvg"), lossSvg = $("#lossSvg");
     const Q = [
       // group 0: actors born in Paris (same answers)
@@ -409,6 +416,7 @@
 
   /* ------------------------------------------------------------------ 3. explorer */
   (function explorer() {
+    if (!$("#exList")) return;
     let g = "dbpedia", idx = 0;
     const jBadge = (J) => J == null ? `<span class="jb mid">partial</span>` : J >= 0.8 ? `<span class="jb pos">${fmt(J)} ✓</span>` : J <= 0.1 ? `<span class="jb neg">${fmt(J)} ✗</span>` : `<span class="jb mid">${fmt(J)}</span>`;
     function list() {
@@ -469,6 +477,7 @@
 
   /* ------------------------------------------------------------------ 3b. complete-label bars */
   (function fullCollection() {
+    if (!$("#fcSvg")) return;
     let g = "dbpedia";
     const draw = () => hbars($("#fcSvg"), P.retrievalComplete[g].map((r) => [r[0].replace(" (mean of 10)", ""), r[1], r[4]]), { ml: 200, rowH: 36 });
     segment("fcSeg", (d) => { g = d.g; draw(); });
@@ -477,6 +486,7 @@
 
   /* ------------------------------------------------------------------ 3c. dumbbell */
   (function dumbbell() {
+    if (!$("#dumbSvg")) return;
     const svg = $("#dumbSvg");
     let g = "dbpedia";
     function draw() {
@@ -536,7 +546,7 @@
       s("text", { x: x0 + gw / 2, y: H - 6, "text-anchor": "middle", "font-size": 11.5, "font-weight": 600, text: gr.label }, svg);
     });
   }
-  onTheme(() => {
+  if ($("#ctrlSvg")) onTheme(() => {
     const sc = P.syntaxControl;
     pairedBars($("#ctrlSvg"), [
       { label: "DBpedia  (+" + sc.dbpedia.diff.split(" ")[0] + ")", bars: [["syntax labels", sc.dbpedia.syntax, "syn"], ["answer labels", sc.dbpedia.answers, "ans"]] },
@@ -551,6 +561,7 @@
 
   /* ------------------------------------------------------------------ 4. cache walk-through */
   (function cacheSim() {
+    if (!$("#csStage")) return;
     const Qs = {
       a: { k: "qa", t: "?p a dbo:Actor ; dbo:birthPlace dbr:Paris", n: 136 },
       b: { k: "qb", t: "?p a dbo:Actor ; dbo:deathPlace dbr:Paris", n: 94 },
@@ -610,6 +621,7 @@
 
   /* ------------------------------------------------------------------ 4b. cache accuracy bars */
   (function cacheAcc() {
+    if (!$("#caSvg")) return;
     const svg = $("#caSvg");
     let g = "dbpedia";
     function draw() {
@@ -641,6 +653,7 @@
 
   /* ------------------------------------------------------------------ 4c. risk-coverage with theta slider */
   (function riskCov() {
+    if (!$("#rcSvg")) return;
     const svg = $("#rcSvg"), slider = $("#thr");
     let g = "dbpedia";
     const names = ["MPNet", "Qwen3-Embedding", "CodeBERT"];
@@ -682,6 +695,7 @@
 
   /* ------------------------------------------------------------------ 5. comparison + dataset */
   (function novelty() {
+    if (!$("#cmpTable")) return;
     const Y = '<span class="yes">✓</span>', N = '<span class="no">✗</span>', Pp = (t) => `<span class="part">${t}</span>`;
     const rows = [
       ["Query2Vec, Querc (SQL workloads)", Y, N, N, Y],

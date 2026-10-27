@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results-Aware Embeddings Demo</title>
+<meta name="description" content="Text-based vs. results-aware embeddings of real SPARQL queries from SQuARE.">
+<link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+<nav class="topnav"><div class="wrap"><a href="index.html">Overview</a><a href="embeddings.html" class="on">Demo 1 · Results-aware embeddings</a><a href="tasks.html">Demo 2 · Retrieval and caching</a></div></nav>
+
+<main>
+<section class="wrap first">
+  <h1 class="ptitle">Demo 1 · Results-aware SPARQL embeddings</h1>
+  <p class="intro">An embedding should place two queries close together when they return the same answers, even if they are written differently.</p>
+  <h2><span class="sec">1</span> Same look, different answers</h2>
+  <div class="grid2">
+    <div class="card">
+      <div class="qcard qa"><span class="tag">a</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace dbr:Paris }</pre><span class="ans">136 answers</span></div>
+      <div class="qcard qb"><span class="tag">b</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       <mark class="mb">dbo:deathPlace</mark> dbr:Paris }</pre><span class="ans">94 answers · one predicate changed</span></div>
+      <div class="qcard qc"><span class="tag">c</span><pre>SELECT ?p WHERE { ?p a dbo:Actor ;
+       dbo:birthPlace <mark class="mc">?c</mark> .
+  <mark class="mc">FILTER(?c = dbr:Paris)</mark> }</pre><span class="ans">136 answers · same meaning, other form</span></div>
+
+      <table class="mini">
+        <thead><tr><th>Compared with (a)</th><th class="cb">(b)</th><th class="cc">(c)</th></tr></thead>
+        <tbody>
+          <tr><td>Token similarity</td><td class="cb"><b>0.92</b></td><td class="cc">0.77</td></tr>
+          <tr><td>Answer overlap <i>J</i></td><td class="cb">0.19</td><td class="cc"><b>1.00</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="seg" role="tablist" id="teaserSeg">
+        <button class="on" data-mode="text">Text-based encoder</button>
+        <button data-mode="ours">Results-aware encoder (ours)</button>
+      </div>
+      <svg id="teaserSvg" viewBox="0 0 420 260" class="teaser" role="img" aria-label="Embedding space sketch"></svg>
+      <div id="teaserMsg" class="verdict"></div>
+      <p class="note">Sketch for intuition (as in the paper's Figure 1, panels 2 and 3). Real measurements follow below.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="sec">2</span> Real embeddings of SQuARE test queries</h2>
+  <p class="intro">Every dot is one test query, placed by t-SNE. Dots with the same colour return (nearly) the same answers (the largest groups are coloured, the rest are grey). Pick a space for each side.</p>
+  <div class="card wide" id="embMap">
+    <div class="cardhead">
+      <div class="seg small" id="embSeg"><button class="on" data-g="dbpedia">DBpedia (473 queries)</button><button data-g="wikidata">Wikidata (968 queries)</button></div>
+      <button id="embRandom" class="pillbtn">Show me an example</button>
+    </div>
+    <div class="embgrid">
+      <div class="embpanel"><select id="pickL" aria-label="Left space"></select><svg id="embL" viewBox="0 0 400 400" role="img" aria-label="Embedding map, left"></svg><div id="statL" class="embstat"></div></div>
+      <div class="embpanel"><select id="pickR" aria-label="Right space"></select><svg id="embR" viewBox="0 0 400 400" role="img" aria-label="Embedding map, right"></svg><div id="statR" class="embstat"></div></div>
+    </div>
+    <div id="embInfo" class="embinfo"></div>
+    <div id="embTip" class="tip" hidden></div>
+    <p class="note" id="embNote">Encoder maps are added by <code>demo/scripts/build_embeddings.py --model &lt;encoder&gt;</code> from the trained checkpoints. "Answer overlap (target)" is the layout the training aims for, computed from the complete answer labels.</p>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="sec">3</span> How the embeddings are trained</h2>
+  <div class="howto">
+    <div class="hstep"><b>1 · Execute once</b><p>Run each logged query once, offline, and cache its answer set.</p></div>
+    <div class="hstep"><b>2 · Label by answer overlap</b><p><i>J</i> = |A ∩ B| / |A ∪ B|. Pairs with <i>J</i> ≥ 0.8 are positives, <i>J</i> ≤ 0.1 negatives.</p></div>
+    <div class="hstep"><b>3 · Contrastive fine-tuning</b><p>InfoNCE pulls positives together and pushes execution-verified hard negatives apart.</p></div>
+    <div class="hstep ours"><b>At query time</b><p>Only the query text goes in. No execution needed.</p></div>
+  </div>
+  <p class="next"><a href="tasks.html">Next: Demo 2 · what this changes for retrieval and caching →</a></p>
+</section>
+</main>
+<footer class="wrap foot">Results-Aware SPARQL Embeddings · demo for the paper "Contrastive Learning for Results-Aware SPARQL Embeddings"</footer>
+<script src="data/paper_results.js"></script>
+<script src="data/embeddings.js"></script>
+<script src="assets/demo.js"></script>
+<script src="assets/embmap.js"></script>
+</body>
+</html>

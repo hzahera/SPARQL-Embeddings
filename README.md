@@ -4,11 +4,16 @@ Code and data for the paper **"Contrastive Learning for Results-Aware SPARQL Emb
 
 Two SPARQL queries can look almost the same and return different answers, or look different and return the same answers. We execute a query log **once, offline**, label query pairs by the **Jaccard overlap of their answer sets**, and fine-tune pretrained encoders with a contrastive loss on these labels. At inference, the encoder needs **only the query text**.
 
-## ▶ Interactive demo
+## ▶ Interactive demos
 
-![Animated preview of the interactive demo](docs/media/demo_preview.gif)
+[![Animated preview of the interactive demos](docs/media/demo_preview.gif)](https://hzahera.github.io/SPARQL-Embeddings/)
 
-Runs in the browser, nothing to install. It shows the problem on real test queries, the pipeline step by step (with live toy training), and the effect on query retrieval and result caching. The page is one self-contained file, [`docs/index.html`](docs/index.html) (sources in [`demo/`](demo/)), served as a static website.
+| | |
+|---|---|
+| **[Demo 1 · Results-aware embeddings](https://hzahera.github.io/SPARQL-Embeddings/embeddings.html)** | Why text similarity is the wrong signal, and a map of real SQuARE test queries: text-based embeddings next to results-aware ones. |
+| **[Demo 2 · Retrieval and caching](https://hzahera.github.io/SPARQL-Embeddings/tasks.html)** | Real queries where text similarity retrieves the wrong query, and how fine-tuning changes retrieval and result-cache decisions. |
+
+Runs in the browser, nothing to install. Built from [`demo/`](demo/) into [`docs/`](docs/) and served with GitHub Pages.
 
 ## Key results
 

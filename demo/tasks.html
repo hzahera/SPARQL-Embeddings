@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrieval and Caching Demo</title>
+<meta name="description" content="Effect of results-aware SPARQL embeddings on query retrieval and approximate result caching.">
+<link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+<nav class="topnav"><div class="wrap"><a href="index.html">Overview</a><a href="embeddings.html">Demo 1 · Results-aware embeddings</a><a href="tasks.html" class="on">Demo 2 · Retrieval and caching</a></div></nav>
+
+<main>
+<section class="wrap first">
+  <h1 class="ptitle">Demo 2 · Impact on retrieval and caching</h1>
+  <p class="intro">Ten pretrained encoders (text, code, general LM, SPARQL), compared before and after results-aware fine-tuning on SQuARE.</p>
+  <h2><span class="sec">1</span> Query retrieval</h2>
+  <p class="intro">Given a new query, find earlier queries that return (nearly) the same answers. Real test queries, ranked against all other test queries.</p>
+  <div class="card wide">
+    <div class="cardhead">
+      <h3>Explorer: where does text similarity go wrong?</h3>
+      <div class="seg small" id="exSeg">
+        <button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button>
+      </div>
+    </div>
+    <div class="explorer">
+      <div class="exlist" id="exList"></div>
+      <div class="exmain">
+        <div class="anchor"><span class="tag ta">query</span><pre id="exAnchor"></pre><span id="exAnchorAns" class="ans"></span></div>
+        <div id="exVerdict" class="verdict"></div>
+        <table class="rank">
+          <thead><tr><th>TF-IDF rank</th><th>candidate query</th><th>answers</th><th>text cos</th><th>answer <i>J</i></th></tr></thead>
+          <tbody id="exRows"></tbody>
+        </table>
+        <p class="note">Ranking: TF-IDF (the strongest non-neural baseline in the paper), computed from the released files by <code>demo/scripts/build_demo_data.py</code>. <i>J</i> from the complete test labels; "partial" means 0.1 &lt; <i>J</i> &lt; 0.8. <span class="star">★</span> = the highest-overlap query in the collection, the one answer-overlap supervision rewards ranking first.</p>
+      </div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hits@1 with complete labels</h3>
+        <div class="seg small" id="fcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="fcSvg" viewBox="0 0 480 300" role="img" aria-label="Bar chart of Hits@1"></svg>
+      <p class="note">Share of test queries whose top-ranked query has <i>J</i> ≥ 0.8 (473 / 968 test queries). Encoder rows are means over ten encoders.</p>
+    </div>
+    <div class="card">
+      <h3>What the numbers say</h3>
+      <ul class="facts">
+        <li>Fine-tuning improves Hits@1 for <b>all 10 encoders</b> on both graphs.</li>
+        <li>Fine-tuned encoders beat TF-IDF, the strongest non-neural baseline: <b>0.70 vs 0.58</b> (DBpedia), <b>0.43 vs 0.37</b> (Wikidata).</li>
+        <li>The gain comes from the <b>answer labels</b>: the same encoders trained on syntax labels reach only 0.52 and 0.36.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="sec">2</span> Approximate result caching</h2>
+  <p class="intro">Reuse the cached answers of the most similar cached query if cosine ≥ θ, otherwise execute. A reuse is correct if <i>J</i> ≥ 0.8.</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="cardhead">
+        <h3>Hit accuracy before and after fine-tuning (θ = 0.8)</h3>
+        <div class="seg small" id="caSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="caSvg" viewBox="0 0 480 330" role="img" aria-label="Cache hit accuracy per encoder"></svg>
+      <p class="note">Accuracy = correct hits / all hits, pooled over five seeds and five stream orders. Fine-tuning raises accuracy for all ten encoders on both graphs.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead">
+        <h3>Coverage vs. reliability: move θ</h3>
+        <div class="seg small" id="rcSeg"><button class="on" data-g="dbpedia">DBpedia</button><button data-g="wikidata">Wikidata</button></div>
+      </div>
+      <svg id="rcSvg" viewBox="0 0 480 300" role="img" aria-label="Accuracy vs hit rate as the threshold changes"></svg>
+      <label class="thr"><span>θ = <b id="thrVal">0.80</b></span><input type="range" id="thr" min="0" max="10" value="4"></label>
+      <div id="rcTable"></div>
+    </div>
+  </div>
+  <div class="card wide finding">
+    <h3>Takeaway</h3>
+    <p>Results-aware fine-tuning makes reuse decisions much more accurate (DBpedia <b>0.15–0.33 → 0.59–0.79</b>). A single similarity threshold is still not enough for safe reuse everywhere: ranking and calibration are separate problems.</p>
+  </div>
+  <p class="next"><a href="embeddings.html">← Back to Demo 1 · results-aware embeddings</a></p>
+</section>
+</main>
+<footer class="wrap foot">Results-Aware SPARQL Embeddings · demo for the paper "Contrastive Learning for Results-Aware SPARQL Embeddings"</footer>
+<script src="data/paper_results.js"></script>
+<script src="data/demo_data.js"></script>
+<script src="assets/demo.js"></script>
+</body>
+</html>
