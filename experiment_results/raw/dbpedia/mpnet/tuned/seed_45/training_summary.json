@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 3157.690844774246,
-  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/mpnet/tuned/seed_45/best_model"
+  "checkpoint": "results/raw/dbpedia/mpnet/tuned/seed_45/best_model"
 }

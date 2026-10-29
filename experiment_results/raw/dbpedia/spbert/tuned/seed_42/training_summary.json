@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 4120.314252376556,
-  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/spbert/tuned/seed_42/best_model"
+  "checkpoint": "results/raw/dbpedia/spbert/tuned/seed_42/best_model"
 }

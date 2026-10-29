@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 20743.944971323013,
-  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/graphcodebert/tuned/seed_45/best_model"
+  "checkpoint": "results/raw/wikidata/graphcodebert/tuned/seed_45/best_model"
 }

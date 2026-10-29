@@ -63,8 +63,8 @@
     44
   ],
   "data_paths": {
-    "train": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-train-syntax.json",
-    "valid": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-valid.json",
-    "test": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-test.json"
+    "train": "datasets/wikidata-splits/wikidata-train-syntax.json",
+    "valid": "datasets/wikidata-splits/wikidata-valid.json",
+    "test": "datasets/wikidata-splits/wikidata-test.json"
   }
 }

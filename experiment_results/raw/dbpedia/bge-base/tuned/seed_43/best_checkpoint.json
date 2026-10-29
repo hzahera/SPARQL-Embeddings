@@ -2,5 +2,5 @@
   "epoch": 6,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.5314628700185502,
-  "path": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/bge-base/tuned/seed_43/best_model"
+  "path": "results/raw/dbpedia/bge-base/tuned/seed_43/best_model"
 }

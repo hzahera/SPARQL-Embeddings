@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 3144.546133041382,
-  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/bge-base/tuned/seed_44/best_model"
+  "checkpoint": "results/raw/dbpedia/bge-base/tuned/seed_44/best_model"
 }

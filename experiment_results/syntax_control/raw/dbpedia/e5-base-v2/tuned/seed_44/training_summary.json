@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 1686.2511253356934,
-  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/dbpedia/e5-base-v2/tuned/seed_44/best_model"
+  "checkpoint": "results_syntax_control/raw/dbpedia/e5-base-v2/tuned/seed_44/best_model"
 }

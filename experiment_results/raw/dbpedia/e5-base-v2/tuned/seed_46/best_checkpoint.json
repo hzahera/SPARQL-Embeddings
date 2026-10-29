@@ -2,5 +2,5 @@
   "epoch": 15,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.5448346511280617,
-  "path": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/dbpedia/e5-base-v2/tuned/seed_46/best_model"
+  "path": "results/raw/dbpedia/e5-base-v2/tuned/seed_46/best_model"
 }

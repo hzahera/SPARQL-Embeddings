@@ -87,8 +87,8 @@
     46
   ],
   "data_paths": {
-    "train": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-train.json",
-    "valid": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-valid.json",
-    "test": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-test.json"
+    "train": "datasets/dbpedia-splits/dbpedia-train.json",
+    "valid": "datasets/dbpedia-splits/dbpedia-valid.json",
+    "test": "datasets/dbpedia-splits/dbpedia-test.json"
   }
 }

@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 10892.953308582306,
-  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/qwen2.5-coder/tuned/seed_42/best_model"
+  "checkpoint": "results/raw/dbpedia/qwen2.5-coder/tuned/seed_42/best_model"
 }

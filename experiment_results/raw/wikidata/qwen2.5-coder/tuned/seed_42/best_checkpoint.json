@@ -2,5 +2,5 @@
   "epoch": 8,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.44113302291975043,
-  "path": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/qwen2.5-coder/tuned/seed_42/best_model"
+  "path": "results/raw/wikidata/qwen2.5-coder/tuned/seed_42/best_model"
 }

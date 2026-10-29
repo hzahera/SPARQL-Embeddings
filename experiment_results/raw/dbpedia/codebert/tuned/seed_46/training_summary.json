@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 4167.744122028351,
-  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/codebert/tuned/seed_46/best_model"
+  "checkpoint": "results/raw/dbpedia/codebert/tuned/seed_46/best_model"
 }

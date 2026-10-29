@@ -2,5 +2,5 @@
   "epoch": 18,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.42581952814112806,
-  "path": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/gte-base/tuned/seed_46/best_model"
+  "path": "results/raw/wikidata/gte-base/tuned/seed_46/best_model"
 }

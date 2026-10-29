@@ -2,5 +2,5 @@
   "epoch": 4,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.544480857971485,
-  "path": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/qwen3-embedding/tuned/seed_45/best_model"
+  "path": "results/raw/dbpedia/qwen3-embedding/tuned/seed_45/best_model"
 }

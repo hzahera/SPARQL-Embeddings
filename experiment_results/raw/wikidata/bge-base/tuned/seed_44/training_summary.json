@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 17523.237255334854,
-  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/bge-base/tuned/seed_44/best_model"
+  "checkpoint": "results/raw/wikidata/bge-base/tuned/seed_44/best_model"
 }

@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 23024.18484711647,
-  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/wikidata/qwen3-embedding/tuned/seed_42/best_model"
+  "checkpoint": "results_syntax_control/raw/wikidata/qwen3-embedding/tuned/seed_42/best_model"
 }

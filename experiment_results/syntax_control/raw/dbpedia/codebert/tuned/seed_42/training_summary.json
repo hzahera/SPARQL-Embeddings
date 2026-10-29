@@ -18,5 +18,5 @@
   "warmup_ratio": 0.05,
   "max_length": 512,
   "elapsed_seconds": 2629.8569996356964,
-  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/dbpedia/codebert/tuned/seed_42/best_model"
+  "checkpoint": "results_syntax_control/raw/dbpedia/codebert/tuned/seed_42/best_model"
 }

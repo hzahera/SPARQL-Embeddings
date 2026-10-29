@@ -2,5 +2,5 @@
   "epoch": 8,
   "selection_metric": "ranking.ndcg@10",
   "score": 0.5261874543368997,
-  "path": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/qwen2.5-coder/tuned/seed_44/best_model"
+  "path": "results/raw/dbpedia/qwen2.5-coder/tuned/seed_44/best_model"
 }
