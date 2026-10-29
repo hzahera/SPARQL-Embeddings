@@ -1,0 +1,3 @@
+,pairs,% J=0,% labeled,% unlabeled (of all),% unlabeled (of J>0),% positives with J=1,% positives with J<0.9,% negatives with J>0
+DBpedia,11169901,93.9,97.58,2.42,39.67,81.67,16.8,3.36
+Wikidata,46836681,98.81,99.65,0.35,29.82,80.16,11.4,0.79

@@ -1,0 +1,3 @@
+graph,positives: min of smaller share,positives: median of smaller share,positives: % with both shares = 1,negatives (J>0): max of smaller share,negatives (J>0): % where one answer mostly contains the other (larger share >= 0.5)
+DBpedia,0.8,1.0,81.67,0.182,42.432
+Wikidata,0.8,1.0,80.156,0.182,22.355
