@@ -1,0 +1,10 @@
+% Encoders: e5-base-v2, qwen3-embedding, codebert; seeds: [42, 43, 44]
+% Tables/compact/retrieval.tex (stored labels), columns: DBpedia ['hits@1', 'mrr@5', 'ndcg@5'] & Wikidata ['hits@1', 'mrr@5', 'ndcg@5']
+Answer labels (3 encoders) & 0.56 & 0.63 & 0.55 & & 0.43 & 0.47 & 0.44\\
+Syntax labels (3 encoders) & 0.36 & 0.44 & 0.36 & & 0.36 & 0.41 & 0.38\\
+% Tables/compact/fullcollection.tex (complete labels), columns: DBpedia ['hits@1', 'mrr', 'ndcg@10'] & Wikidata ['hits@1', 'mrr', 'ndcg@10']
+Answer labels (3 encoders) & 0.72 & 0.79 & 0.73 & & 0.43 & 0.49 & 0.46\\
+Syntax labels (3 encoders) & 0.52 & 0.61 & 0.53 & & 0.36 & 0.43 & 0.40\\
+% Paragraph numbers (complete labels, Hits@1): syntax, answer, diff [CI]
+% dbpedia: syntax 0.52, answer 0.72, diff +0.20 [0.17, 0.23]
+% wikidata: syntax 0.36, answer 0.43, diff +0.06 [0.05, 0.08]

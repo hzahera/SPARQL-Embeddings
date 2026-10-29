@@ -1,0 +1,12 @@
+{
+  "dataset": "wikidata",
+  "usable_queries": 9679,
+  "all_pairs": 46836681,
+  "pairs_sharing_rows": 556599,
+  "positive_edges": 20243,
+  "components": 3846,
+  "seconds_load_cache": 209.98055778583512,
+  "seconds_intersections": 585.7401421540417,
+  "seconds_jaccard_and_components": 0.14013746613636613,
+  "seconds_labeling_total": 585.880279620178
+}

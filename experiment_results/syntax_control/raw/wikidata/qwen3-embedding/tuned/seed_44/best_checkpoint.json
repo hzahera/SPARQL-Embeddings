@@ -1,0 +1,6 @@
+{
+  "epoch": 7,
+  "selection_metric": "ranking.ndcg@10",
+  "score": 0.3723046411602053,
+  "path": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/wikidata/qwen3-embedding/tuned/seed_44/best_model"
+}

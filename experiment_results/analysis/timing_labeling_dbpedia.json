@@ -1,0 +1,12 @@
+{
+  "dataset": "dbpedia",
+  "usable_queries": 4727,
+  "all_pairs": 11169901,
+  "pairs_sharing_rows": 680949,
+  "positive_edges": 46192,
+  "components": 1156,
+  "seconds_load_cache": 18.72520468989387,
+  "seconds_intersections": 26.04722219798714,
+  "seconds_jaccard_and_components": 0.1997758992947638,
+  "seconds_labeling_total": 26.246998097281903
+}

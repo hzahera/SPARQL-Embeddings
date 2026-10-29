@@ -1,0 +1,6 @@
+{
+  "epoch": 15,
+  "selection_metric": "ranking.ndcg@10",
+  "score": 0.441042419280034,
+  "path": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/gemma/tuned/seed_42/best_model"
+}

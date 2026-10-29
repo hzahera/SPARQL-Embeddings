@@ -1,0 +1,1342 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 0.226435741272505,
+    "train_batch_retrieval_accuracy": 0.9193883610451307,
+    "global_update": 211,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6421011852017714,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.342042755344418,
+        "hits@1": 0.342042755344418,
+        "ndcg@1": 0.3417366146517795,
+        "mrr@3": 0.363618368962787,
+        "hits@3": 0.39429928741092635,
+        "ndcg@3": 0.3336507148480227,
+        "mrr@5": 0.3729414093428345,
+        "hits@5": 0.4346793349168646,
+        "ndcg@5": 0.3458870182286797,
+        "mrr@10": 0.3797755721449308,
+        "hits@10": 0.48693586698337293,
+        "ndcg@10": 0.3595882559902441,
+        "mrr@20": 0.38371844633610813,
+        "hits@20": 0.5451306413301663,
+        "ndcg@20": 0.36786759907030403
+      },
+      "binary": {
+        "precision@1": 0.342042755344418,
+        "recall@1": 0.2058985709981147,
+        "f1@1": 0.22717425558001217,
+        "precision@3": 0.20387965162311955,
+        "recall@3": 0.2809206099633028,
+        "f1@3": 0.19676327331888654,
+        "precision@5": 0.1669833729216152,
+        "recall@5": 0.33696286138645665,
+        "f1@5": 0.18407297072073103,
+        "precision@10": 0.11353919239904989,
+        "recall@10": 0.3929645168513262,
+        "f1@10": 0.14643168539942208,
+        "precision@20": 0.06811163895486937,
+        "recall@20": 0.4300144615483205,
+        "f1@20": 0.10153294154845846
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3595882559902441
+  },
+  {
+    "epoch": 2,
+    "train_loss": 0.14006495456301968,
+    "train_batch_retrieval_accuracy": 0.9380938242280285,
+    "global_update": 422,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.614569632260512,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.3254156769596199,
+        "hits@1": 0.3254156769596199,
+        "ndcg@1": 0.3253302020977686,
+        "mrr@3": 0.35550277117973084,
+        "hits@3": 0.39429928741092635,
+        "ndcg@3": 0.33683721307100906,
+        "mrr@5": 0.3629255740300871,
+        "hits@5": 0.42636579572446553,
+        "ndcg@5": 0.3479580885357059,
+        "mrr@10": 0.3717038042453719,
+        "hits@10": 0.49049881235154397,
+        "ndcg@10": 0.36541820634464534,
+        "mrr@20": 0.376492812460176,
+        "hits@20": 0.5605700712589073,
+        "ndcg@20": 0.37487972232527816
+      },
+      "binary": {
+        "precision@1": 0.3254156769596199,
+        "recall@1": 0.20301789955887345,
+        "f1@1": 0.22220772567286468,
+        "precision@3": 0.20863024544734757,
+        "recall@3": 0.28979687879941035,
+        "f1@3": 0.20121633490835408,
+        "precision@5": 0.17078384798099763,
+        "recall@5": 0.34141139303737755,
+        "f1@5": 0.18727693563803513,
+        "precision@10": 0.11781472684085513,
+        "recall@10": 0.40610487731143435,
+        "f1@10": 0.15189124356447609,
+        "precision@20": 0.07048693586698337,
+        "recall@20": 0.4489691066209822,
+        "f1@20": 0.10552595370980966
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36541820634464534
+  },
+  {
+    "epoch": 3,
+    "train_loss": 0.11988854643638797,
+    "train_batch_retrieval_accuracy": 0.9458135391923991,
+    "global_update": 633,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6413002064445323,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.333729216152019,
+        "hits@1": 0.333729216152019,
+        "ndcg@1": 0.333151424701142,
+        "mrr@3": 0.36064924782264446,
+        "hits@3": 0.39667458432304037,
+        "ndcg@3": 0.3364441443478441,
+        "mrr@5": 0.3690815518606492,
+        "hits@5": 0.4346793349168646,
+        "ndcg@5": 0.3457434791521716,
+        "mrr@10": 0.3773715265995551,
+        "hits@10": 0.49643705463182897,
+        "ndcg@10": 0.3658757256056299,
+        "mrr@20": 0.3819977737734461,
+        "hits@20": 0.5653206650831354,
+        "ndcg@20": 0.37676962162476857
+      },
+      "binary": {
+        "precision@1": 0.333729216152019,
+        "recall@1": 0.20110735568136492,
+        "f1@1": 0.22131069875585735,
+        "precision@3": 0.20902612826603326,
+        "recall@3": 0.28639144510737835,
+        "f1@3": 0.19932666662675916,
+        "precision@5": 0.16793349168646082,
+        "recall@5": 0.33842945168970295,
+        "f1@5": 0.18432550991938854,
+        "precision@10": 0.11947743467933494,
+        "recall@10": 0.41053424184128023,
+        "f1@10": 0.15351780778281998,
+        "precision@20": 0.07399049881235154,
+        "recall@20": 0.4563145370277512,
+        "f1@20": 0.1092981247898971
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3658757256056299
+  },
+  {
+    "epoch": 4,
+    "train_loss": 0.11874274284780167,
+    "train_batch_retrieval_accuracy": 0.9477434679334917,
+    "global_update": 844,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6449384608596921,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.342042755344418,
+        "hits@1": 0.342042755344418,
+        "ndcg@1": 0.34130931462709707,
+        "mrr@3": 0.37351543942992876,
+        "hits@3": 0.41330166270783847,
+        "ndcg@3": 0.349519619900453,
+        "mrr@5": 0.3798099762470309,
+        "hits@5": 0.44061757719714967,
+        "ndcg@5": 0.3556839946514199,
+        "mrr@10": 0.38587263884176,
+        "hits@10": 0.4857482185273159,
+        "ndcg@10": 0.3678237562517652,
+        "mrr@20": 0.3900809183313706,
+        "hits@20": 0.5475059382422803,
+        "ndcg@20": 0.37840769591333095
+      },
+      "binary": {
+        "precision@1": 0.342042755344418,
+        "recall@1": 0.20830440057296537,
+        "f1@1": 0.22900559921658148,
+        "precision@3": 0.21694378463974662,
+        "recall@3": 0.2986069725443397,
+        "f1@3": 0.20664613147666494,
+        "precision@5": 0.17197149643705464,
+        "recall@5": 0.3448486854889218,
+        "f1@5": 0.1882185726898653,
+        "precision@10": 0.1153206650831354,
+        "recall@10": 0.40168949712587515,
+        "f1@10": 0.149159764595725,
+        "precision@20": 0.07191211401425178,
+        "recall@20": 0.4453210895351182,
+        "f1@20": 0.1065901573972712
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3678237562517652
+  },
+  {
+    "epoch": 5,
+    "train_loss": 0.11874079675968922,
+    "train_batch_retrieval_accuracy": 0.9461104513064132,
+    "global_update": 1055,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6035965170666553,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32779097387173395,
+        "hits@1": 0.32779097387173395,
+        "ndcg@1": 0.32636166860743027,
+        "mrr@3": 0.35827395091053044,
+        "hits@3": 0.3990498812351544,
+        "ndcg@3": 0.33251911370228293,
+        "mrr@5": 0.3658749010292953,
+        "hits@5": 0.4323040380047506,
+        "ndcg@5": 0.34147499191600555,
+        "mrr@10": 0.37249839761716247,
+        "hits@10": 0.4809976247030879,
+        "ndcg@10": 0.3586490320831668,
+        "mrr@20": 0.3770291719453104,
+        "hits@20": 0.5463182897862233,
+        "ndcg@20": 0.36832374115446187
+      },
+      "binary": {
+        "precision@1": 0.32779097387173395,
+        "recall@1": 0.19701083858009724,
+        "f1@1": 0.21704467578437117,
+        "precision@3": 0.2070467141726049,
+        "recall@3": 0.2851107170600232,
+        "f1@3": 0.19867561247433219,
+        "precision@5": 0.1655581947743468,
+        "recall@5": 0.33579184329512496,
+        "f1@5": 0.18308901877790928,
+        "precision@10": 0.11484560570071259,
+        "recall@10": 0.4001541954801737,
+        "f1@10": 0.14871830675303552,
+        "precision@20": 0.06906175771971496,
+        "recall@20": 0.4437779620103881,
+        "f1@20": 0.10374424479475582
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3586490320831668
+  },
+  {
+    "epoch": 6,
+    "train_loss": 0.12921103891737387,
+    "train_batch_retrieval_accuracy": 0.9458135391923991,
+    "global_update": 1266,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6336893799255781,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32897862232779096,
+        "hits@1": 0.32897862232779096,
+        "ndcg@1": 0.3269674226989443,
+        "mrr@3": 0.35688836104513066,
+        "hits@3": 0.39667458432304037,
+        "ndcg@3": 0.33159687137275007,
+        "mrr@5": 0.36306413301662704,
+        "hits@5": 0.42280285035629456,
+        "ndcg@5": 0.3390371469443319,
+        "mrr@10": 0.3724338310145911,
+        "hits@10": 0.49287410926365793,
+        "ndcg@10": 0.36009259692829787,
+        "mrr@20": 0.3767001214910144,
+        "hits@20": 0.5570071258907363,
+        "ndcg@20": 0.36998328102112343
+      },
+      "binary": {
+        "precision@1": 0.32897862232779096,
+        "recall@1": 0.20418504694039136,
+        "f1@1": 0.22404785998470506,
+        "precision@3": 0.2046714172604909,
+        "recall@3": 0.2862517183924547,
+        "f1@3": 0.19834991311349529,
+        "precision@5": 0.16294536817102137,
+        "recall@5": 0.32868893219405787,
+        "f1@5": 0.17867664602964162,
+        "precision@10": 0.11627078384798101,
+        "recall@10": 0.39968120538113666,
+        "f1@10": 0.1488668968843037,
+        "precision@20": 0.07131828978622329,
+        "recall@20": 0.44474553710239423,
+        "f1@20": 0.10573441323789623
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36009259692829787
+  },
+  {
+    "epoch": 7,
+    "train_loss": 0.11197556475633114,
+    "train_batch_retrieval_accuracy": 0.9532363420427553,
+    "global_update": 1477,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6365920906078119,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.342042755344418,
+        "hits@1": 0.342042755344418,
+        "ndcg@1": 0.3410599503482618,
+        "mrr@3": 0.37114014251781474,
+        "hits@3": 0.41092636579572445,
+        "ndcg@3": 0.3462789698212406,
+        "mrr@5": 0.3806413301662708,
+        "hits@5": 0.4524940617577197,
+        "ndcg@5": 0.35928362542385633,
+        "mrr@10": 0.3857321946989406,
+        "hits@10": 0.49287410926365793,
+        "ndcg@10": 0.3723046411602053,
+        "mrr@20": 0.39100640228115724,
+        "hits@20": 0.5700712589073634,
+        "ndcg@20": 0.3816826947201182
+      },
+      "binary": {
+        "precision@1": 0.342042755344418,
+        "recall@1": 0.2090312914572197,
+        "f1@1": 0.22916811581754995,
+        "precision@3": 0.21417260490894696,
+        "recall@3": 0.29732571119619505,
+        "f1@3": 0.20563546828878426,
+        "precision@5": 0.17553444180522568,
+        "recall@5": 0.3589173530314611,
+        "f1@5": 0.19335382259378195,
+        "precision@10": 0.11864608076009502,
+        "recall@10": 0.4137443882255734,
+        "f1@10": 0.15346671687699512,
+        "precision@20": 0.07209026128266034,
+        "recall@20": 0.4573474638299837,
+        "f1@20": 0.10743552201836051
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3723046411602053
+  },
+  {
+    "epoch": 8,
+    "train_loss": 0.1210168300112466,
+    "train_batch_retrieval_accuracy": 0.9480403800475059,
+    "global_update": 1688,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6024860165530735,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.342042755344418,
+        "hits@1": 0.342042755344418,
+        "ndcg@1": 0.34237178139799623,
+        "mrr@3": 0.3671813143309581,
+        "hits@3": 0.4026128266033254,
+        "ndcg@3": 0.34624175895835335,
+        "mrr@5": 0.37567300079176563,
+        "hits@5": 0.43942992874109266,
+        "ndcg@5": 0.35403679538308835,
+        "mrr@10": 0.3809599215774988,
+        "hits@10": 0.47980997624703087,
+        "ndcg@10": 0.36500716768439884,
+        "mrr@20": 0.38532321423468663,
+        "hits@20": 0.5451306413301663,
+        "ndcg@20": 0.37449176521623434
+      },
+      "binary": {
+        "precision@1": 0.342042755344418,
+        "recall@1": 0.2156055593258681,
+        "f1@1": 0.23590158657575175,
+        "precision@3": 0.2098178939034046,
+        "recall@3": 0.3022093306535112,
+        "f1@3": 0.20721381068127978,
+        "precision@5": 0.1643705463182898,
+        "recall@5": 0.35030997296069033,
+        "f1@5": 0.18556243120688679,
+        "precision@10": 0.10938242280285036,
+        "recall@10": 0.39738007375625684,
+        "f1@10": 0.1436211147226317,
+        "precision@20": 0.06549881235154395,
+        "recall@20": 0.43782420630588237,
+        "f1@20": 0.09923913116396135
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36500716768439884
+  },
+  {
+    "epoch": 9,
+    "train_loss": 0.10760591856940625,
+    "train_batch_retrieval_accuracy": 0.9526425178147269,
+    "global_update": 1899,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6423095125908476,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32066508313539194,
+        "hits@1": 0.32066508313539194,
+        "ndcg@1": 0.31972632284521446,
+        "mrr@3": 0.35669041963578785,
+        "hits@3": 0.40498812351543945,
+        "ndcg@3": 0.33102275140569654,
+        "mrr@5": 0.3650633412509897,
+        "hits@5": 0.44061757719714967,
+        "ndcg@5": 0.34568638598247026,
+        "mrr@10": 0.37144176752252756,
+        "hits@10": 0.48812351543942994,
+        "ndcg@10": 0.36116225824624326,
+        "mrr@20": 0.3758788815327592,
+        "hits@20": 0.5534441805225653,
+        "ndcg@20": 0.37135498850209825
+      },
+      "binary": {
+        "precision@1": 0.32066508313539194,
+        "recall@1": 0.19904764881324455,
+        "f1@1": 0.21815486145512694,
+        "precision@3": 0.20506730007917656,
+        "recall@3": 0.28483662335081267,
+        "f1@3": 0.19625246539659036,
+        "precision@5": 0.1700712589073634,
+        "recall@5": 0.3433414954112854,
+        "f1@5": 0.18612005613255772,
+        "precision@10": 0.11520190023752969,
+        "recall@10": 0.4041530937322599,
+        "f1@10": 0.14926414574291577,
+        "precision@20": 0.07030878859857483,
+        "recall@20": 0.4504552308965361,
+        "f1@20": 0.1052170062056231
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36116225824624326
+  },
+  {
+    "epoch": 10,
+    "train_loss": 0.10548755668121393,
+    "train_batch_retrieval_accuracy": 0.955314726840855,
+    "global_update": 2110,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6367514573639262,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.34085510688836107,
+        "hits@1": 0.34085510688836107,
+        "ndcg@1": 0.33969073252687665,
+        "mrr@3": 0.37410926365795727,
+        "hits@3": 0.4180522565320665,
+        "ndcg@3": 0.3469514101610776,
+        "mrr@5": 0.3802256532066508,
+        "hits@5": 0.44536817102137766,
+        "ndcg@5": 0.35820415408622325,
+        "mrr@10": 0.3865135919767749,
+        "hits@10": 0.49287410926365793,
+        "ndcg@10": 0.3720398795570877,
+        "mrr@20": 0.39126353188474006,
+        "hits@20": 0.5617577197149644,
+        "ndcg@20": 0.38334168425965576
+      },
+      "binary": {
+        "precision@1": 0.34085510688836107,
+        "recall@1": 0.21206088261032627,
+        "f1@1": 0.2320608881283745,
+        "precision@3": 0.21496437054631826,
+        "recall@3": 0.2958293063876575,
+        "f1@3": 0.2052503403236983,
+        "precision@5": 0.17719714964370545,
+        "recall@5": 0.3460367250958262,
+        "f1@5": 0.19074975700621843,
+        "precision@10": 0.11971496437054634,
+        "recall@10": 0.40616965666190563,
+        "f1@10": 0.15323244550402665,
+        "precision@20": 0.07226840855106889,
+        "recall@20": 0.45992761553222233,
+        "f1@20": 0.10800004370321051
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3720398795570877
+  },
+  {
+    "epoch": 11,
+    "train_loss": 0.10740577344585768,
+    "train_batch_retrieval_accuracy": 0.9544239904988123,
+    "global_update": 2321,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6386462531978007,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.34323040380047504,
+        "hits@1": 0.34323040380047504,
+        "ndcg@1": 0.34263758073077477,
+        "mrr@3": 0.3739113222486144,
+        "hits@3": 0.4144893111638955,
+        "ndcg@3": 0.34776815831745406,
+        "mrr@5": 0.379612034837688,
+        "hits@5": 0.43942992874109266,
+        "ndcg@5": 0.3575696152960785,
+        "mrr@10": 0.3863401575990649,
+        "hits@10": 0.4916864608076009,
+        "ndcg@10": 0.3701405558592253,
+        "mrr@20": 0.391353844421783,
+        "hits@20": 0.5629453681710214,
+        "ndcg@20": 0.38162568284406356
+      },
+      "binary": {
+        "precision@1": 0.34323040380047504,
+        "recall@1": 0.2096577176313706,
+        "f1@1": 0.23090506554597653,
+        "precision@3": 0.21496437054631828,
+        "recall@3": 0.30003332891428275,
+        "f1@3": 0.20808204409628053,
+        "precision@5": 0.17434679334916867,
+        "recall@5": 0.34567584169175,
+        "f1@5": 0.1900414016586259,
+        "precision@10": 0.11543942992874108,
+        "recall@10": 0.40559590133443113,
+        "f1@10": 0.1495520826647931,
+        "precision@20": 0.07048693586698339,
+        "recall@20": 0.45341716058524417,
+        "f1@20": 0.1056486227862849
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3701405558592253
+  },
+  {
+    "epoch": 12,
+    "train_loss": 0.11254958721705118,
+    "train_batch_retrieval_accuracy": 0.9524940617577197,
+    "global_update": 2532,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6293443025462969,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.334916864608076,
+        "hits@1": 0.334916864608076,
+        "ndcg@1": 0.335107487043828,
+        "mrr@3": 0.3630245447347585,
+        "hits@3": 0.4014251781472684,
+        "ndcg@3": 0.3409435623181478,
+        "mrr@5": 0.37139746634996046,
+        "hits@5": 0.43705463182897863,
+        "ndcg@5": 0.3497888306100114,
+        "mrr@10": 0.37880094634845235,
+        "hits@10": 0.49287410926365793,
+        "ndcg@10": 0.36682759317153163,
+        "mrr@20": 0.3827784512969886,
+        "hits@20": 0.5510688836104513,
+        "ndcg@20": 0.3766901116876103
+      },
+      "binary": {
+        "precision@1": 0.334916864608076,
+        "recall@1": 0.20945583227665363,
+        "f1@1": 0.22898597645349078,
+        "precision@3": 0.2094220110847189,
+        "recall@3": 0.29258108099135105,
+        "f1@3": 0.20255821234885835,
+        "precision@5": 0.16769596199524942,
+        "recall@5": 0.3398736884235071,
+        "f1@5": 0.1850297627113479,
+        "precision@10": 0.11555819477434681,
+        "recall@10": 0.40482681195192133,
+        "f1@10": 0.14952097247822552,
+        "precision@20": 0.06959619952494062,
+        "recall@20": 0.4469696090921262,
+        "f1@20": 0.10451514727346228
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36682759317153163
+  },
+  {
+    "epoch": 13,
+    "train_loss": 0.11221717680293421,
+    "train_batch_retrieval_accuracy": 0.9478919239904988,
+    "global_update": 2743,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6288516611543636,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.332541567695962,
+        "hits@1": 0.332541567695962,
+        "ndcg@1": 0.3323907502976834,
+        "mrr@3": 0.36005542359461595,
+        "hits@3": 0.39667458432304037,
+        "ndcg@3": 0.3356865747959091,
+        "mrr@5": 0.3687252573238321,
+        "hits@5": 0.4346793349168646,
+        "ndcg@5": 0.34523073144039984,
+        "mrr@10": 0.37459092108735814,
+        "hits@10": 0.47862232779097386,
+        "ndcg@10": 0.35789998191476957,
+        "mrr@20": 0.3793174385234146,
+        "hits@20": 0.5486935866983373,
+        "ndcg@20": 0.36712328371821307
+      },
+      "binary": {
+        "precision@1": 0.332541567695962,
+        "recall@1": 0.21323371408147632,
+        "f1@1": 0.231867266448795,
+        "precision@3": 0.1991290577988915,
+        "recall@3": 0.29585475599743005,
+        "f1@3": 0.20054085445831185,
+        "precision@5": 0.16009501187648456,
+        "recall@5": 0.33884164549872764,
+        "f1@5": 0.18045993702027915,
+        "precision@10": 0.10629453681710213,
+        "recall@10": 0.389984399377761,
+        "f1@10": 0.14047383669904653,
+        "precision@20": 0.06282660332541569,
+        "recall@20": 0.4316345530249566,
+        "f1@20": 0.09606839433168832
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.35789998191476957
+  },
+  {
+    "epoch": 14,
+    "train_loss": 0.11961907544781647,
+    "train_batch_retrieval_accuracy": 0.9472980997624703,
+    "global_update": 2954,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6359996957316025,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.33966745843230406,
+        "hits@1": 0.33966745843230406,
+        "ndcg@1": 0.3397827007525779,
+        "mrr@3": 0.36777513855898647,
+        "hits@3": 0.4085510688836104,
+        "ndcg@3": 0.34291082526541183,
+        "mrr@5": 0.37323832145684877,
+        "hits@5": 0.4334916864608076,
+        "ndcg@5": 0.3489217714868883,
+        "mrr@10": 0.38109800927496884,
+        "hits@10": 0.4916864608076009,
+        "ndcg@10": 0.36657525634707716,
+        "mrr@20": 0.38509543042880845,
+        "hits@20": 0.5510688836104513,
+        "ndcg@20": 0.3756244408244063
+      },
+      "binary": {
+        "precision@1": 0.33966745843230406,
+        "recall@1": 0.2118050842664857,
+        "f1@1": 0.23157052571262435,
+        "precision@3": 0.20902612826603326,
+        "recall@3": 0.2951924937274668,
+        "f1@3": 0.2037651574005343,
+        "precision@5": 0.16460807600950117,
+        "recall@5": 0.33835219367317126,
+        "f1@5": 0.18247365124480203,
+        "precision@10": 0.115083135391924,
+        "recall@10": 0.4033435454906797,
+        "f1@10": 0.14908858802547875,
+        "precision@20": 0.0688836104513064,
+        "recall@20": 0.44286526038767127,
+        "f1@20": 0.10331268429702391
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.36657525634707716
+  },
+  {
+    "epoch": 15,
+    "train_loss": 0.10999006843481947,
+    "train_batch_retrieval_accuracy": 0.9573931116389549,
+    "global_update": 3165,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6351720092061169,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32422802850356297,
+        "hits@1": 0.32422802850356297,
+        "ndcg@1": 0.32425814972456674,
+        "mrr@3": 0.3513460015835313,
+        "hits@3": 0.38954869358669836,
+        "ndcg@3": 0.3309844222823775,
+        "mrr@5": 0.3581749802058591,
+        "hits@5": 0.4192399049881235,
+        "ndcg@5": 0.338359755995439,
+        "mrr@10": 0.36536543754477246,
+        "hits@10": 0.47268408551068886,
+        "ndcg@10": 0.35082531033977415,
+        "mrr@20": 0.36998790621270083,
+        "hits@20": 0.5391923990498813,
+        "ndcg@20": 0.3592630316743692
+      },
+      "binary": {
+        "precision@1": 0.32422802850356297,
+        "recall@1": 0.20876809750028275,
+        "f1@1": 0.22736645583159484,
+        "precision@3": 0.20031670625494852,
+        "recall@3": 0.28754583906321624,
+        "f1@3": 0.19721613250964265,
+        "precision@5": 0.15819477434679333,
+        "recall@5": 0.331524514659355,
+        "f1@5": 0.17774631509535876,
+        "precision@10": 0.10463182897862232,
+        "recall@10": 0.38201406115800746,
+        "f1@10": 0.13798976390831402,
+        "precision@20": 0.06229216152019003,
+        "recall@20": 0.4204150983481855,
+        "f1@20": 0.09447642120308489
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.35082531033977415
+  },
+  {
+    "epoch": 16,
+    "train_loss": 0.10626706822538602,
+    "train_batch_retrieval_accuracy": 0.9536817102137767,
+    "global_update": 3376,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6415624616506392,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.3254156769596199,
+        "hits@1": 0.3254156769596199,
+        "ndcg@1": 0.32516050900286053,
+        "mrr@3": 0.3529295328582739,
+        "hits@3": 0.3919239904988123,
+        "ndcg@3": 0.333450153026474,
+        "mrr@5": 0.35940221694378466,
+        "hits@5": 0.42042755344418054,
+        "ndcg@5": 0.3406494381319845,
+        "mrr@10": 0.36600639067978735,
+        "hits@10": 0.47030878859857483,
+        "ndcg@10": 0.353066932276679,
+        "mrr@20": 0.3699037391416678,
+        "hits@20": 0.5285035629453682,
+        "ndcg@20": 0.36037466781767813
+      },
+      "binary": {
+        "precision@1": 0.3254156769596199,
+        "recall@1": 0.2066614353579912,
+        "f1@1": 0.22543716975741568,
+        "precision@3": 0.20229612034837685,
+        "recall@3": 0.28959776966168393,
+        "f1@3": 0.19832507117354742,
+        "precision@5": 0.16033254156769597,
+        "recall@5": 0.3344810226157067,
+        "f1@5": 0.17934362063878254,
+        "precision@10": 0.10688836104513064,
+        "recall@10": 0.3872094793581763,
+        "f1@10": 0.14026314375199594,
+        "precision@20": 0.06276722090261283,
+        "recall@20": 0.42224785663253156,
+        "f1@20": 0.09497476390892637
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.353066932276679
+  },
+  {
+    "epoch": 17,
+    "train_loss": 0.11129081553631327,
+    "train_batch_retrieval_accuracy": 0.9475950118764845,
+    "global_update": 3587,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6398856767699529,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32779097387173395,
+        "hits@1": 0.32779097387173395,
+        "ndcg@1": 0.3273344584479955,
+        "mrr@3": 0.3570863024544735,
+        "hits@3": 0.39548693586698336,
+        "ndcg@3": 0.33469834751443767,
+        "mrr@5": 0.36599366587490106,
+        "hits@5": 0.4334916864608076,
+        "ndcg@5": 0.3437099939193268,
+        "mrr@10": 0.37158928100139504,
+        "hits@10": 0.47743467933491684,
+        "ndcg@10": 0.3556319370016485,
+        "mrr@20": 0.376083368497218,
+        "hits@20": 0.5427553444180523,
+        "ndcg@20": 0.3653026617345292
+      },
+      "binary": {
+        "precision@1": 0.32779097387173395,
+        "recall@1": 0.20514748123277315,
+        "f1@1": 0.2244408646637234,
+        "precision@3": 0.20150435471100553,
+        "recall@3": 0.2934406607373541,
+        "f1@3": 0.1996366722710073,
+        "precision@5": 0.16152019002375298,
+        "recall@5": 0.33972451230100165,
+        "f1@5": 0.1809317493496766,
+        "precision@10": 0.10771971496437055,
+        "recall@10": 0.38947113286318363,
+        "f1@10": 0.14085413417781167,
+        "precision@20": 0.06502375296912113,
+        "recall@20": 0.43238730610736675,
+        "f1@20": 0.09791666769415008
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3556319370016485
+  },
+  {
+    "epoch": 18,
+    "train_loss": 0.10381976550449384,
+    "train_batch_retrieval_accuracy": 0.9514548693586699,
+    "global_update": 3798,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6399747097744646,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32897862232779096,
+        "hits@1": 0.32897862232779096,
+        "ndcg@1": 0.3285671667370736,
+        "mrr@3": 0.35847189231987336,
+        "hits@3": 0.4002375296912114,
+        "ndcg@3": 0.33776378388685335,
+        "mrr@5": 0.36541963578780684,
+        "hits@5": 0.4311163895486936,
+        "ndcg@5": 0.3431016863763107,
+        "mrr@10": 0.3712339290427176,
+        "hits@10": 0.47624703087885983,
+        "ndcg@10": 0.3557532296003075,
+        "mrr@20": 0.3752703518899017,
+        "hits@20": 0.5344418052256532,
+        "ndcg@20": 0.36444238469575363
+      },
+      "binary": {
+        "precision@1": 0.32897862232779096,
+        "recall@1": 0.20698833633966152,
+        "f1@1": 0.22597915218775916,
+        "precision@3": 0.20506730007917656,
+        "recall@3": 0.2956019199057391,
+        "f1@3": 0.20178431449533032,
+        "precision@5": 0.16152019002375298,
+        "recall@5": 0.33600421839521577,
+        "f1@5": 0.18006504018130473,
+        "precision@10": 0.10748218527315914,
+        "recall@10": 0.39011386026293216,
+        "f1@10": 0.14063833871261006,
+        "precision@20": 0.0642517814726841,
+        "recall@20": 0.4298116493288408,
+        "f1@20": 0.09688087708573066
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3557532296003075
+  },
+  {
+    "epoch": 19,
+    "train_loss": 0.11305612430082647,
+    "train_batch_retrieval_accuracy": 0.9472980997624703,
+    "global_update": 4009,
+    "mined_this_epoch": false,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6401854503882716,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.32779097387173395,
+        "hits@1": 0.32779097387173395,
+        "ndcg@1": 0.3274574313889493,
+        "mrr@3": 0.3580760095011877,
+        "hits@3": 0.4002375296912114,
+        "ndcg@3": 0.33702772366196104,
+        "mrr@5": 0.36448931116389544,
+        "hits@5": 0.42874109263657956,
+        "ndcg@5": 0.34206292566096896,
+        "mrr@10": 0.3706556573539947,
+        "hits@10": 0.47624703087885983,
+        "ndcg@10": 0.3548245599889196,
+        "mrr@20": 0.37459302332291966,
+        "hits@20": 0.5332541567695962,
+        "ndcg@20": 0.36306977123301626
+      },
+      "binary": {
+        "precision@1": 0.32779097387173395,
+        "recall@1": 0.2058006878836045,
+        "f1@1": 0.22479150373170215,
+        "precision@3": 0.20467141726049087,
+        "recall@3": 0.2943011620729148,
+        "f1@3": 0.20106629173594945,
+        "precision@5": 0.16057007125890735,
+        "recall@5": 0.3354553402616396,
+        "f1@5": 0.17949712828322653,
+        "precision@10": 0.10724465558194776,
+        "recall@10": 0.38873958133520914,
+        "f1@10": 0.1402386766635139,
+        "precision@20": 0.06353919239904988,
+        "recall@20": 0.42839435907232065,
+        "f1@20": 0.09608539404192433
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3548245599889196
+  },
+  {
+    "epoch": 20,
+    "train_loss": 0.1097612354966354,
+    "train_batch_retrieval_accuracy": 0.9496733966745843,
+    "global_update": 4220,
+    "mined_this_epoch": true,
+    "validation": {
+      "split": "validation",
+      "anchors": 842,
+      "unique_encoded_queries": 968,
+      "alignment": {
+        "spearman_rho": 0.6401017244034979,
+        "pair_count": 20688
+      },
+      "ranking": {
+        "mrr@1": 0.3254156769596199,
+        "hits@1": 0.3254156769596199,
+        "ndcg@1": 0.3253855856553623,
+        "mrr@3": 0.35688836104513066,
+        "hits@3": 0.4002375296912114,
+        "ndcg@3": 0.3364160153491013,
+        "mrr@5": 0.3633016627078385,
+        "hits@5": 0.42874109263657956,
+        "ndcg@5": 0.34122827124761795,
+        "mrr@10": 0.3694350186630471,
+        "hits@10": 0.47624703087885983,
+        "ndcg@10": 0.3543074160349582,
+        "mrr@20": 0.3733829589744943,
+        "hits@20": 0.5332541567695962,
+        "ndcg@20": 0.36241745669689857
+      },
+      "binary": {
+        "precision@1": 0.3254156769596199,
+        "recall@1": 0.20455365700474465,
+        "f1@1": 0.22349074589887782,
+        "precision@3": 0.20467141726049087,
+        "recall@3": 0.2943011620729148,
+        "f1@3": 0.20106629173594945,
+        "precision@5": 0.16009501187648456,
+        "recall@5": 0.3350877347871457,
+        "f1@5": 0.1790832507909643,
+        "precision@10": 0.10724465558194776,
+        "recall@10": 0.38873958133520914,
+        "f1@10": 0.1402386766635139,
+        "precision@20": 0.06353919239904988,
+        "recall@20": 0.4283974844629945,
+        "f1@20": 0.09608691666815004
+      },
+      "evaluation_definition": {
+        "ks": [
+          1,
+          3,
+          5,
+          10,
+          20
+        ],
+        "binary_relevance": "J ge 0.8",
+        "relevance_threshold": 0.8,
+        "relevance_operator": "ge",
+        "ndcg_gain": "linear",
+        "averaging": "macro over anchors",
+        "candidate_universe": "all unique queries in the held-out split, excluding the anchor and per-anchor unjudged/excluded queries",
+        "unannotated_global_queries": "treated as non-relevant (J=0.0)"
+      }
+    },
+    "selection_score": 0.3543074160349582
+  }
+]

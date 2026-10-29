@@ -1,0 +1,54 @@
+{
+  "train": {
+    "records": 3737,
+    "unique_queries": 3781,
+    "duplicate_anchor_count": 0,
+    "missing_positive_records": 0,
+    "missing_negative_records": 0,
+    "positive_threshold_violations": 0,
+    "negative_threshold_violations": 0,
+    "self_candidates": 0,
+    "duplicate_candidates_within_anchor": 0,
+    "passed": true
+  },
+  "valid": {
+    "records": 469,
+    "unique_queries": 473,
+    "duplicate_anchor_count": 0,
+    "missing_positive_records": 0,
+    "missing_negative_records": 0,
+    "positive_threshold_violations": 0,
+    "negative_threshold_violations": 0,
+    "self_candidates": 0,
+    "duplicate_candidates_within_anchor": 0,
+    "passed": true
+  },
+  "test": {
+    "records": 468,
+    "unique_queries": 473,
+    "duplicate_anchor_count": 0,
+    "missing_positive_records": 0,
+    "missing_negative_records": 0,
+    "positive_threshold_violations": 0,
+    "negative_threshold_violations": 0,
+    "self_candidates": 0,
+    "duplicate_candidates_within_anchor": 0,
+    "passed": true
+  },
+  "split_disjointness": {
+    "normalized_query_counts": {
+      "train": 3781,
+      "valid": 473,
+      "test": 473
+    },
+    "train_valid_overlap": 0,
+    "train_test_overlap": 0,
+    "valid_test_overlap": 0,
+    "passed": true
+  },
+  "paths": {
+    "train": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-train.json",
+    "valid": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-valid.json",
+    "test": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/dbpedia-splits/dbpedia-test.json"
+  }
+}

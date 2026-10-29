@@ -1,0 +1,168 @@
+{
+  "dbpedia": {
+    "bge-base": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0004958060482997961,
+      "ndcg5_loss_max": 0.0017262380193101556,
+      "hits1_loss_mean": 0.0017057569296375253
+    },
+    "codebert": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.001413983758413162,
+      "ndcg5_loss_max": 0.004917979306026943,
+      "hits1_loss_mean": 0.01321961620469082
+    },
+    "e5-base-v2": {
+      "seeds": 5,
+      "same_epoch": 1,
+      "ndcg5_loss_mean": 0.0012363596891663332,
+      "ndcg5_loss_max": 0.0025641289634334985,
+      "hits1_loss_mean": 0.011513859275053306
+    },
+    "gemma": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0015153727774629422,
+      "ndcg5_loss_max": 0.00723771953069241,
+      "hits1_loss_mean": 0.011513859275053329
+    },
+    "gemma_random_init_old": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0005975117632621485,
+      "ndcg5_loss_max": 0.0019174962906817195,
+      "hits1_loss_mean": 0.013219616204690832
+    },
+    "graphcodebert": {
+      "seeds": 5,
+      "same_epoch": 1,
+      "ndcg5_loss_mean": 0.0014233833522768525,
+      "ndcg5_loss_max": 0.0025447704623333123,
+      "hits1_loss_mean": 0.005117270788912576
+    },
+    "gte-base": {
+      "seeds": 5,
+      "same_epoch": 0,
+      "ndcg5_loss_mean": 0.001994061755479648,
+      "ndcg5_loss_max": 0.003390717600868509,
+      "hits1_loss_mean": 0.005117270788912576
+    },
+    "mpnet": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0011104311853177063,
+      "ndcg5_loss_max": 0.005470191061439533,
+      "hits1_loss_mean": 0.007675906183368863
+    },
+    "qwen2.5-coder": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.0038800321818917684,
+      "ndcg5_loss_max": 0.011556879342129012,
+      "hits1_loss_mean": 0.008955223880597041
+    },
+    "qwen3-embedding": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.0007531153618385522,
+      "ndcg5_loss_max": 0.0015211614529132556,
+      "hits1_loss_mean": 0.004690831556503183
+    },
+    "spbert": {
+      "seeds": 5,
+      "same_epoch": 4,
+      "ndcg5_loss_mean": 0.0009514656858746861,
+      "ndcg5_loss_max": 0.004757328429373431,
+      "hits1_loss_mean": 0.013219616204690832
+    },
+    "_all": {
+      "ndcg5_loss_mean": 0.001397411232662145,
+      "ndcg5_loss_max": 0.011556879342129012
+    }
+  },
+  "wikidata": {
+    "bge-base": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.000448200537277621,
+      "ndcg5_loss_max": 0.0012563630782205237,
+      "hits1_loss_mean": 0.0004750593824228044
+    },
+    "codebert": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.0005014902523795217,
+      "ndcg5_loss_max": 0.000977909503953156,
+      "hits1_loss_mean": 0.00665083135391924
+    },
+    "e5-base-v2": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.0007799371840508495,
+      "ndcg5_loss_max": 0.0031935898294048193,
+      "hits1_loss_mean": 0.0014251781472684022
+    },
+    "gemma": {
+      "seeds": 5,
+      "same_epoch": 4,
+      "ndcg5_loss_mean": 0.0003029257088169368,
+      "ndcg5_loss_max": 0.001514628544084684,
+      "hits1_loss_mean": 0.0028503562945368043
+    },
+    "gemma_random_init_old": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.0006141687082975688,
+      "ndcg5_loss_max": 0.0027826137551735797,
+      "hits1_loss_mean": 0.004513064133016609
+    },
+    "graphcodebert": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0006276739677686272,
+      "ndcg5_loss_max": 0.002698558125115269,
+      "hits1_loss_mean": 0.00427553444180524
+    },
+    "gte-base": {
+      "seeds": 5,
+      "same_epoch": 2,
+      "ndcg5_loss_mean": 0.000794209390777001,
+      "ndcg5_loss_max": 0.0021789443230781913,
+      "hits1_loss_mean": 0.00546318289786224
+    },
+    "mpnet": {
+      "seeds": 5,
+      "same_epoch": 1,
+      "ndcg5_loss_mean": 0.0007356135639971506,
+      "ndcg5_loss_max": 0.00209761938963432,
+      "hits1_loss_mean": 0.0009501187648456088
+    },
+    "qwen2.5-coder": {
+      "seeds": 5,
+      "same_epoch": 4,
+      "ndcg5_loss_mean": 0.000129066163793623,
+      "ndcg5_loss_max": 0.0006453308189681151,
+      "hits1_loss_mean": 0.0019002375296912177
+    },
+    "qwen3-embedding": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.0002195117386072809,
+      "ndcg5_loss_max": 0.0010757146537915263,
+      "hits1_loss_mean": 0.006413301662707838
+    },
+    "spbert": {
+      "seeds": 5,
+      "same_epoch": 3,
+      "ndcg5_loss_mean": 0.00039248010705924543,
+      "ndcg5_loss_max": 0.0013074342279438267,
+      "hits1_loss_mean": 0.008313539192399032
+    },
+    "_all": {
+      "ndcg5_loss_mean": 0.0005041161202568569,
+      "ndcg5_loss_max": 0.0031935898294048193
+    }
+  }
+}

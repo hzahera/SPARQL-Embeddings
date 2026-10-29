@@ -1,0 +1,22 @@
+{
+  "seed": 42,
+  "model": "qwen3-embedding",
+  "best_epoch": 13,
+  "best_validation_score": 0.4024440406340115,
+  "selection_metric": "ranking.ndcg@10",
+  "epochs": 20,
+  "batch_size": 4,
+  "gradient_accumulation_steps": 8,
+  "explicit_negatives": 4,
+  "hard_fraction": 0.75,
+  "hard_top_k": 8,
+  "mining_start_epoch": 2,
+  "mining_refresh_every": 2,
+  "temperature": 0.05,
+  "learning_rate": 1e-05,
+  "weight_decay": 0.01,
+  "warmup_ratio": 0.05,
+  "max_length": 512,
+  "elapsed_seconds": 10943.080312252045,
+  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/dbpedia/qwen3-embedding/tuned/seed_42/best_model"
+}

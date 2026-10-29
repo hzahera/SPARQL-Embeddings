@@ -1,0 +1,22 @@
+{
+  "seed": 43,
+  "model": "qwen2.5-coder",
+  "best_epoch": 2,
+  "best_validation_score": 0.5286966332742263,
+  "selection_metric": "ranking.ndcg@10",
+  "epochs": 20,
+  "batch_size": 4,
+  "gradient_accumulation_steps": 8,
+  "explicit_negatives": 4,
+  "hard_fraction": 0.75,
+  "hard_top_k": 8,
+  "mining_start_epoch": 2,
+  "mining_refresh_every": 2,
+  "temperature": 0.05,
+  "learning_rate": 1e-05,
+  "weight_decay": 0.01,
+  "warmup_ratio": 0.05,
+  "max_length": 512,
+  "elapsed_seconds": 10890.89729976654,
+  "checkpoint": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/qwen2.5-coder/tuned/seed_43/best_model"
+}

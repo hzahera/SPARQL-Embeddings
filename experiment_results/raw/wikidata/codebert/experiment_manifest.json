@@ -1,0 +1,98 @@
+{
+  "dataset": "wikidata",
+  "model_key": "codebert",
+  "model_config": {
+    "name": "codebert",
+    "model_name_or_path": "microsoft/codebert-base",
+    "architecture": "encoder",
+    "pooling": "mean",
+    "prefix": "",
+    "max_length": 512,
+    "padding_side": "right",
+    "trust_remote_code": false,
+    "torch_dtype": "float32",
+    "input_transform": "identity",
+    "registry": {
+      "config": "models/codebert.yaml",
+      "display_name": "CodeBERT",
+      "category": "code",
+      "citation": "feng2020codebert"
+    }
+  },
+  "training_config": {
+    "epochs": 20,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 8,
+    "learning_rate": 1e-05,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.05,
+    "max_grad_norm": 1.0,
+    "temperature": 0.05,
+    "explicit_negatives": 4,
+    "hard_fraction": 0.75,
+    "hard_top_k": 8,
+    "mining_start_epoch": 2,
+    "mining_refresh_every": 2,
+    "eval_every_epochs": 1,
+    "selection_metric": "ranking.ndcg@10",
+    "num_workers": 0,
+    "amp": "bf16",
+    "gradient_checkpointing": true
+  },
+  "evaluation_config": {
+    "ks": [
+      1,
+      3,
+      5,
+      10,
+      20
+    ],
+    "relevance_threshold": 0.8,
+    "relevance_operator": "ge",
+    "ndcg_gain": "linear",
+    "macro_average": true,
+    "encode_batch_size": 64,
+    "alignment_pairs": "all"
+  },
+  "semantic_cache_config": {
+    "enabled": true,
+    "cosine_threshold": 0.8,
+    "positive_jaccard_min": 0.8,
+    "negative_jaccard_max": 0.1,
+    "primary_capacity": 128,
+    "capacities": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "stream_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "shuffle_streams": true,
+    "encode_batch_size": 64,
+    "include_exact_match_baseline": true,
+    "include_oracle_baseline": true,
+    "rq3_test_files": {
+      "dbpedia": "datasets/dbpedia-splits/dbpedia-test-rq3.json",
+      "wikidata": "datasets/wikidata-splits/wikidata-test-rq3.json"
+    },
+    "run_threshold_sensitivity": false
+  },
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "data_paths": {
+    "train": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-train.json",
+    "valid": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-valid.json",
+    "test": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/datasets/wikidata-splits/wikidata-test.json"
+  }
+}

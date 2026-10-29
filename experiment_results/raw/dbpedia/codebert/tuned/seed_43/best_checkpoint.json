@@ -1,0 +1,6 @@
+{
+  "epoch": 5,
+  "selection_metric": "ranking.ndcg@10",
+  "score": 0.4924549945637752,
+  "path": "/upb/users/g/ganeshk/profiles/unix/cs/result-aware-transformers/results/raw/dbpedia/codebert/tuned/seed_43/best_model"
+}

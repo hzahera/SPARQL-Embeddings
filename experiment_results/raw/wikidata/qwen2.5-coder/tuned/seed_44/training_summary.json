@@ -1,0 +1,22 @@
+{
+  "seed": 44,
+  "model": "qwen2.5-coder",
+  "best_epoch": 17,
+  "best_validation_score": 0.45939684475174,
+  "selection_metric": "ranking.ndcg@10",
+  "epochs": 20,
+  "batch_size": 4,
+  "gradient_accumulation_steps": 8,
+  "explicit_negatives": 4,
+  "hard_fraction": 0.75,
+  "hard_top_k": 8,
+  "mining_start_epoch": 2,
+  "mining_refresh_every": 2,
+  "temperature": 0.05,
+  "learning_rate": 1e-05,
+  "weight_decay": 0.01,
+  "warmup_ratio": 0.05,
+  "max_length": 512,
+  "elapsed_seconds": 43286.05708384514,
+  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results/raw/wikidata/qwen2.5-coder/tuned/seed_44/best_model"
+}

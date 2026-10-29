@@ -1,0 +1,84 @@
+{
+  "dataset": "wikidata",
+  "hardware": {
+    "python": "3.10.19",
+    "torch": "2.9.1+cu128",
+    "cpu": "AMD EPYC 9334 32-Core Processor",
+    "gpu": "NVIDIA A100 80GB PCIe",
+    "cuda": "12.8",
+    "nvidia_smi": "NVIDIA A100 80GB PCIe, 81920 MiB, 550.144.03\nNVIDIA A100 80GB PCIe, 81920 MiB, 550.144.03"
+  },
+  "timed_queries": 200,
+  "models": {
+    "mpnet": {
+      "encode_ms_median": 7.8810646664351225,
+      "encode_ms_p90": 12.788238003849983,
+      "search_ms_k128": 0.036665936931967735,
+      "search_ms_all": 0.03686104901134968,
+      "cache_all_size": 968
+    },
+    "e5-base-v2": {
+      "encode_ms_median": 4.6706791035830975,
+      "encode_ms_p90": 8.294016122817993,
+      "search_ms_k128": 0.034007010981440544,
+      "search_ms_all": 0.03831298090517521,
+      "cache_all_size": 968
+    },
+    "bge-base": {
+      "encode_ms_median": 6.064898567274213,
+      "encode_ms_p90": 8.924676105380058,
+      "search_ms_k128": 0.03019091673195362,
+      "search_ms_all": 0.037507154047489166,
+      "cache_all_size": 968
+    },
+    "gte-base": {
+      "encode_ms_median": 4.734485875815153,
+      "encode_ms_p90": 8.356161881238222,
+      "search_ms_k128": 0.03658491186797619,
+      "search_ms_all": 0.03706640563905239,
+      "cache_all_size": 968
+    },
+    "qwen3-embedding": {
+      "encode_ms_median": 19.632305949926376,
+      "encode_ms_p90": 38.89120416715741,
+      "search_ms_k128": 0.033716438338160515,
+      "search_ms_all": 0.03802287392318249,
+      "cache_all_size": 968
+    },
+    "gemma": {
+      "encode_ms_median": 14.635080005973577,
+      "encode_ms_p90": 18.76328093931079,
+      "search_ms_k128": 0.034768134355545044,
+      "search_ms_all": 0.037492020055651665,
+      "cache_all_size": 968
+    },
+    "codebert": {
+      "encode_ms_median": 5.697555607184768,
+      "encode_ms_p90": 10.568814352154732,
+      "search_ms_k128": 0.034251948818564415,
+      "search_ms_all": 0.039774924516677856,
+      "cache_all_size": 968
+    },
+    "graphcodebert": {
+      "encode_ms_median": 6.428771419450641,
+      "encode_ms_p90": 10.727795772254467,
+      "search_ms_k128": 0.03356090746819973,
+      "search_ms_all": 0.03817328251898289,
+      "cache_all_size": 968
+    },
+    "qwen2.5-coder": {
+      "encode_ms_median": 17.979247961193323,
+      "encode_ms_p90": 31.906337942928076,
+      "search_ms_k128": 0.0344524160027504,
+      "search_ms_all": 0.03817281685769558,
+      "cache_all_size": 968
+    },
+    "spbert": {
+      "encode_ms_median": 6.124424049630761,
+      "encode_ms_p90": 9.11422399803996,
+      "search_ms_k128": 0.03430759534239769,
+      "search_ms_all": 0.034397467970848083,
+      "cache_all_size": 968
+    }
+  }
+}

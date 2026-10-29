@@ -1,0 +1,22 @@
+{
+  "seed": 43,
+  "model": "e5-base-v2",
+  "best_epoch": 4,
+  "best_validation_score": 0.3282476276588514,
+  "selection_metric": "ranking.ndcg@10",
+  "epochs": 20,
+  "batch_size": 4,
+  "gradient_accumulation_steps": 8,
+  "explicit_negatives": 4,
+  "hard_fraction": 0.75,
+  "hard_top_k": 8,
+  "mining_start_epoch": 2,
+  "mining_refresh_every": 2,
+  "temperature": 0.05,
+  "learning_rate": 1e-05,
+  "weight_decay": 0.01,
+  "warmup_ratio": 0.05,
+  "max_length": 512,
+  "elapsed_seconds": 1695.0327534675598,
+  "checkpoint": "/local/upb/users/g/ganeshk/profiles/unix/cs/SPARQL-Embeddings/results_syntax_control/raw/dbpedia/e5-base-v2/tuned/seed_43/best_model"
+}
