@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Rebuild leakage-free DBpedia semantic triplets from an existing triplet dataset.
+Rebuild leakage-free Wikidata semantic triplets from an existing triplet dataset.
 
 Input (either format is accepted via --input):
   unique_queries.json
     ["SELECT ...", "SELECT ...", ...]
 
-  dbpedia-triplets-dataset.json
+  wikidata-triplets-dataset.json
     [
       {
         "anchor_query": "...",
@@ -19,7 +19,7 @@ Input (either format is accepted via --input):
 What this script does:
   1. Reads every UNIQUE query string (from the list, or from
      anchors/positives/negatives) and drops scalar-aggregate queries.
-  2. Re-executes every unique query on the configured DBpedia SPARQL endpoint.
+  2. Re-executes every unique query on the configured Wikidata SPARQL endpoint.
   3. Stores a resumable execution cache.
   4. Recomputes answer-set Jaccard from the NEW endpoint results.
   5. Builds positive-connected components so positive/result-similar queries can
@@ -29,9 +29,9 @@ What this script does:
   8. Runs hard assertions for exact query overlap, normalized-query overlap,
      result-equivalent leakage, and positive-edge leakage.
   9. Writes:
-       dbpedia-train-clean.json
-       dbpedia-valid-clean.json
-       dbpedia-test-clean.json
+       wikidata-train-clean.json
+       wikidata-valid-clean.json
+       wikidata-test-clean.json
        split_report.json
        unique_queries.json
        query_execution_cache.jsonl
@@ -43,11 +43,20 @@ Default labels reproduce the original mining idea:
 Requirements:
   pip install requests tqdm
 
-How to run:
-    cd datasets/dbpedia-splits && python ../scripts/rebuild_dbpedia_clean_splits.py \
-      --input unique_queries.json \
-      --output-dir dbpedia-clean-splits \
-      --workers 4
+Pipeline position (see datasets/DATASET.md):
+  Stage 1  01_query_collection_wikidata.ipynb  -> sources/successful_queries_wikidata.json
+  Stage 2  02_triplet_mining_wikidata.ipynb    -> sources/wikidata-triplets-dataset.json
+  Stage 3  this script                    -> unique_queries.json, query_execution_cache.jsonl,
+                                              wikidata-{train,valid,test}-clean.json, split_report.json
+
+How to run (from datasets/wikidata-splits/):
+  Full pipeline, from the Stage 2 output:
+    python ../scripts/rebuild_wikidata_clean_splits.py --input sources/wikidata-triplets-dataset.json --output-dir .
+  Reproduce the released dataset from the frozen query list and the cached answers
+  (no endpoint access needed when the cache is present):
+    python ../scripts/rebuild_wikidata_clean_splits.py --input unique_queries.json --output-dir <new_dir>
+    (copy query_execution_cache.jsonl into <new_dir> first)
+  The released split files are the *-clean.json outputs renamed to wikidata-{train,valid,test}.json.
 """
 
 from __future__ import annotations
@@ -736,17 +745,17 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--input",
-        default="unique_queries.json",
+        default="sources/wikidata-triplets-dataset.json",
         help="unique_queries.json (list of query strings) or the older "
-        "dbpedia-triplets-dataset.json (anchor/positive/negative records).",
+        "wikidata-triplets-dataset.json (anchor/positive/negative records).",
     )
     ap.add_argument(
         "--output-dir",
-        default="dbpedia-clean-splits",
+        default="wikidata-clean-splits",
     )
     ap.add_argument(
         "--endpoint",
-        default="https://dbpedia.data.dice-research.org/sparql",
+        default="https://wikidata.data.dice-research.org/sparql",
     )
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--timeout", type=int, default=120)
@@ -776,7 +785,7 @@ def main() -> None:
     )
     ap.add_argument(
         "--user-agent",
-        default="SPARQL-Embeddings-Dataset-Rebuilder/1.0",
+        default="SPARQL-Embeddings-Wikidata-Dataset-Rebuilder/1.0",
     )
     args = ap.parse_args()
 
@@ -816,7 +825,7 @@ def main() -> None:
     write_json(out / "unique_queries.json", unique_queries)
 
     print("\n" + "=" * 80)
-    print("2) Re-executing unique queries on DBpedia")
+    print("2) Re-executing unique queries on Wikidata")
     print("=" * 80)
 
     cache_path = out / "query_execution_cache.jsonl"
@@ -926,9 +935,9 @@ def main() -> None:
     print(json.dumps(leakage, indent=2))
     print("LEAKAGE CHECKS: PASSED")
 
-    train_path = out / "dbpedia-train-clean.json"
-    valid_path = out / "dbpedia-valid-clean.json"
-    test_path = out / "dbpedia-test-clean.json"
+    train_path = out / "wikidata-train-clean.json"
+    valid_path = out / "wikidata-valid-clean.json"
+    test_path = out / "wikidata-test-clean.json"
 
     write_json(train_path, records["train"])
     write_json(valid_path, records["valid"])
